@@ -67,8 +67,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       icon: ShoppingBag,
       items: [
         { name: "Orders", icon: ShoppingBag, path: "/orders", roles: ['admin', 'salesman'] },
-        { name: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", roles: ['admin', 'inventory_manager'] },
         { name: "Quotations", icon: FileText, path: "/quotations", roles: ['admin'] },
+        { name: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", roles: ['admin', 'inventory_manager'] },
         { name: "Invoices", icon: Receipt, path: "/invoice", roles: ['admin'] },
         { name: "Accounts", icon: DollarSign, path: "/finance", roles: ['admin'] },
       ],
@@ -224,7 +224,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       {/* Footer Status */}
       {isOpen && (
         <div className="p-3 border-t border-[#334155] text-[11px] text-slate-400 flex justify-between items-center bg-[#0b1120]">
-          <span>HardTrade ERP v2.4</span>
+          <span>500Core v2.4</span>
           <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
         </div>
       )}

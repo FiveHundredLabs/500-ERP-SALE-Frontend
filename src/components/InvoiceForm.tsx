@@ -11,8 +11,8 @@ import { ItemSearchAndAdd } from "./invoice/ItemSearchAndAdd";
 import { InvoiceItemsList } from "./invoice/InvoiceItemsList";
 import { InvoiceSummary } from "./invoice/InvoiceSummary";
 import PaymentModal from "../components/PaymentModal";
-import OrderPickerModal from "./common/OrderPickerModal";
-import type { Order } from "../types/orders";
+import POPickerModal from "./common/POPickerModal";
+import type { PurchaseOrder } from "../types/purchaseOrders";
 import { ClipboardList } from "lucide-react";
 
 interface InvoiceFormProps {
@@ -77,15 +77,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
-  const handleOrderImport = useCallback((order: Order) => {
-    // Clear existing items first by signalling parent
-    // Set notes
-    if (order.notes) onFieldChange('notes', order.notes);
-
-    // Auto-fill items from order products as free-text line items
-    order.products.forEach(p => {
+  const handleOrderImport = useCallback((po: PurchaseOrder) => {
+    // Map PO items to invoice line items
+    po.items.forEach(p => {
       const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
-        item: p.id || p.sku, // use product ID or SKU as item reference
+        item: p.id || p.sku,
         itemName: `${p.productName} (${p.sku})`,
         quantity: p.quantity,
         unitPrice: p.unitPrice,
@@ -93,10 +89,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       onAddItem(lineItem);
     });
 
-    // Store imported order reference
-    setImportedOrderId(order.orderId);
-    if (order.notes) onFieldChange('notes', `Ref: ${order.orderId} — ${order.notes || ''}`.trim());
-    else onFieldChange('notes', `Ref: ${order.orderId}`);
+    // Store imported PO reference
+    setImportedOrderId(po.poNumber);
+    onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
   }, [onFieldChange, onAddItem]);
 
   // When credit period preset is selected, auto-calculate dueDate from issueDate
@@ -445,8 +440,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         isProcessing={isProcessingPayment}
       />
 
-      {/* Order Picker Modal */}
-      <OrderPickerModal
+      {/* PO Picker Modal */}
+      <POPickerModal
         isOpen={showOrderPicker}
         onClose={() => setShowOrderPicker(false)}
         onSelect={handleOrderImport}
@@ -457,18 +452,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           <h2 className="text-lg font-semibold text-gray-200">Create Invoice</h2>
           <div className="flex items-center gap-2">
             {importedOrderId && (
-              <span className="text-xs text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <span className="text-xs text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2.5 py-1 rounded-full flex items-center gap-1">
                 <ClipboardList size={11} />
-                Imported from {importedOrderId}
+                Ref: {importedOrderId}
               </span>
             )}
             <button
               type="button"
               onClick={() => setShowOrderPicker(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-semibold transition-colors"
             >
               <ClipboardList size={14} />
-              Import from Order
+              Import from PO
             </button>
           </div>
         </div>
