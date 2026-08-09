@@ -16,7 +16,6 @@ import {
   DollarSign,
   Calendar,
   Tag,
-  TrendingDown,
   AlertCircle,
   Building2,
 } from 'lucide-react';
@@ -220,11 +219,11 @@ const SupplierDetails: React.FC = () => {
             <div className="pt-2 border-t border-slate-800 space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Avg. Delivery:</span>
-                <span className="text-slate-300">{supplier.averageDeliveryDays || 7} days</span>
+                <span className="text-slate-300">{(supplier as any).averageDeliveryDays || 7} days</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Rating:</span>
-                <span className="text-emerald-400 font-semibold">{supplier.rating || '4.5'} / 5.0</span>
+                <span className="text-emerald-400 font-semibold">{(supplier as any).rating || '4.5'} / 5.0</span>
               </div>
             </div>
           </div>

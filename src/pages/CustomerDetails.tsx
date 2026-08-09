@@ -16,7 +16,6 @@ import {
   DollarSign,
   User,
   Calendar,
-  Tag,
   TrendingUp,
   AlertCircle,
 } from 'lucide-react';
