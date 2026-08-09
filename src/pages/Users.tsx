@@ -20,7 +20,7 @@ const Users: React.FC = () => {
     <AppLayout
       headerIcon={<UsersIcon size={18} />}
       headerTitle="Users Management"
-      headerSubtitle="Hardware shop customers and wholesale suppliers"
+      headerSubtitle="Business customers and wholesale suppliers"
     >
       <PageHeader
         title="Customers & Suppliers"
@@ -44,7 +44,7 @@ const Users: React.FC = () => {
         >
           <Building2 size={16} />
           <span>Customers</span>
-          <span className="hidden sm:inline text-[#94A3B8] font-normal">(Hardware Shops)</span>
+          <span className="hidden sm:inline text-[#94A3B8] font-normal">(Retail & Wholesale)</span>
         </button>
 
         <button

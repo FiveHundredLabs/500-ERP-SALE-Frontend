@@ -340,7 +340,7 @@ const SuppliersTab: React.FC = () => {
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}
-          emptyMessage="No hardware suppliers found."
+          emptyMessage="No suppliers found."
           currentPage={currentPage}
           totalPages={totalPages}
           totalItems={sortedSuppliers.length}
@@ -356,7 +356,7 @@ const SuppliersTab: React.FC = () => {
           <div className="relative erp-card w-full max-w-lg animate-slideIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-base font-semibold text-slate-100">
-                {editSupplier ? 'Edit Supplier' : 'Add New Hardware Supplier'}
+                {editSupplier ? 'Edit Supplier' : 'Add New Supplier'}
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-300">
                 <X size={18} />

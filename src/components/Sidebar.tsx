@@ -13,7 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   Shield,
-  HardHat,
+  ShieldCheck,
   DollarSign,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -128,12 +128,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
           onClick={() => handleNavClick('/dashboard')}
         >
           <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
-            <HardHat size={20} />
+            <ShieldCheck size={20} />
           </div>
           {isOpen && (
             <div className="overflow-hidden">
-              <h1 className="text-sm font-bold text-white tracking-tight truncate">HardTrade ERP</h1>
-              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Hardware Suite</p>
+              <h1 className="text-sm font-bold text-white tracking-tight truncate">500Core</h1>
+              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
             </div>
           )}
         </div>

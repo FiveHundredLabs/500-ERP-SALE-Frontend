@@ -203,11 +203,11 @@ const PurchaseOrders: React.FC = () => {
     <AppLayout
       headerIcon={<ShoppingCart size={18} />}
       headerTitle="Purchase Orders"
-      headerSubtitle="Hardware inventory procurement & supplier POs"
+      headerSubtitle="Inventory procurement & supplier POs"
     >
       <PageHeader
         title="Purchase Orders"
-        description="Manage hardware stock replenishment orders sent to suppliers."
+        description="Manage stock replenishment orders sent to suppliers."
         breadcrumbs={[
           { label: 'Dashboard', path: '/dashboard' },
           { label: 'Purchasing' },

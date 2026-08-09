@@ -346,7 +346,7 @@ const CustomersTab: React.FC = () => {
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}
-          emptyMessage="No hardware customers found."
+          emptyMessage="No customers found."
           currentPage={currentPage}
           totalPages={totalPages}
           totalItems={sortedCustomers.length}
@@ -362,7 +362,7 @@ const CustomersTab: React.FC = () => {
           <div className="relative erp-card w-full max-w-lg animate-slideIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-base font-semibold text-slate-100">
-                {editCustomer ? 'Edit Customer' : 'Add New Hardware Customer'}
+                {editCustomer ? 'Edit Customer' : 'Add New Customer'}
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-300">
                 <X size={18} />
@@ -376,7 +376,7 @@ const CustomersTab: React.FC = () => {
                   required
                   type="text"
                   className="erp-input"
-                  placeholder="e.g. Nirosha Hardware Mart"
+                  placeholder="e.g. Nirosha Enterprise"
                   value={formData.businessName}
                   onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
                 />

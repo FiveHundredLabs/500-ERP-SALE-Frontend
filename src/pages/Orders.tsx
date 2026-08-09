@@ -217,7 +217,7 @@ const Orders: React.FC = () => {
     >
       <PageHeader
         title="Customer Orders"
-        description="Manage and review hardware shop orders created in the field."
+        description="Manage and review customer orders created in the field."
         breadcrumbs={[
           { label: 'Dashboard', path: '/dashboard' },
           { label: 'Sales' },

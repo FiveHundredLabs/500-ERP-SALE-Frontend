@@ -223,7 +223,7 @@ const PurchaseOrderDetails: React.FC = () => {
         {/* Products Table */}
         <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-[#334155] flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-200">Purchased Hardware Products</h3>
+            <h3 className="text-sm font-semibold text-gray-200">Purchased Products</h3>
             <span className="text-xs text-gray-400 bg-[#0f172a] border border-[#334155] px-2.5 py-1 rounded-full">
               {po.items.length} items
             </span>

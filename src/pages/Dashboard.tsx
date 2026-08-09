@@ -14,7 +14,7 @@ const Dashboard: React.FC = () => {
   return (
     <AppLayout
       headerIcon={<LayoutGrid size={18} />}
-      headerTitle="Hardware ERP Overview"
+      headerTitle="500Core ERP Overview"
       headerSubtitle="Real-time enterprise operational intelligence"
       showBell
     >

@@ -262,7 +262,7 @@ const DashboardOverview: React.FC = () => {
         <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-semibold text-gray-200">Top-Selling Hardware Products</h3>
+              <h3 className="text-base font-semibold text-gray-200">Top-Selling Products</h3>
               <p className="text-xs text-gray-400">Highest revenue items this month</p>
             </div>
           </div>
