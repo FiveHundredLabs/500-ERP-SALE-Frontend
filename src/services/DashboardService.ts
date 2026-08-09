@@ -1,18 +1,22 @@
-import api from "../api/axios";
+// DashboardService.ts — mock mode, no backend calls
 
-export const fetchFromBackend = async (endpoint: string) => {
-  try {
-    const res = await api.get(endpoint);
-    if (!res.status.toString().startsWith('2')) throw new Error("Failed to fetch data");
+import { mockInventoryItems } from "../data/mockInventory";
+import { mockInvoicesList } from "../data/mockInvoices";
 
-    const data = await res.data;
-    return Array.isArray(data) ? data : [];
-  } catch (_err) {
-    return [];
-  }
+export const fetchFromBackend = async (_endpoint: string): Promise<any[]> => {
+  return [];
 };
 
 export const fetchSalesOverview = async () => {
-  const res = await api.get("/invoices/analytics/sales-overview");
-  return res.data;
+  const totalRevenue = mockInvoicesList.reduce(
+    (sum: number, inv) => sum + Number(inv.totalAmount || 0),
+    0
+  );
+
+  return {
+    totalRevenue,
+    totalInvoices: mockInvoicesList.length,
+    totalItems: mockInventoryItems.length,
+    overview: []
+  };
 };
