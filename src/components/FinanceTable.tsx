@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FileText, Building, Eye, Download, CheckCircle, X } from "lucide-react";
+import { FileText, Building, Eye, Download, CheckCircle, X, AlertTriangle, Clock, Calendar, ShieldAlert } from "lucide-react";
 import { Button } from "./common";
 import type { InvoiceResponse } from "../types/invoice";
 import type { FinanceTransaction } from "../types/finance";
@@ -103,13 +103,15 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
                           <p className="text-gray-200 font-medium truncate">{transaction.paymentMethod.bankName}</p>
                         </div>
                       )}
+                      
                       {transaction.paymentMethod.accountNumber && transaction.paymentMethod.accountNumber !== 'N/A' && (
                         <div className="min-w-0">
                           <p className="text-gray-500 text-xs mb-1">Account Number</p>
                           <p className="text-gray-200 font-medium truncate">{transaction.paymentMethod.accountNumber}</p>
                         </div>
                       )}
-                      {transaction.paymentMethod.transactionRef && (
+
+                      {transaction.paymentMethod.transactionRef && transaction.paymentMethod.transactionRef !== 'N/A' && (
                         <div className="min-w-0">
                           <p className="text-gray-500 text-xs mb-1">Transaction Reference</p>
                           <p className="text-gray-200 font-medium truncate">{transaction.paymentMethod.transactionRef}</p>
@@ -120,28 +122,15 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
                 </div>
               </div>
 
-              {/* Transaction Details - Only Date & Time */}
+              {/* Transaction Date */}
               <div className="bg-[#0f172a] border border-[#334155] rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">Transaction Details</h4>
-                <div className="space-y-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="text-gray-500 text-xs mb-1">Transaction Date & Time</p>
-                    <p className="text-gray-200 font-medium">{formatDateTime(transaction.transactionDate)}</p>
-                  </div>
-                </div>
+                <p className="text-gray-500 text-xs mb-1">Processed At</p>
+                <p className="text-gray-200 font-medium text-sm">{formatDateTime(transaction.transactionDate)}</p>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-500/20 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
-              </div>
-              <p className="text-gray-300 font-medium text-sm sm:text-base mb-2 text-center">
-                No Transaction Details Found
-              </p>
-              <p className="text-gray-400 text-xs sm:text-sm text-center max-w-xs">
-                Transaction details are not available for this payment.
-              </p>
+            <div className="text-center py-8 text-gray-400">
+              Transaction details not available
             </div>
           )}
         </div>
@@ -187,6 +176,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   pageSize = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'near_due' | 'completed'>('all');
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceTransaction | null>(null);
 
@@ -200,6 +190,50 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", minimumFractionDigits: 2 }).format(amount);
+
+  // Auto-track Credit Period & Due Date Statuses
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const trackedInvoices = useMemo(() => {
+    return invoices.map(inv => {
+      const due = new Date(inv.dueDate);
+      due.setHours(0, 0, 0, 0);
+      const diffTime = due.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      let creditState: 'overdue' | 'near_due' | 'normal' | 'settled' = 'normal';
+
+      if (inv.paymentStatus === 'Completed') {
+        creditState = 'settled';
+      } else if (diffDays < 0) {
+        creditState = 'overdue';
+      } else if (diffDays <= 7) {
+        creditState = 'near_due';
+      }
+
+      return {
+        ...inv,
+        diffDays,
+        creditState,
+      };
+    });
+  }, [invoices, now]);
+
+  const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.creditState === 'overdue'), [trackedInvoices]);
+  const nearDueInvoices = useMemo(() => trackedInvoices.filter(i => i.creditState === 'near_due'), [trackedInvoices]);
+  const completedInvoices = useMemo(() => trackedInvoices.filter(i => i.creditState === 'settled'), [trackedInvoices]);
+
+  const totalOverdueAmount = useMemo(() => overdueInvoices.reduce((sum, i) => sum + i.totalAmount, 0), [overdueInvoices]);
+  const totalNearDueAmount = useMemo(() => nearDueInvoices.reduce((sum, i) => sum + i.totalAmount, 0), [nearDueInvoices]);
+  const totalPendingAmount = useMemo(() => trackedInvoices.filter(i => i.paymentStatus === 'Pending').reduce((sum, i) => sum + i.totalAmount, 0), [trackedInvoices]);
+
+  const filteredInvoices = useMemo(() => {
+    if (activeTab === 'overdue') return overdueInvoices;
+    if (activeTab === 'near_due') return nearDueInvoices;
+    if (activeTab === 'completed') return completedInvoices;
+    return trackedInvoices;
+  }, [trackedInvoices, overdueInvoices, nearDueInvoices, completedInvoices, activeTab]);
 
   // Find transaction for a specific invoice
   const getTransactionForInvoice = (invoiceId: string) => {
@@ -228,14 +262,14 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   };
 
   const sortedInvoices = useMemo(
-    () => [...invoices].sort((a, b) => {
+    () => [...filteredInvoices].sort((a, b) => {
       try {
         return new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime();
       } catch {
         return 0;
       }
     }),
-    [invoices]
+    [filteredInvoices]
   );
 
   const totalPages = Math.ceil(sortedInvoices.length / pageSize);
@@ -266,14 +300,114 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
         transaction={selectedTransaction}
       />
 
-      <div className="space-y-4">
+      <div className="space-y-5">
+        {/* Credit Period & Due Date Tracking Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 flex items-center gap-3 shadow-md">
+            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-medium">Pending Credit Total</p>
+              <p className="text-lg font-bold text-white">{formatCurrency(totalPendingAmount)}</p>
+              <p className="text-[11px] text-gray-500">{trackedInvoices.filter(i => i.paymentStatus === 'Pending').length} pending invoices</p>
+            </div>
+          </div>
+
+          <div className="bg-[#1e293b] border border-red-500/30 rounded-xl p-4 flex items-center gap-3 shadow-md bg-gradient-to-r from-red-950/20 to-transparent">
+            <div className="p-3 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs text-red-300 font-medium flex items-center gap-1">
+                Overdue Credit Period
+              </p>
+              <p className="text-lg font-bold text-red-400">{formatCurrency(totalOverdueAmount)}</p>
+              <p className="text-[11px] text-red-400/80 font-medium">{overdueInvoices.length} invoices passed due date</p>
+            </div>
+          </div>
+
+          <div className="bg-[#1e293b] border border-amber-500/30 rounded-xl p-4 flex items-center gap-3 shadow-md bg-gradient-to-r from-amber-950/20 to-transparent">
+            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs text-amber-300 font-medium">Near Credit Expiry (7d)</p>
+              <p className="text-lg font-bold text-amber-400">{formatCurrency(totalNearDueAmount)}</p>
+              <p className="text-[11px] text-amber-400/80 font-medium">{nearDueInvoices.length} invoices due within 7 days</p>
+            </div>
+          </div>
+
+          <div className="bg-[#1e293b] border border-green-500/30 rounded-xl p-4 flex items-center gap-3 shadow-md">
+            <div className="p-3 bg-green-500/10 text-green-400 rounded-lg border border-green-500/20">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-medium">Settled / Completed</p>
+              <p className="text-lg font-bold text-green-400">
+                {formatCurrency(completedInvoices.reduce((sum, i) => sum + i.totalAmount, 0))}
+              </p>
+              <p className="text-[11px] text-green-500">{completedInvoices.length} invoices fully paid</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Overdue Alert Banner if overdue invoices exist */}
+        {overdueInvoices.length > 0 && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-semibold text-red-300">Credit Expiry Alert: {overdueInvoices.length} Overdue Invoice(s)</h4>
+                <p className="text-xs text-red-400/80">
+                  Total {formatCurrency(totalOverdueAmount)} has exceeded agreed credit period. Please follow up with customers immediately.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('overdue')}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex-shrink-0 transition-colors"
+            >
+              View Overdue ({overdueInvoices.length})
+            </button>
+          </div>
+        )}
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-2 border-b border-[#334155] pb-2 overflow-x-auto">
+          {[
+            { id: 'all', label: 'All Invoices', count: trackedInvoices.length, color: 'text-gray-300' },
+            { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
+            { id: 'near_due', label: 'Near Due (Next 7 Days)', count: nearDueInvoices.length, badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+            { id: 'completed', label: 'Completed / Paid', count: completedInvoices.length, badge: 'bg-green-500/20 text-green-400 border-green-500/30' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                setCurrentPage(1);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold'
+                  : 'text-gray-400 hover:bg-[#1e293b] hover:text-gray-200'
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tab.badge || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Desktop Table */}
         <div className="hidden lg:block bg-[#1e293b]/50 backdrop-blur-sm border border-[#334155] rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#334155] bg-[#1e293b]/80">
-                  {["Invoice ID", "Customer", "Due Date", "Amount", "Status", "Actions"].map((title) => (
+                  {["Invoice ID", "Customer", "Due Date", "Credit Tracking", "Amount", "Status", "Actions"].map((title) => (
                     <th key={title} className="text-left py-4 px-4 xl:px-6 text-gray-300 font-semibold whitespace-nowrap">
                       {title}
                     </th>
@@ -304,6 +438,30 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         </span>
                       </td>
                       <td className="py-4 px-4 xl:px-6 text-gray-200 whitespace-nowrap">{formatDate(invoice.dueDate)}</td>
+                      <td className="py-4 px-4 xl:px-6 whitespace-nowrap">
+                        {invoice.creditState === 'overdue' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                            <ShieldAlert className="w-3 h-3" />
+                            Overdue ({Math.abs(invoice.diffDays)}d)
+                          </span>
+                        )}
+                        {invoice.creditState === 'near_due' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            <Clock className="w-3 h-3" />
+                            Due in {invoice.diffDays}d
+                          </span>
+                        )}
+                        {invoice.creditState === 'normal' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-gray-800 text-gray-400 border border-gray-700">
+                            On Track ({invoice.diffDays}d left)
+                          </span>
+                        )}
+                        {invoice.creditState === 'settled' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                            Settled
+                          </span>
+                        )}
+                      </td>
                       <td className="py-4 px-4 xl:px-6 text-blue-400 font-bold whitespace-nowrap">{formatCurrency(invoice.totalAmount)}</td>
                       <td className="py-4 px-4 xl:px-6">
                         <StatusBadge status={invoice.paymentStatus} />

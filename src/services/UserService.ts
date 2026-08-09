@@ -1,11 +1,31 @@
-import api from "../api/axios";
 import type { User, CreateUserDto, UpdateUserDto } from "../types/users";
-import type { AuthRes } from "../types/auth";
 
-type UnifiedUser = User & {
-  createdAt?: string;
-  updatedAt?: string;
-};
+const mockSystemUsers: User[] = [
+  {
+    _id: "usr-admin-001",
+    fullName: "Admin User",
+    email: "500labs.admin@gmail.com",
+    role: "admin",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z"
+  },
+  {
+    _id: "usr-sales-001",
+    fullName: "Kamal Perera",
+    email: "kamal@500core.lk",
+    role: "salesman",
+    createdAt: "2026-01-10T00:00:00.000Z",
+    updatedAt: "2026-01-10T00:00:00.000Z"
+  },
+  {
+    _id: "usr-inv-001",
+    fullName: "Nimal Silva",
+    email: "nimal@500core.lk",
+    role: "inventory_manager",
+    createdAt: "2026-01-15T00:00:00.000Z",
+    updatedAt: "2026-01-15T00:00:00.000Z"
+  }
+];
 
 class UserService {
   private currentUser: User | null = null;
@@ -19,114 +39,52 @@ class UserService {
   }
 
   async getUsers(): Promise<User[]> {
-    try {
-      const response = await api.get<UnifiedUser[]>("/users");
-      // Transform the response to match User type
-      return response.data.map(user => ({
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt || new Date().toISOString(),
-        updatedAt: user.updatedAt || new Date().toISOString()
-      }));
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err.response?.data?.message || err.message || "Failed to fetch users";
-      throw new Error(errorMessage);
-    }
+    return [...mockSystemUsers];
   }
 
   async getUserById(id: string): Promise<User | null> {
-    try {
-      const response = await api.get<UnifiedUser>(`/users/${id}`);
-      const user = response.data;
-      // Transform the response to match User type
-      return {
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt || new Date().toISOString(),
-        updatedAt: user.updatedAt || new Date().toISOString()
-      };
-    } catch (error: unknown) {
-      const err = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
-      if (err.response?.status === 404) {
-        return null;
-      }
-      const errorMessage = err.response?.data?.message || err.message || "Failed to fetch user";
-      throw new Error(errorMessage);
-    }
+    const user = mockSystemUsers.find(u => u._id === id);
+    return user || null;
   }
 
   async createUser(dto: CreateUserDto): Promise<User> {
-    try {
-      const response = await api.post<AuthRes>("/auth/register", dto);
-      
-      if (!response.data?.user) {
-        throw new Error("Invalid response format from server");
-      }
-      
-      const userData = response.data.user;
-      
-      // Transform AuthUser to User type
-      return {
-        _id: userData._id,
-        fullName: userData.fullName,
-        email: userData.email,
-        role: userData.role,
-        createdAt: userData.createdAt || new Date().toISOString(),
-        updatedAt: userData.updatedAt || new Date().toISOString()
-      };
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err.response?.data?.message || err.message || "Failed to create user";
-      throw new Error(errorMessage);
-    }
+    const newUser: User = {
+      _id: `usr-${Date.now()}`,
+      fullName: dto.fullName,
+      email: dto.email,
+      role: dto.role,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    mockSystemUsers.push(newUser);
+    return newUser;
   }
 
   async updateUser(id: string, dto: UpdateUserDto): Promise<User | null> {
-    try {
-      const response = await api.put<UnifiedUser>(`/users/${id}`, dto);
-      const user = response.data;
-      // Transform the response to match User type
-      return {
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt || new Date().toISOString(),
-        updatedAt: user.updatedAt || new Date().toISOString()
-      };
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err.response?.data?.message || err.message || "Failed to update user";
-      throw new Error(errorMessage);
+    const user = mockSystemUsers.find(u => u._id === id);
+    if (user) {
+      if (dto.fullName) user.fullName = dto.fullName;
+      if (dto.email) user.email = dto.email;
+      if (dto.role) user.role = dto.role;
+      user.updatedAt = new Date().toISOString();
+      return user;
     }
+    return null;
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    try {
-      await api.delete(`/users/${id}`);
-      return true;
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err.response?.data?.message || err.message || "Failed to delete user";
-      throw new Error(errorMessage);
+    const index = mockSystemUsers.findIndex(u => u._id === id);
+    if (index !== -1) {
+      mockSystemUsers.splice(index, 1);
     }
+    return true;
   }
 
   async checkEmailExists(email: string, excludeId?: string): Promise<boolean> {
-    try {
-      const users = await this.getUsers();
-      return users.some(user => 
-        user.email.toLowerCase() === email.toLowerCase() && 
-        (!excludeId || user._id !== excludeId)
-      );
-    } catch (error) {
-      return false;
-    }
+    return mockSystemUsers.some(user => 
+      user.email.toLowerCase() === email.toLowerCase() && 
+      (!excludeId || user._id !== excludeId)
+    );
   }
 }
 

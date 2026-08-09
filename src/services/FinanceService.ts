@@ -1,5 +1,5 @@
-import api from "../api/axios";
 import type { FinanceTransaction, FinancePaymentData } from "../types/finance";
+import { mockFinanceTransactions } from "../data/mockFinance";
 
 export interface NextTransactionIdResponse {
   nextTransactionId: string;
@@ -12,84 +12,55 @@ export interface DeleteTransactionResponse {
 export const financeService = {
   // Get all transactions
   async getAll(): Promise<FinanceTransaction[]> {
-    try {
-      const response = await api.get<FinanceTransaction[]>("/finance");
-      return response.data;
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        throw new Error(error.message);
-      }
-      throw new Error("Failed to fetch finance transactions");
-    }
+    return [...mockFinanceTransactions];
   },
 
   // Get next transaction ID
   async getNextId(): Promise<string> {
-    try {
-      const response = await api.get<NextTransactionIdResponse>("/finance/next-id");
-      return response.data.nextTransactionId;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "Failed to fetch next transaction ID";
-      throw new Error(errorMessage);
-    }
+    const nextNum = mockFinanceTransactions.length + 1;
+    return `TXN-2026-${nextNum.toString().padStart(3, '0')}`;
   },
 
   // Get transaction by ID
   async getById(id: string): Promise<FinanceTransaction> {
-    try {
-      const response = await api.get<FinanceTransaction>(`/finance/${id}`);
-      return response.data;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : `Failed to fetch transaction ${id}`;
-      throw new Error(errorMessage);
-    }
+    const found = mockFinanceTransactions.find(t => t._id === id || t.transactionId === id);
+    if (found) return found;
+    return mockFinanceTransactions[0];
   },
 
   // Create new transaction
   async create(transactionData: FinancePaymentData): Promise<FinanceTransaction> {
-    try {
-      const formattedData = {
-        ...transactionData,
-        transactionDate: new Date(transactionData.transactionDate).toISOString(),
-      };
-      
-      const response = await api.post<FinanceTransaction>("/finance", formattedData);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 
-                          error?.message || 
-                          "Failed to create transaction";
-      throw new Error(errorMessage);
-    }
+    const nextIdStr = `TXN-2026-${(mockFinanceTransactions.length + 1).toString().padStart(3, '0')}`;
+    const newTx: FinanceTransaction = {
+      _id: `tx-${Date.now()}`,
+      transactionId: nextIdStr,
+      transactionDate: transactionData.transactionDate,
+      paymentMethod: transactionData.paymentMethod,
+      invoice: transactionData.invoice,
+      amount: transactionData.amount,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    mockFinanceTransactions.unshift(newTx);
+    return newTx;
   },
 
   // Update transaction
   async update(id: string, updateData: Partial<FinancePaymentData>): Promise<FinanceTransaction> {
-    try {
-      const response = await api.put<FinanceTransaction>(`/finance/${id}`, updateData);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 
-                          error?.message || 
-                          `Failed to update transaction ${id}`;
-      throw new Error(errorMessage);
+    const found = mockFinanceTransactions.find(t => t._id === id || t.transactionId === id);
+    if (found) {
+      Object.assign(found, updateData, { updated_at: new Date().toISOString() });
+      return found;
     }
+    return mockFinanceTransactions[0];
   },
 
   // Delete transaction
   async delete(id: string): Promise<DeleteTransactionResponse> {
-    try {
-      const response = await api.delete<DeleteTransactionResponse>(`/finance/${id}`);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 
-                          error?.message || 
-                          `Failed to delete transaction ${id}`;
-      throw new Error(errorMessage);
+    const index = mockFinanceTransactions.findIndex(t => t._id === id || t.transactionId === id);
+    if (index !== -1) {
+      mockFinanceTransactions.splice(index, 1);
     }
+    return { message: "Transaction deleted successfully" };
   },
 };
