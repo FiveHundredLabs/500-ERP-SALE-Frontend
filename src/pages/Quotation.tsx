@@ -668,11 +668,12 @@ const Quotation: React.FC = () => {
       type: 'info',
       onConfirm: () => {
         const generatedPONumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const customerName = quotation.customerDetails
-          ? quotation.customerDetails.fullName
+        const customerObj = 'customerDetails' in quotation ? quotation.customerDetails : undefined;
+        const customerName = customerObj
+          ? customerObj.fullName
           : typeof quotation.customer === 'object'
-            ? (quotation.customer as any).fullName || (quotation.customer as any).name || 'Unknown'
-            : String(quotation.customer);
+            ? (quotation.customer as any)?.fullName || (quotation.customer as any)?.name || 'Unknown'
+            : String(quotation.customer || 'Unknown');
 
         const newPO: PurchaseOrder = {
           id: Math.random().toString(36).substr(2, 9),
