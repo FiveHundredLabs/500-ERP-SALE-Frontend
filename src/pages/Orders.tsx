@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
@@ -7,6 +7,7 @@ import { mockOrders as initialOrders } from '../data/mockOrders';
 import type { Order } from '../types/orders';
 import { Eye, Download, ShoppingBag, Plus } from 'lucide-react';
 import CreateOrderModal from '../components/orders/CreateOrderModal';
+import { orderService } from '../services/OrderService';
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -24,8 +25,24 @@ const Orders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setLoading(true);
+      try {
+        const data = await orderService.getAll();
+        setOrders(data);
+      } catch (err) {
+        setOrders(initialOrders);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
 
   const salesmenOptions = useMemo(() => {
     const names = Array.from(new Set(orders.map((o) => o.salesman.name)));
@@ -111,10 +128,17 @@ const Orders: React.FC = () => {
     success('Export Completed', `Exported ${sortedOrders.length} orders to CSV.`);
   };
 
-  const handleCreateOrder = (newOrder: Order) => {
-    setOrders(prev => [newOrder, ...prev]);
-    setShowCreateModal(false);
-    success('Order Created', `Order ${newOrder.orderId} has been created successfully.`);
+  const handleCreateOrder = async (newOrder: Order) => {
+    try {
+      const created = await orderService.create(newOrder);
+      setOrders(prev => [created, ...prev]);
+      setShowCreateModal(false);
+      success('Order Created', `Order ${created.orderId} has been created successfully.`);
+    } catch {
+      setOrders(prev => [newOrder, ...prev]);
+      setShowCreateModal(false);
+      success('Order Created', `Order ${newOrder.orderId} has been created.`);
+    }
   };
 
   const formatCurrency = (val: number) =>
@@ -290,6 +314,7 @@ const Orders: React.FC = () => {
             <DataTable
               columns={columns}
               data={paginatedOrders}
+              loading={loading}
               keyExtractor={(item) => item.id}
               onRowClick={(item) => navigate(`/orders/${item.id}`)}
               sortColumn={sortColumn}

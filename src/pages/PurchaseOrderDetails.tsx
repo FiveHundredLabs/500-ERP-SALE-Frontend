@@ -4,6 +4,7 @@ import AppLayout from '../components/AppLayout';
 import { PageHeader, StatusBadge, useToast, ConfirmDialog } from '../components/erp';
 import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
+import { purchaseOrderService } from '../services/PurchaseOrderService';
 import {
   ShoppingCart,
   Truck,
@@ -20,11 +21,39 @@ const PurchaseOrderDetails: React.FC = () => {
   const navigate = useNavigate();
   const { success, info } = useToast();
 
-  const [po, setPo] = useState<PurchaseOrder | undefined>(() =>
-    mockPurchaseOrders.find((p) => p.id === id || p.poNumber === id) || mockPurchaseOrders[0]
-  );
-
+  const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
   const [confirmApproveModal, setConfirmApproveModal] = useState(false);
+
+  React.useEffect(() => {
+    if (!id) return;
+    const fetchPO = async () => {
+      setLoading(true);
+      try {
+        const data = await purchaseOrderService.getById(id);
+        setPo(data);
+      } catch {
+        const found = mockPurchaseOrders.find((p) => p.id === id || p.poNumber === id) || mockPurchaseOrders[0];
+        setPo(found);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPO();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <AppLayout headerTitle="Purchase Order Details">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center text-slate-400">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3" />
+            <p className="text-sm">Loading Purchase Order...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!po) {
     return (

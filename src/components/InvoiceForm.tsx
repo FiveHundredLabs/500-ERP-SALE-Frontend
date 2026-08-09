@@ -11,6 +11,9 @@ import { ItemSearchAndAdd } from "./invoice/ItemSearchAndAdd";
 import { InvoiceItemsList } from "./invoice/InvoiceItemsList";
 import { InvoiceSummary } from "./invoice/InvoiceSummary";
 import PaymentModal from "../components/PaymentModal";
+import OrderPickerModal from "./common/OrderPickerModal";
+import type { Order } from "../types/orders";
+import { ClipboardList } from "lucide-react";
 
 interface InvoiceFormProps {
   invoiceData: InvoiceData;
@@ -71,6 +74,30 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const [discountInput, setDiscountInput] = useState(invoiceData.discountPercentage.toString());
   const [creditPeriod, setCreditPeriod] = useState<string>('custom');
+  const [showOrderPicker, setShowOrderPicker] = useState(false);
+  const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
+
+  const handleOrderImport = useCallback((order: Order) => {
+    // Clear existing items first by signalling parent
+    // Set notes
+    if (order.notes) onFieldChange('notes', order.notes);
+
+    // Auto-fill items from order products as free-text line items
+    order.products.forEach(p => {
+      const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
+        item: p.id || p.sku, // use product ID or SKU as item reference
+        itemName: `${p.productName} (${p.sku})`,
+        quantity: p.quantity,
+        unitPrice: p.unitPrice,
+      };
+      onAddItem(lineItem);
+    });
+
+    // Store imported order reference
+    setImportedOrderId(order.orderId);
+    if (order.notes) onFieldChange('notes', `Ref: ${order.orderId} — ${order.notes || ''}`.trim());
+    else onFieldChange('notes', `Ref: ${order.orderId}`);
+  }, [onFieldChange, onAddItem]);
 
   // When credit period preset is selected, auto-calculate dueDate from issueDate
   const handleCreditPeriodChange = (period: string) => {
@@ -418,8 +445,33 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         isProcessing={isProcessingPayment}
       />
 
+      {/* Order Picker Modal */}
+      <OrderPickerModal
+        isOpen={showOrderPicker}
+        onClose={() => setShowOrderPicker(false)}
+        onSelect={handleOrderImport}
+      />
+
       <div className="bg-[#1e293b] rounded-lg p-5 border border-[#334155]">
-        <h2 className="text-lg font-semibold text-gray-200 mb-4">Create Invoice</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-200">Create Invoice</h2>
+          <div className="flex items-center gap-2">
+            {importedOrderId && (
+              <span className="text-xs text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                <ClipboardList size={11} />
+                Imported from {importedOrderId}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowOrderPicker(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold transition-colors"
+            >
+              <ClipboardList size={14} />
+              Import from Order
+            </button>
+          </div>
+        </div>
         
         <CustomerSearchAndManagement
           searchTerm={customerSearchTerm}

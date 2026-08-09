@@ -6,6 +6,7 @@ import type { Column } from '../components/erp/DataTable';
 import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { Eye, Download, ShoppingCart } from 'lucide-react';
+import { purchaseOrderService } from '../services/PurchaseOrderService';
 
 const PurchaseOrders: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +23,23 @@ const PurchaseOrders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [purchaseOrders] = useState<PurchaseOrder[]>(initialPOs);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchPOs = async () => {
+      setLoading(true);
+      try {
+        const data = await purchaseOrderService.getAll();
+        setPurchaseOrders(data);
+      } catch {
+        setPurchaseOrders(initialPOs);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPOs();
+  }, []);
 
   const supplierOptions = useMemo(() => {
     const names = Array.from(new Set(purchaseOrders.map((p) => p.supplierName)));
@@ -254,6 +271,7 @@ const PurchaseOrders: React.FC = () => {
         <DataTable
           columns={columns}
           data={paginatedPOs}
+          loading={loading}
           keyExtractor={(item) => item.id}
           onRowClick={(item) => navigate(`/purchase-orders/${item.id}`)}
           sortColumn={sortColumn}

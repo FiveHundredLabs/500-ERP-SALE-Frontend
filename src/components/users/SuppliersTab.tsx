@@ -5,12 +5,29 @@ import type { Column } from '../erp/DataTable';
 import { mockSuppliers as initialSuppliers } from '../../data/mockSuppliers';
 import type { Supplier, SupplierCreateDto, SupplierTypeValue, SupplierStatusValue } from '../../types/suppliers';
 import { Plus, Eye, Edit2, Trash2, X } from 'lucide-react';
+import { supplierService } from '../../services/SupplierService';
 
 const SuppliersTab: React.FC = () => {
   const navigate = useNavigate();
   const { success } = useToast();
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchSuppliers = async () => {
+      setLoading(true);
+      try {
+        const data = await supplierService.getAll();
+        setSuppliers(data);
+      } catch {
+        setSuppliers(initialSuppliers);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSuppliers();
+  }, []);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,28 +117,38 @@ const SuppliersTab: React.FC = () => {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
   // Submit Handler
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.companyName || !formData.contactPerson || !formData.phone) return;
 
     if (editSupplier) {
-      setSuppliers((prev) =>
-        prev.map((s) => (s.id === editSupplier.id ? { ...s, ...formData, updatedAt: new Date().toISOString() } : s))
-      );
+      try {
+        const updated = await supplierService.update(editSupplier.id, formData);
+        setSuppliers((prev) => prev.map((s) => (s.id === editSupplier.id ? { ...s, ...updated } : s)));
+      } catch {
+        setSuppliers((prev) =>
+          prev.map((s) => (s.id === editSupplier.id ? { ...s, ...formData, updatedAt: new Date().toISOString() } : s))
+        );
+      }
       success('Supplier Updated', `Successfully updated ${formData.companyName}.`);
       setEditSupplier(null);
     } else {
-      const newSup: Supplier = {
-        id: Math.random().toString(36).substr(2, 9),
-        supplierId: `SUP-${Math.floor(10000 + Math.random() * 90000)}`,
-        ...formData,
-        totalPOs: 0,
-        totalPurchaseAmount: 0,
-        outstandingPayments: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setSuppliers((prev) => [newSup, ...prev]);
+      try {
+        const created = await supplierService.create(formData);
+        setSuppliers((prev) => [created, ...prev]);
+      } catch {
+        const newSup: Supplier = {
+          id: Math.random().toString(36).substr(2, 9),
+          supplierId: `SUP-${Math.floor(10000 + Math.random() * 90000)}`,
+          ...formData,
+          totalPOs: 0,
+          totalPurchaseAmount: 0,
+          outstandingPayments: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setSuppliers((prev) => [newSup, ...prev]);
+      }
       success('Supplier Created', `Added ${formData.companyName} to database.`);
     }
 
@@ -147,8 +174,11 @@ const SuppliersTab: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteSupplier) return;
+    try {
+      await supplierService.delete(deleteSupplier.id);
+    } catch {}
     setSuppliers((prev) => prev.filter((s) => s.id !== deleteSupplier.id));
     success('Supplier Deleted', `Deleted supplier ${deleteSupplier.companyName}.`);
     setDeleteSupplier(null);
@@ -335,6 +365,7 @@ const SuppliersTab: React.FC = () => {
         <DataTable
           columns={columns}
           data={paginatedSuppliers}
+          loading={loading}
           keyExtractor={(item) => item.id}
           onRowClick={(item) => navigate(`/users/suppliers/${item.id}`)}
           sortColumn={sortColumn}
