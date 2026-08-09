@@ -16,18 +16,18 @@ export const authService = {
     const password = loginData.password.trim();
 
     if (email === "500labs.admin@gmail.com" && password === "500labs") {
-      return { user: { ...DEFAULT_MOCK_USER }, token: "mock-jwt-token-500labs-admin" };
+      return { user: { ...DEFAULT_MOCK_USER } };
     }
 
     if (password === "500labs" || password === "admin123" || password === "password") {
-      return { user: { ...DEFAULT_MOCK_USER, email: loginData.email }, token: "mock-jwt-token-demo" };
+      return { user: { ...DEFAULT_MOCK_USER, email: loginData.email } };
     }
 
     if (email === "500labs.admin@gmail.com" && password !== "500labs") {
       throw new Error("Invalid password for 500labs.admin@gmail.com");
     }
 
-    return { user: { ...DEFAULT_MOCK_USER, email: loginData.email }, token: "mock-jwt-token-demo" };
+    return { user: { ...DEFAULT_MOCK_USER, email: loginData.email } };
   },
 
   async register(registerData: RegisterData): Promise<AuthRes> {
@@ -37,11 +37,10 @@ export const authService = {
         _id: `usr-${Date.now()}`,
         fullName: registerData.fullName,
         email: registerData.email,
-        role: (registerData.role || "salesman") as const,
+        role: registerData.role || "salesman",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      },
-      token: "mock-jwt-token-new"
+      }
     };
   },
 

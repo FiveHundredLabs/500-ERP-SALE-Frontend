@@ -1,7 +1,6 @@
 import type { 
   InventoryItem, 
   InventoryStats,
-  NextInventoryIdRes,
   DeleteInventoryRes 
 } from "../types/inventory";
 import { mockInventoryItems } from "../data/mockInventory";
