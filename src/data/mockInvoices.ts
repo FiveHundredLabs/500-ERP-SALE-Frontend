@@ -45,8 +45,8 @@ export const mockInvoicesList: InvoiceResponse[] = [
     dueDate: relativeDate(-5),
     vehicleNumber: "WP CAB-1234",
     notes: "Paid in cash on delivery.",
-    createdAt: relativeDate(-20),
-    updatedAt: relativeDate(-5)
+    created_at: relativeDate(-20),
+    updated_at: relativeDate(-5)
   },
   {
     _id: "inv-002",
@@ -83,8 +83,8 @@ export const mockInvoicesList: InvoiceResponse[] = [
     dueDate: relativeDate(2), // Near credit period end (Due in 2 days!)
     vehicleNumber: "WP GA-5678",
     notes: "Near credit period expiry (due in 2 days).",
-    createdAt: relativeDate(-12),
-    updatedAt: relativeDate(-12)
+    created_at: relativeDate(-12),
+    updated_at: relativeDate(-12)
   },
   {
     _id: "inv-003",
@@ -121,8 +121,8 @@ export const mockInvoicesList: InvoiceResponse[] = [
     dueDate: relativeDate(-8), // OVERDUE by 8 days!
     vehicleNumber: "WP CBO-9988",
     notes: "Credit period exceeded by 8 days.",
-    createdAt: relativeDate(-25),
-    updatedAt: relativeDate(-25)
+    created_at: relativeDate(-25),
+    updated_at: relativeDate(-25)
   },
   {
     _id: "inv-004",
@@ -159,7 +159,7 @@ export const mockInvoicesList: InvoiceResponse[] = [
     dueDate: relativeDate(5), // Near credit period end (Due in 5 days!)
     vehicleNumber: "SP MA-3321",
     notes: "Cheque due in 5 days.",
-    createdAt: relativeDate(-5),
-    updatedAt: relativeDate(-5)
+    created_at: relativeDate(-5),
+    updated_at: relativeDate(-5)
   }
 ];
