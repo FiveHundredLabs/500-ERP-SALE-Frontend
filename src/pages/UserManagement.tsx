@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "../components/Sidebar";
-import { UserCog, Plus, Search, Edit2, Trash2, Shield, Package, AlertCircle, Menu, X, MoreVertical } from "lucide-react";
+import AppLayout from "../components/AppLayout";
+import { UserCog, Plus, Search, Edit2, Trash2, Shield, Package, AlertCircle, MoreVertical } from "lucide-react";
 import { Button } from "../components/common/Button";
 import { FormField } from "../components/common/FormField";
 import { FormInput } from "../components/common/FormInput";
@@ -11,7 +11,6 @@ import type { User, CreateUserDto, UpdateUserDto } from "../types/users";
 import { useAuth } from "../contexts/AuthContext";
 
 const UserManagement: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -187,53 +186,22 @@ const UserManagement: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
-      {/* Mobile Menu Button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+    <AppLayout
+      headerIcon={<UserCog size={18} />}
+      headerTitle="System User Management"
+      headerSubtitle="Manage system user accounts, roles, and access controls"
+      headerRight={
         <Button
-          variant="ghost"
+          variant="primary"
           size="sm"
-          icon={isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          onClick={() => setIsOpen(!isOpen)}
-          className="bg-[#1e293b] border border-[#334155]"
-        />
-      </div>
-
-      <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="h-16 bg-[#1e293b]/80 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 lg:px-6 shadow-lg">
-          <div className="flex items-center gap-3">
-            <UserCog className="text-blue-400 w-6 h-6" />
-            <h1 className="text-lg lg:text-xl font-semibold text-gray-200">User Management</h1>
-          </div>
-
-          <div className="flex items-center gap-2 lg:gap-4">
-            {/* Mobile Add Button */}
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => setShowCreateModal(true)}
-              className="lg:hidden"
-              title="Add User"
-            />
-            
-            {/* Desktop Add Button */}
-            <Button
-              variant="primary"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => setShowCreateModal(true)}
-              className="hidden lg:flex"
-            >
-              Add User
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          icon={<Plus className="w-4 h-4" />}
+          onClick={() => setShowCreateModal(true)}
+        >
+          Add User
+        </Button>
+      }
+    >
+      <div className="space-y-6">
           {/* Alerts */}
           {error && (
             <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
@@ -361,7 +329,7 @@ const UserManagement: React.FC = () => {
                 <p className="mt-4 text-gray-400">Loading users...</p>
               </div>
             ) : (
-              <>
+              <div className="space-y-4">
                 {filteredUsers.map((user) => (
                   <div
                     key={user._id}
@@ -456,11 +424,10 @@ const UserManagement: React.FC = () => {
                     {searchTerm && <p className="text-sm mt-2">Try adjusting your search term</p>}
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
-      </div>
 
       {/* Create User Modal */}
       <Modal
@@ -621,7 +588,7 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </AppLayout>
   );
 };
 

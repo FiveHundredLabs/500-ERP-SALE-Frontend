@@ -70,6 +70,31 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   });
 
   const [discountInput, setDiscountInput] = useState(invoiceData.discountPercentage.toString());
+  const [creditPeriod, setCreditPeriod] = useState<string>('custom');
+
+  // When credit period preset is selected, auto-calculate dueDate from issueDate
+  const handleCreditPeriodChange = (period: string) => {
+    setCreditPeriod(period);
+    if (period !== 'custom' && invoiceData.issueDate) {
+      const days = parseInt(period);
+      const issue = new Date(invoiceData.issueDate);
+      issue.setDate(issue.getDate() + days);
+      const due = issue.toISOString().split('T')[0];
+      onFieldChange('dueDate', due);
+    }
+  };
+
+  // When issueDate changes, recalculate dueDate if a preset is active
+  const handleIssueDateChange = (value: string) => {
+    onFieldChange('issueDate', value);
+    if (creditPeriod !== 'custom' && value) {
+      const days = parseInt(creditPeriod);
+      const issue = new Date(value);
+      issue.setDate(issue.getDate() + days);
+      const due = issue.toISOString().split('T')[0];
+      onFieldChange('dueDate', due);
+    }
+  };
 
   useEffect(() => {
     setDiscountInput(invoiceData.discountPercentage.toString());
@@ -411,7 +436,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         />
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Issue Date / Credit Period / Due Date */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Issue Date*
@@ -419,11 +445,41 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               <input
                 type="date"
                 value={invoiceData.issueDate}
-                onChange={(e) => onFieldChange('issueDate', e.target.value)}
+                onChange={(e) => handleIssueDateChange(e.target.value)}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
+
+            {/* Credit Period Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Credit Period
+              </label>
+              <div className="flex flex-col gap-1.5">
+                <select
+                  value={creditPeriod}
+                  onChange={(e) => handleCreditPeriodChange(e.target.value)}
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="custom">Custom (manual)</option>
+                  <option value="0">Immediate (0 days)</option>
+                  <option value="7">7 Days</option>
+                  <option value="14">14 Days</option>
+                  <option value="30">30 Days</option>
+                  <option value="45">45 Days</option>
+                  <option value="60">60 Days</option>
+                  <option value="90">90 Days</option>
+                </select>
+                {creditPeriod !== 'custom' && (
+                  <p className="text-[11px] text-blue-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                    Due date auto-calculated
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Due Date*
@@ -432,7 +488,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 type="date"
                 value={invoiceData.dueDate}
                 onChange={(e) => onFieldChange('dueDate', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                readOnly={creditPeriod !== 'custom'}
+                className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
                 required
               />
             </div>
