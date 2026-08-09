@@ -659,7 +659,7 @@ const Quotation: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleConvertQuotationToPO = (quotation: QuotationResponse) => {
+  const handleConvertQuotationToPO = (quotation: QuotationResponse | QuotationData) => {
     setConfirmConfig({
       isOpen: true,
       title: 'Convert to Purchase Order',
@@ -668,9 +668,11 @@ const Quotation: React.FC = () => {
       type: 'info',
       onConfirm: () => {
         const generatedPONumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const customerName = typeof quotation.customer === 'object'
-          ? (quotation.customer as any).fullName || (quotation.customer as any).name || 'Unknown'
-          : String(quotation.customer);
+        const customerName = quotation.customerDetails
+          ? quotation.customerDetails.fullName
+          : typeof quotation.customer === 'object'
+            ? (quotation.customer as any).fullName || (quotation.customer as any).name || 'Unknown'
+            : String(quotation.customer);
 
         const newPO: PurchaseOrder = {
           id: Math.random().toString(36).substr(2, 9),
@@ -690,9 +692,9 @@ const Quotation: React.FC = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           items: quotation.items.map((it: any) => ({
-            id: it._id || Math.random().toString(36).substr(2, 9),
-            sku: it.item?.product_code || it.item || 'SKU-NA',
-            productName: it.item?.product_name || it.itemName || 'Item',
+            id: it._id || it.id || Math.random().toString(36).substr(2, 9),
+            sku: it.item?.product_code || (typeof it.item === 'string' ? it.item : 'SKU-NA'),
+            productName: it.itemName || it.item?.product_name || 'Item',
             category: 'General',
             quantity: it.quantity,
             unit: 'pcs',
@@ -1523,6 +1525,16 @@ const Quotation: React.FC = () => {
                           <span className="hidden sm:inline">Share</span>
                         </button>
                       </div>
+
+                      <button
+                        onClick={() => handleConvertQuotationToPO(quotationData)}
+                        disabled={!quotationData._id || isLoading || isGeneratingPDF || isSaving}
+                        className="flex items-center gap-1 bg-amber-600 text-white px-3 py-1.5 rounded-md hover:bg-amber-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Convert Quotation to Purchase Order"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        <span className="hidden sm:inline">Convert to PO</span>
+                      </button>
 
                       <button
                         onClick={downloadPDF}
