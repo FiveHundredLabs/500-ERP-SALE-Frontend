@@ -1,5 +1,14 @@
 import type { InvoiceResponse } from "../types/invoice";
 
+const today = new Date();
+
+// Helper to format ISO date relative to today
+const relativeDate = (daysOffset: number) => {
+  const d = new Date(today);
+  d.setDate(d.getDate() + daysOffset);
+  return d.toISOString();
+};
+
 export const mockInvoicesList: InvoiceResponse[] = [
   {
     _id: "inv-001",
@@ -32,12 +41,12 @@ export const mockInvoicesList: InvoiceResponse[] = [
     totalAmount: 23275,
     paymentStatus: "Completed",
     paymentMethod: "Cash",
-    issueDate: "2026-02-01T00:00:00.000Z",
-    dueDate: "2026-02-15T00:00:00.000Z",
+    issueDate: relativeDate(-20),
+    dueDate: relativeDate(-5),
     vehicleNumber: "WP CAB-1234",
     notes: "Paid in cash on delivery.",
-    createdAt: "2026-02-01T00:00:00.000Z",
-    updatedAt: "2026-02-01T00:00:00.000Z"
+    createdAt: relativeDate(-20),
+    updatedAt: relativeDate(-5)
   },
   {
     _id: "inv-002",
@@ -70,11 +79,87 @@ export const mockInvoicesList: InvoiceResponse[] = [
     totalAmount: 27075,
     paymentStatus: "Pending",
     paymentMethod: "Bank Transfer",
-    issueDate: "2026-02-06T00:00:00.000Z",
-    dueDate: "2026-02-20T00:00:00.000Z",
+    issueDate: relativeDate(-12),
+    dueDate: relativeDate(2), // Near credit period end (Due in 2 days!)
     vehicleNumber: "WP GA-5678",
-    notes: "Payment expected by due date.",
-    createdAt: "2026-02-06T00:00:00.000Z",
-    updatedAt: "2026-02-06T00:00:00.000Z"
+    notes: "Near credit period expiry (due in 2 days).",
+    createdAt: relativeDate(-12),
+    updatedAt: relativeDate(-12)
+  },
+  {
+    _id: "inv-003",
+    invoiceId: "INV-2026-003",
+    customer: {
+      _id: "cust-003",
+      fullName: "Apex Building Supplies",
+      email: "sales@apexbuilding.lk",
+      phone: "033-987-6543",
+      vatNumber: "338192031-7000",
+      customerCode: "CUST-003",
+      address: {
+        street: "88 Kandy Road",
+        city: "Kelaniya",
+        country: "Sri Lanka",
+        zip: "11600"
+      }
+    },
+    items: [
+      {
+        _id: "invitem-3",
+        item: "V-BALL-15",
+        quantity: 25,
+        unitPrice: 3100,
+        total: 77500
+      }
+    ],
+    subTotal: 77500,
+    discount: 3875,
+    totalAmount: 73625,
+    paymentStatus: "Pending",
+    paymentMethod: "Bank Deposit",
+    issueDate: relativeDate(-25),
+    dueDate: relativeDate(-8), // OVERDUE by 8 days!
+    vehicleNumber: "WP CBO-9988",
+    notes: "Credit period exceeded by 8 days.",
+    createdAt: relativeDate(-25),
+    updatedAt: relativeDate(-25)
+  },
+  {
+    _id: "inv-004",
+    invoiceId: "INV-2026-004",
+    customer: {
+      _id: "cust-004",
+      fullName: "Southern Electro-Hardware",
+      email: "info@southernelectro.lk",
+      phone: "091-444-3322",
+      vatNumber: "449102938-7000",
+      customerCode: "CUST-004",
+      address: {
+        street: "104 Galle Road",
+        city: "Matara",
+        country: "Sri Lanka",
+        zip: "81000"
+      }
+    },
+    items: [
+      {
+        _id: "invitem-4",
+        item: "T-SOLVENT-500",
+        quantity: 100,
+        unitPrice: 680,
+        total: 68000
+      }
+    ],
+    subTotal: 68000,
+    discount: 3400,
+    totalAmount: 64600,
+    paymentStatus: "Pending",
+    paymentMethod: "Cheque",
+    issueDate: relativeDate(-5),
+    dueDate: relativeDate(5), // Near credit period end (Due in 5 days!)
+    vehicleNumber: "SP MA-3321",
+    notes: "Cheque due in 5 days.",
+    createdAt: relativeDate(-5),
+    updatedAt: relativeDate(-5)
   }
 ];
