@@ -34,13 +34,10 @@ export const financeService = {
     const newTx: FinanceTransaction = {
       _id: `tx-${Date.now()}`,
       transactionId: nextIdStr,
-      type: transactionData.type as any || "Income",
-      category: transactionData.category || "General",
-      amount: Number(transactionData.amount) || 0,
-      paymentMethod: transactionData.paymentMethod || "Cash",
-      referenceId: transactionData.referenceId,
-      description: transactionData.description,
-      transactionDate: new Date(transactionData.transactionDate).toISOString(),
+      transactionDate: transactionData.transactionDate,
+      paymentMethod: transactionData.paymentMethod,
+      invoice: transactionData.invoice,
+      amount: transactionData.amount,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
