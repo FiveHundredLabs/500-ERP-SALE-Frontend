@@ -5,7 +5,8 @@ import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../comp
 import type { Column } from '../components/erp/DataTable';
 import { mockOrders as initialOrders } from '../data/mockOrders';
 import type { Order } from '../types/orders';
-import { Eye, Download, ShoppingBag } from 'lucide-react';
+import { Eye, Download, ShoppingBag, Plus } from 'lucide-react';
+import CreateOrderModal from '../components/orders/CreateOrderModal';
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -23,7 +24,8 @@ const Orders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [orders] = useState<Order[]>(initialOrders);
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const salesmenOptions = useMemo(() => {
     const names = Array.from(new Set(orders.map((o) => o.salesman.name)));
@@ -107,6 +109,12 @@ const Orders: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     success('Export Completed', `Exported ${sortedOrders.length} orders to CSV.`);
+  };
+
+  const handleCreateOrder = (newOrder: Order) => {
+    setOrders(prev => [newOrder, ...prev]);
+    setShowCreateModal(false);
+    success('Order Created', `Order ${newOrder.orderId} has been created successfully.`);
   };
 
   const formatCurrency = (val: number) =>
@@ -210,81 +218,101 @@ const Orders: React.FC = () => {
   };
 
   return (
-    <AppLayout
-      headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
-      headerTitle="Orders Management"
-      headerSubtitle="Orders submitted by salesmen via mobile app"
-    >
-      <PageHeader
-        title="Customer Orders"
-        description="Manage and review customer orders created in the field."
-        breadcrumbs={[
-          { label: 'Dashboard', path: '/dashboard' },
-          { label: 'Sales' },
-          { label: 'Orders' },
-        ]}
-        actions={
-          <button onClick={handleExportCSV} className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <Download size={15} /> Export CSV
-          </button>
-        }
-      />
-
-      <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
-        <FilterBar
-          searchPlaceholder="Search order ID, customer, salesman..."
-          searchValue={searchQuery}
-          onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
-          onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
-          selects={[
-            {
-              value: statusFilter,
-              onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
-              options: statusOptions,
-              placeholder: 'All Statuses',
-              width: 'w-36',
-            },
-            {
-              value: paymentFilter,
-              onChange: (val) => { setPaymentFilter(val); setCurrentPage(1); },
-              options: paymentOptions,
-              placeholder: 'All Payments',
-              width: 'w-32',
-            },
-            {
-              value: salesmanFilter,
-              onChange: (val) => { setSalesmanFilter(val); setCurrentPage(1); },
-              options: salesmenOptions,
-              placeholder: 'All Salesmen',
-              width: 'w-36',
-            },
+    <>
+      <AppLayout
+        headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
+        headerTitle="Orders Management"
+        headerSubtitle="Orders submitted by salesmen or created by admin"
+      >
+        <PageHeader
+          title="Customer Orders"
+          description="Manage and review customer orders created in the field."
+          breadcrumbs={[
+            { label: 'Dashboard', path: '/dashboard' },
+            { label: 'Sales' },
+            { label: 'Orders' },
           ]}
-          hasActiveFilters={hasActiveFilters}
-          onClearFilters={clearAllFilters}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportCSV}
+                className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+              >
+                <Download size={15} /> Export CSV
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
+              >
+                <Plus size={15} /> New Order
+              </button>
+            </div>
+          }
         />
 
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={paginatedOrders}
-            keyExtractor={(item) => item.id}
-            onRowClick={(item) => navigate(`/orders/${item.id}`)}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-            emptyMessage="No orders found matching the criteria."
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={sortedOrders.length}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
+        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
+          <FilterBar
+            searchPlaceholder="Search order ID, customer, salesman..."
+            searchValue={searchQuery}
+            onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
+            onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
+            selects={[
+              {
+                value: statusFilter,
+                onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
+                options: statusOptions,
+                placeholder: 'All Statuses',
+                width: 'w-36',
+              },
+              {
+                value: paymentFilter,
+                onChange: (val) => { setPaymentFilter(val); setCurrentPage(1); },
+                options: paymentOptions,
+                placeholder: 'All Payments',
+                width: 'w-32',
+              },
+              {
+                value: salesmanFilter,
+                onChange: (val) => { setSalesmanFilter(val); setCurrentPage(1); },
+                options: salesmenOptions,
+                placeholder: 'All Salesmen',
+                width: 'w-36',
+              },
+            ]}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearAllFilters}
           />
+
+          <div className="p-4">
+            <DataTable
+              columns={columns}
+              data={paginatedOrders}
+              keyExtractor={(item) => item.id}
+              onRowClick={(item) => navigate(`/orders/${item.id}`)}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              emptyMessage="No orders found matching the criteria."
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={sortedOrders.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          </div>
         </div>
-      </div>
-    </AppLayout>
+      </AppLayout>
+
+      {/* Create Order Slide-in Modal */}
+      <CreateOrderModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateOrder}
+      />
+    </>
   );
 };
 
