@@ -1,4 +1,3 @@
-import api from "../api/axios";
 import type { 
   InvoiceResponse,
   BackendInvoiceData,
@@ -6,6 +5,9 @@ import type {
   InvoiceCustomer 
 } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory"; 
+import { mockInvoicesList } from "../data/mockInvoices";
+import { mockCustomers } from "../data/mockCustomers";
+import { mockInventoryItems } from "../data/mockInventory";
 
 export interface NextInvoiceIdResponse {
   nextInvoiceId: string;
@@ -29,133 +31,128 @@ export interface SalesOverviewResponse {
 export const invoiceService = {
   // Get all invoices
   async getAll(): Promise<InvoiceResponse[]> {
-    try {
-      const response = await api.get<InvoiceResponse[]>("/invoices");
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        window.location.href = '/login';
-      }
-      throw new Error(error.response?.data?.message || error.message || "Failed to fetch invoices");
-    }
+    return [...mockInvoicesList];
   },
 
   // Get all customers
   async getAllCustomers(): Promise<InvoiceCustomer[]> {
-    try {
-      const response = await api.get<InvoiceCustomer[]>("/customers");
-      return response.data;
-    } catch (error: unknown) {
-      return [];
-    }
+    return mockCustomers.map(c => ({
+      _id: c.id,
+      fullName: c.businessName || c.contactPerson,
+      email: c.email || '',
+      phone: c.phone || '',
+      vatNumber: '119283401-7000',
+      customerCode: c.customerId,
+      address: {
+        street: c.address,
+        city: c.city,
+        country: 'Sri Lanka',
+        zip: '00100'
+      }
+    }));
   },
 
   // Get next invoice ID
   async getNextId(): Promise<string> {
-    try {
-      const response = await api.get<NextInvoiceIdResponse>("/invoices/next-id");
-      return response.data.nextInvoiceId;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch next invoice ID";
-      throw new Error(errorMessage);
-    }
+    const nextNum = mockInvoicesList.length + 1;
+    return `INV-2026-${nextNum.toString().padStart(3, '0')}`;
   },
 
   // Get invoice by ID - Public
   async getById(id: string): Promise<InvoiceResponse> {
-    try {
-      const response = await api.get<InvoiceResponse>(`/invoices/public/${id}`);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || `Failed to fetch invoice ${id}`;
-      throw new Error(errorMessage);
-    }
+    const found = mockInvoicesList.find(i => i._id === id || i.invoiceId === id);
+    if (found) return found;
+    return mockInvoicesList[0];
   },
 
   // Get invoice by invoiceId
   async getByInvoiceId(invoiceId: string): Promise<InvoiceResponse> {
-    try {
-      const response = await api.get<InvoiceResponse>(`/invoices/invoice-id/${invoiceId}`);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || `Failed to fetch invoice ${invoiceId}`;
-      throw new Error(errorMessage);
-    }
+    const found = mockInvoicesList.find(i => i.invoiceId === invoiceId || i._id === invoiceId);
+    if (found) return found;
+    return mockInvoicesList[0];
   },
 
   // Create new invoice
   async create(invoiceData: BackendInvoiceData): Promise<InvoiceResponse> {
-    try {
-      const response = await api.post<InvoiceResponse>("/invoices", invoiceData);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to create invoice";
-      throw new Error(errorMessage);
-    }
+    const nextIdStr = `INV-2026-${(mockInvoicesList.length + 1).toString().padStart(3, '0')}`;
+    const newInv: InvoiceResponse = {
+      _id: `inv-${Date.now()}`,
+      invoiceId: invoiceData.invoiceId || nextIdStr,
+      customer: typeof invoiceData.customer === 'string' ? {
+        _id: invoiceData.customer,
+        fullName: 'Customer ' + invoiceData.customer,
+        email: '',
+        phone: '',
+        vatNumber: '',
+        customerCode: 'CUST-001'
+      } : (invoiceData.customer as any),
+      items: invoiceData.items || [],
+      subTotal: invoiceData.subTotal || 0,
+      discount: invoiceData.discount || 0,
+      totalAmount: invoiceData.totalAmount || 0,
+      paymentStatus: invoiceData.paymentStatus || 'Pending',
+      paymentMethod: invoiceData.paymentMethod || 'Cash',
+      issueDate: invoiceData.issueDate || new Date().toISOString(),
+      dueDate: invoiceData.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      vehicleNumber: invoiceData.vehicleNumber || '',
+      notes: invoiceData.notes,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    mockInvoicesList.unshift(newInv);
+    return newInv;
   },
 
   // Update invoice
   async update(invoiceId: string, updateData: Partial<BackendInvoiceData>): Promise<InvoiceResponse> {
-    try {
-      const response = await api.put<InvoiceResponse>(`/invoices/${invoiceId}`, updateData);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || `Failed to update invoice ${invoiceId}`;
-      throw new Error(errorMessage);
+    const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
+    if (found) {
+      Object.assign(found, updateData, { updated_at: new Date().toISOString() });
+      return found;
     }
+    return mockInvoicesList[0];
   },
 
   // Update status
   async updatePaymentStatus(invoiceId: string, paymentStatus: PaymentStatusType): Promise<InvoiceResponse> {
-    try {
-      const response = await api.put<InvoiceResponse>(`/invoices/${invoiceId}/payment-status`, { paymentStatus });
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || `Failed to update payment status for invoice ${invoiceId}`;
-      throw new Error(errorMessage);
+    const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
+    if (found) {
+      found.paymentStatus = paymentStatus;
+      return found;
     }
+    return mockInvoicesList[0];
   },
 
   // Delete invoice
   async delete(invoiceId: string): Promise<DeleteInvoiceResponse> {
-    try {
-      const response = await api.delete<DeleteInvoiceResponse>(`/invoices/${invoiceId}`);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || `Failed to delete invoice ${invoiceId}`;
-      throw new Error(errorMessage);
+    const index = mockInvoicesList.findIndex(i => i._id === invoiceId || i.invoiceId === invoiceId);
+    if (index !== -1) {
+      mockInvoicesList.splice(index, 1);
     }
+    return { message: "Invoice deleted successfully" };
   },
 
   // Get inventory items for dropdown
   async getInventoryItems(): Promise<InventoryItem[]> {
-    try {
-      const response = await api.get<InventoryItem[]>("/inventory-items");
-      return response.data;
-    } catch (error: unknown) {
-      return [];
-    }
+    return mockInventoryItems;
   },
 
   // Create new customer
   async createCustomer(customerData: Omit<InvoiceCustomer, '_id' | 'customerCode'>) {
-    try {
-      const response = await api.post("/customers", customerData);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to create customer";
-      throw new Error(errorMessage);
-    }
+    const newCust: InvoiceCustomer = {
+      ...customerData,
+      _id: `cust-${Date.now()}`,
+      customerCode: `CUST-${Math.floor(100 + Math.random() * 900)}`
+    };
+    return newCust;
   },
 
   // Update customer
   async updateCustomer(customerId: string, customerData: Omit<InvoiceCustomer, '_id' | 'customerCode'>) {
-    try {
-      const response = await api.put(`/customers/${customerId}`, customerData);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to update customer";
-      throw new Error(errorMessage);
-    }
+    return {
+      ...customerData,
+      _id: customerId,
+      customerCode: 'CUST-001'
+    };
   }
 };

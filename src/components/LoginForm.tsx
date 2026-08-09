@@ -6,8 +6,8 @@ import { ShieldCheck } from "lucide-react";
 
 const LoginForm: React.FC = () => {
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    email: "500labs.admin@gmail.com",
+    password: "500labs",
   });
 
   const [showPassword, setShowPassword] = useState(false);
