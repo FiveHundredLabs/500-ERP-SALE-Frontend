@@ -11,77 +11,216 @@ import ProtectedRoute from "./ProtectedRoute";
 import InvoiceView from "../pages/InvoiceView";
 import QuotationView from "../pages/QuotationView";
 import RoleRoute from "./RoleRoute";
+import { ToastProvider } from "../components/erp/Toast";
+
+// NEW HARDWARE ERP PAGES
+import Orders from "../pages/Orders";
+import OrderDetails from "../pages/OrderDetails";
+import PurchaseOrders from "../pages/PurchaseOrders";
+import PurchaseOrderDetails from "../pages/PurchaseOrderDetails";
+import Users from "../pages/Users";
+import CustomerDetails from "../pages/CustomerDetails";
+import SupplierDetails from "../pages/SupplierDetails";
 
 const AppRoutes: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <ToastProvider>
+      <Routes>
+        {/* Public auth */}
+        <Route path="/login" element={<Login />} />
 
-      {/* Public routes */}
-      <Route path="/invoice/view/:id" element={<InvoiceView />} />
-      <Route path="/quotation/view/:id" element={<QuotationView />} />
-      
-      {/* ADMIN ONLY */}
-      <Route path="/" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin']}>
-            <Dashboard />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        {/* Public document view routes (EXISTING - UNTOUCHED) */}
+        <Route path="/invoice/view/:id" element={<InvoiceView />} />
+        <Route path="/quotation/view/:id" element={<QuotationView />} />
 
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin']}>
-            <Dashboard />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        {/* DASHBOARD */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Dashboard />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
 
-      {/* ADMIN + INVENTORY MANAGER */}
-      <Route path="/inventory" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin', 'inventory_manager']}>
-            <Inventory />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Dashboard />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
 
-      {/* ADMIN ONLY */}
-      <Route path="/quotations" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin']}>
-            <Quotations />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        {/* ORDERS MANAGEMENT (NEW) */}
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "salesman"]}>
+                <Orders />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/finance" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin']}>
-            <Finance />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        <Route
+          path="/orders/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "salesman"]}>
+                <OrderDetails />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/invoice" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin']}>
-            <Invoice />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        {/* PURCHASE ORDERS (NEW) */}
+        <Route
+          path="/purchase-orders"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <PurchaseOrders />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/user-management" element={
-        <ProtectedRoute>
-          <RoleRoute allowedRoles={['admin']}>
-            <UserManagement />
-          </RoleRoute>
-        </ProtectedRoute>
-      } />
+        <Route
+          path="/purchase-orders/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <PurchaseOrderDetails />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* USERS (CUSTOMERS & SUPPLIERS - NEW) */}
+        <Route
+          path="/users"
+          element={<Navigate to="/users/customers" replace />}
+        />
+
+        <Route
+          path="/users/customers"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Users />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users/suppliers"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Users />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users/customers/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <CustomerDetails />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users/suppliers/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <SupplierDetails />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* INVENTORY (EXISTING - UNTOUCHED) */}
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <Inventory />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* QUOTATIONS (EXISTING - UNTOUCHED) */}
+        <Route
+          path="/quotations"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Quotations />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* FINANCE (EXISTING - UNTOUCHED) */}
+        <Route
+          path="/finance"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Finance />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* INVOICE (EXISTING - UNTOUCHED) */}
+        <Route
+          path="/invoice"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Invoice />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* SYSTEM USERS (SETTINGS) */}
+        <Route
+          path="/user-management"
+          element={<Navigate to="/settings/system-users" replace />}
+        />
+
+        <Route
+          path="/settings/system-users"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <UserManagement />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ToastProvider>
   );
 };
 

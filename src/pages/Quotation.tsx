@@ -21,6 +21,7 @@ import {
   Copy,
   Check,
   Share2,
+  ShoppingCart,
 } from "lucide-react";
 import QuotationForm from "../components/quotation/QuotationForm";
 import QuotationCanvas from "../components/quotation/QuotationCanvas";
@@ -42,6 +43,8 @@ import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
+import { mockPurchaseOrders } from "../data/mockPurchaseOrders";
+import type { PurchaseOrder } from "../types/purchaseOrders";
 
 const Quotation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -654,6 +657,70 @@ const Quotation: React.FC = () => {
   const handleOpenManageModal = () => {
     setViewMode('manage');
     setCurrentPage(1);
+  };
+
+  const handleConvertQuotationToPO = (quotation: QuotationResponse) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Convert to Purchase Order',
+      message: `Convert quotation ${quotation.quotationId} to a Purchase Order? This will create a new draft PO with the quotation items.`,
+      confirmText: 'Convert to PO',
+      type: 'info',
+      onConfirm: () => {
+        const generatedPONumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const customerName = typeof quotation.customer === 'object'
+          ? (quotation.customer as any).fullName || (quotation.customer as any).name || 'Unknown'
+          : String(quotation.customer);
+
+        const newPO: PurchaseOrder = {
+          id: Math.random().toString(36).substr(2, 9),
+          poNumber: generatedPONumber,
+          referenceOrderNum: quotation.quotationId,
+          supplierId: 'SUP-001',
+          supplierName: 'Pending Supplier',
+          supplierContact: '',
+          supplierPhone: '',
+          supplierAddress: '',
+          supplierCity: '',
+          customerName,
+          createdById: 'admin',
+          createdByName: 'Admin User',
+          poDate: new Date().toISOString().split('T')[0],
+          expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: quotation.items.map((it: any) => ({
+            id: it._id || Math.random().toString(36).substr(2, 9),
+            sku: it.item?.product_code || it.item || 'SKU-NA',
+            productName: it.item?.product_name || it.itemName || 'Item',
+            category: 'General',
+            quantity: it.quantity,
+            unit: 'pcs',
+            unitPrice: it.unitPrice,
+            discount: 0,
+            tax: 0,
+            subtotal: it.quantity * it.unitPrice,
+            total: it.quantity * it.unitPrice,
+          })),
+          numberOfItems: quotation.items.length,
+          subTotal: quotation.subTotal,
+          totalDiscount: quotation.discount,
+          totalTax: 0,
+          shippingCharges: 0,
+          grandTotal: quotation.totalAmount,
+          status: 'Draft',
+          paymentStatus: 'Unpaid',
+          paymentTerms: 'Net 30',
+          notes: `Converted from Quotation ${quotation.quotationId}`,
+        };
+
+        mockPurchaseOrders.unshift(newPO);
+        setAlert({
+          type: 'success',
+          message: `Purchase Order ${generatedPONumber} created from Quotation ${quotation.quotationId}!`,
+        });
+      }
+    });
   };
 
   useEffect(() => {
@@ -1298,6 +1365,14 @@ const Quotation: React.FC = () => {
                                         ) : (
                                           <Copy className="w-4 h-4" />
                                         )}
+                                      </button>
+
+                                      <button
+                                        onClick={() => handleConvertQuotationToPO(quotation)}
+                                        title="Convert to Purchase Order"
+                                        className="p-2 rounded-md text-amber-400 hover:bg-amber-500/20 transition"
+                                      >
+                                        <ShoppingCart className="w-4 h-4" />
                                       </button>
 
                                       <button

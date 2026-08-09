@@ -53,26 +53,26 @@ const UserProfileDropdown: React.FC = () => {
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-[#0f172a] border border-[#334155] p-2 rounded-full cursor-pointer hover:bg-[#1e293b] transition flex items-center justify-center"
+        className="bg-[#111827] border border-[#334155] p-1.5 rounded-full cursor-pointer hover:bg-[#243244] transition flex items-center justify-center"
         aria-label="User profile menu"
       >
-        <User className="text-gray-200 w-5 h-5" />
+        <User className="text-[#CBD5E1] w-4 h-4" />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && userProfile && (
-        <div className="absolute right-0 mt-2 w-80 bg-[#1e293b] border border-[#334155] rounded-lg shadow-xl z-[9999]">
+        <div className="absolute right-0 mt-2 w-72 bg-[#1E293B] border border-[#334155] rounded-lg shadow-xl z-[9999]">
           {/* User Info Section */}
-          <div className="p-4 border-b border-[#334155]">
+          <div className="p-3.5 border-b border-[#334155]">
             <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-full p-3">
-                <User className="text-white w-5 h-5" />
+              <div className="bg-[#3B82F6]/20 text-[#3B82F6] border border-[#3B82F6]/30 rounded-full p-2.5">
+                <User className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">
+                <p className="text-sm font-semibold text-[#F8FAFC] truncate">
                   {userProfile.fullName}
                 </p>
-                <p className="text-xs text-gray-400 truncate">
+                <p className="text-xs text-[#94A3B8] truncate">
                   {userProfile.email}
                 </p>
               </div>
@@ -80,23 +80,23 @@ const UserProfileDropdown: React.FC = () => {
           </div>
 
           {/* Role Section */}
-          <div className="px-4 py-3 border-b border-[#334155]">
-            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">
+          <div className="px-3.5 py-2.5 border-b border-[#334155]">
+            <p className="text-[10px] text-[#94A3B8] font-semibold uppercase tracking-wider mb-1">
               Role
             </p>
-            <div className="inline-block bg-blue-500/20 text-blue-300 text-xs font-semibold px-3 py-1 rounded-full">
+            <div className="inline-block bg-[#3B82F6]/20 text-[#38BDF8] border border-[#3B82F6]/30 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize">
               {userProfile.role}
             </div>
           </div>
 
           {/* Logout Button */}
-          <div className="p-2">
+          <div className="p-1.5">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-[#0f172a] rounded transition"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#CBD5E1] hover:text-[#EF4444] hover:bg-[#EF4444]/10 rounded-md transition"
             >
-              <LogOut className="w-4 h-4" />
-              Logout
+              <LogOut className="w-3.5 h-3.5" />
+              Logout System
             </button>
           </div>
         </div>

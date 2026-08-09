@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/Patrol_Masters_Logo.png";
 import { useAuth } from "../contexts/AuthContext";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { ShieldCheck } from "lucide-react";
 
 const LoginForm: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -60,69 +60,74 @@ const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full max-w-md">
-      {/* Preloader */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center z-50">
-          <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+    <div className="w-full max-w-md flex flex-col items-center">
+      {/* Brand Header above the card */}
+      <div className="text-center mb-8 flex flex-col items-center select-none">
+        <div className="w-12 h-12 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mb-3.5 shadow-lg shadow-blue-500/10">
+          <ShieldCheck size={26} />
         </div>
-      )}
+        <h1 className="text-3xl font-extrabold text-white tracking-tight">
+          500Core
+        </h1>
+        <p className="text-xs font-semibold text-slate-400 tracking-wider uppercase mt-1">
+          Business Management & ERP Platform
+        </p>
+      </div>
 
-      {/* Glassmorphism Card */}
-      <div className="bg-white/20 backdrop-blur-xl shadow-xl rounded-2xl border border-white/30 p-8">
-        <div className="text-center mb-6">
-          <img
-            src={logo}
-            alt="Company Logo"
-            className="w-24 mx-auto mb-3 drop-shadow-lg"
-          />
-          <h1 className="text-2xl font-bold text-white drop-shadow">
-            Patrol Masters Automotive ERP
-          </h1>
-          <p className="text-white/80 mt-1">Login</p>
-        </div>
+      {/* Main card */}
+      <div className="w-full bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl p-8 relative overflow-hidden">
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-[#1e293b]/70 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="w-10 h-10 border-4 border-slate-600 border-t-blue-500 rounded-full animate-spin"></div>
+          </div>
+        )}
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           {/* EMAIL */}
           <div>
-            {fieldErrors.email && (
-              <p className="text-red-300 text-sm mb-1">{fieldErrors.email}</p>
-            )}
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              Email Address
+            </label>
             <input
               type="email"
               name="email"
-              placeholder="Email"
+              placeholder="name@company.com"
               disabled={isLoading}
               value={formData.email}
               onChange={handleChange}
-              className={`w-full px-4 py-3 rounded-xl bg-white/40 placeholder-gray-700 outline-none focus:ring-2 focus:ring-blue-600 ${fieldErrors.email ? "ring-2 ring-red-500" : ""
-                }`}
+              className={`w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-[#334155] text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                fieldErrors.email ? "ring-2 ring-red-500 border-transparent" : ""
+              }`}
             />
+            {fieldErrors.email && (
+              <p className="text-red-400 text-xs mt-1.5">{fieldErrors.email}</p>
+            )}
           </div>
 
           {/* PASSWORD WITH SHOW/HIDE */}
-          <div className="relative">
-            {fieldErrors.password && (
-              <p className="text-red-300 text-sm mb-1">{fieldErrors.password}</p>
-            )}
-
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              Password
+            </label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 name="password"
-                placeholder="Password"
+                placeholder="••••••••"
                 disabled={isLoading}
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full px-4 pr-12 py-3 rounded-xl bg-white/40 placeholder-gray-700 outline-none focus:ring-2 focus:ring-blue-600 ${fieldErrors.password ? "ring-2 ring-red-500" : ""
-                  }`}
+                className={`w-full px-4 pr-12 py-3 rounded-xl bg-[#0f172a] border border-[#334155] text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                  fieldErrors.password ? "ring-2 ring-red-500 border-transparent" : ""
+                }`}
               />
 
               {/* Eye Icon Inside Input */}
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-gray-900"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
               >
                 {showPassword ? (
                   <EyeSlashIcon className="w-5 h-5" />
@@ -131,17 +136,28 @@ const LoginForm: React.FC = () => {
                 )}
               </button>
             </div>
+            {fieldErrors.password && (
+              <p className="text-red-400 text-xs mt-1.5">{fieldErrors.password}</p>
+            )}
           </div>
 
-          {/* BUTTON */}
+          {/* SUBMIT BUTTON */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all disabled:bg-blue-400"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all disabled:bg-blue-500/50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 mt-2"
           >
-            Login
+            Sign In
           </button>
         </form>
+      </div>
+
+      {/* Developer attribution */}
+      <div className="mt-8 text-center text-xs text-slate-500 select-none font-medium">
+        Designed & Developed by{" "}
+        <span className="text-slate-400 font-semibold hover:text-blue-400 transition-colors">
+          500 Labs
+        </span>
       </div>
     </div>
   );

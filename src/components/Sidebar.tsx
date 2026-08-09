@@ -1,53 +1,40 @@
-import React from "react";
+import React, { useState } from "react";
 import {
-  Menu,
   LayoutGrid,
-  Cog,
+  ShoppingBag,
+  FileText,
+  Receipt,
+  ShoppingCart,
+  Package,
+  Warehouse,
+  Users,
+  Truck,
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  Shield,
+  ShieldCheck,
   DollarSign,
-  UserCog,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-interface CustomIconProps {
-  size?: number;
-  className?: string;
-}
-
-const LetterQIcon: React.FC<CustomIconProps> = ({ size = 20, className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-  >
-    <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-    <circle cx="12" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-    <path d="M15 15L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const LetterIIcon: React.FC<CustomIconProps> = ({ size = 20, className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-  >
-    <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-    <line x1="12" y1="6" x2="12" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="9" y1="6" x2="15" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="9" y1="18" x2="15" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
 interface SidebarProps {
   isOpen: boolean;
-  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsOpen: ((val: boolean) => void) | React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+interface NavItem {
+  name: string;
+  icon: React.ElementType;
+  path: string;
+  roles: string[];
+}
+
+interface NavGroup {
+  title: string;
+  icon: React.ElementType;
+  items: NavItem[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
@@ -55,130 +42,193 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
   const { role } = useAuth();
 
-  const mainMenuItems = [
-    { name: "Dashboard", icon: LayoutGrid, path: "/dashboard", roles: ['admin'] },
-    { name: "Inventory", icon: Cog, path: "/inventory", roles: ['admin', 'inventory_manager'] },
-    { name: "Quotations", icon: LetterQIcon, path: "/quotations", roles: ['admin'] },
-    { name: "Invoice", icon: LetterIIcon, path: "/invoice", roles: ['admin'] },
-    { name: "Finance", icon: DollarSign, path: "/finance", roles: ['admin'] },
-  ];
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    Sales: true,
+    Purchasing: true,
+    Products: true,
+    Users: true,
+    Reports: false,
+    Settings: false,
+  });
 
-  const bottomMenuItems = [
-    { name: "User Management", icon: UserCog, path: "/user-management", roles: ['admin'] },
-  ];
-
-  const filteredMainItems = mainMenuItems.filter(item => 
-    item.roles.includes(role || 'inventory_manager')
-  );
-
-  const filteredBottomItems = bottomMenuItems.filter(item => 
-    item.roles.includes(role || 'inventory_manager')
-  );
-
-  const handleNavigation = (path: string) => {
-    navigate(path);
+  const toggleGroup = (title: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
+  const currentRole = role || 'admin';
+
+  const singleNavItems: NavItem[] = [
+    { name: "Dashboard", icon: LayoutGrid, path: "/dashboard", roles: ['admin', 'inventory_manager'] },
+  ];
+
+  const navGroups: NavGroup[] = [
+    {
+      title: "Sales",
+      icon: ShoppingBag,
+      items: [
+        { name: "Orders", icon: ShoppingBag, path: "/orders", roles: ['admin', 'salesman'] },
+        { name: "Quotations", icon: FileText, path: "/quotations", roles: ['admin'] },
+        { name: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", roles: ['admin', 'inventory_manager'] },
+        { name: "Invoices", icon: Receipt, path: "/invoice", roles: ['admin'] },
+        { name: "Accounts", icon: DollarSign, path: "/finance", roles: ['admin'] },
+      ],
+    },
+    {
+      title: "Products",
+      icon: Package,
+      items: [
+        { name: "Inventory", icon: Warehouse, path: "/inventory", roles: ['admin', 'inventory_manager'] },
+      ],
+    },
+    {
+      title: "Users",
+      icon: Users,
+      items: [
+        { name: "Customers", icon: Users, path: "/users/customers", roles: ['admin'] },
+        { name: "Suppliers", icon: Truck, path: "/users/suppliers", roles: ['admin'] },
+      ],
+    },
+    {
+      title: "Settings",
+      icon: Settings,
+      items: [
+        { name: "System Users", icon: Shield, path: "/settings/system-users", roles: ['admin'] },
+      ],
+    },
+  ];
+
   const isActive = (path: string) => {
-    return location.pathname === path;
+    if (path === "/users/customers" || path === "/users/suppliers") {
+      return location.pathname.startsWith("/users");
+    }
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
+
+  const handleNavClick = (path: string) => {
+    navigate(path);
+    if (window.innerWidth < 1024) {
+      (setIsOpen as (val: boolean) => void)(false);
+    }
   };
 
   return (
-    <div
+    <aside
       className={`
-        ${isOpen ? "w-64" : "w-20"}
-        h-screen transition-all duration-300
-        bg-[#111827]/60 backdrop-blur-xl 
-        border-r border-[#1f2937]
-        text-gray-300 shadow-lg
-        flex flex-col
+        ${isOpen ? "w-64" : "w-16"}
+        h-screen transition-all duration-200
+        bg-[#0b1120] border-r border-[#334155]
+        text-slate-300 shadow-xl
+        flex flex-col flex-shrink-0 z-30 select-none
       `}
     >
-      
-      {/* Header with Menu toggle */}
-      <div
-        className="flex items-center gap-3 px-4 py-4 cursor-pointer hover:bg-white/5 rounded-xl m-2 transition-all"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <Menu size={22} className="text-gray-300" />
-        {isOpen && (
-          <span className="text-sm font-semibold text-gray-200 tracking-wide">
-            Menu
-          </span>
-        )}
-      </div>
-
-      <div className="border-t border-[#1f2937] mx-3"></div>
-
-      {/* Main Navigation Items */}
-      <div className="flex flex-col flex-1 mt-4 space-y-2">
-        {filteredMainItems.map((item) => (
-          <div
-            key={item.name}
-            onClick={() => handleNavigation(item.path)}
-            className={`
-              flex items-center space-x-3 px-4 py-3 rounded-xl mx-2 cursor-pointer
-              transition-all duration-300
-              ${
-                isActive(item.path)
-                  ? "bg-blue-500/20 border border-blue-500/30 text-blue-400"
-                  : "hover:bg-white/5 hover:shadow-lg hover:-translate-y-0.5"
-              }
-            `}
-          >
-            <item.icon 
-              size={20} 
-              className={isActive(item.path) ? "text-blue-400" : "text-gray-300"} 
-            />
-
-            {isOpen && (
-              <span className={`text-sm font-medium ${
-                isActive(item.path) ? "text-blue-400" : "text-gray-200"
-              }`}>
-                {item.name}
-              </span>
-            )}
+      {/* Brand Header */}
+      <div className="flex items-center px-4 py-3.5 border-b border-[#334155] h-16 bg-[#0b1120]">
+        <div
+          className="flex items-center gap-3 cursor-pointer min-w-0"
+          onClick={() => handleNavClick('/dashboard')}
+        >
+          <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
+            <ShieldCheck size={20} />
           </div>
-        ))}
+          {isOpen && (
+            <div className="overflow-hidden">
+              <h1 className="text-sm font-bold text-white tracking-tight truncate">500Core</h1>
+              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Bottom Section */}
-      {filteredBottomItems.length > 0 && (
-        <>
-          <div className="border-t border-[#1f2937] mx-3 mb-2"></div>
-          
-          {/* User Management Item */}
-          {filteredBottomItems.map((item) => (
-            <div
-              key={item.name}
-              onClick={() => handleNavigation(item.path)}
-              className={`
-                flex items-center space-x-3 px-4 py-3 rounded-xl mx-2 mb-4 cursor-pointer
-                transition-all duration-300
-                ${
-                  isActive(item.path)
-                    ? "bg-blue-500/20 border border-blue-500/30 text-blue-400"
-                    : "hover:bg-white/5 hover:shadow-lg hover:-translate-y-0.5"
-                }
-              `}
-            >
-              <item.icon 
-                size={20} 
-                className={isActive(item.path) ? "text-blue-400" : "text-gray-300"} 
-              />
+      {/* Navigation List */}
+      <div className="sidebar-nav flex-1 overflow-y-auto px-2.5 py-3 space-y-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        {/* Single Navigation Items */}
+        {singleNavItems
+          .filter((item) => item.roles.includes(currentRole))
+          .map((item) => {
+            const active = isActive(item.path);
+            return (
+              <div
+                key={item.name}
+                onClick={() => handleNavClick(item.path)}
+                className={`
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium
+                  transition-colors duration-150
+                  ${
+                    active
+                      ? "bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30"
+                      : "text-slate-300 hover:bg-[#1e293b] hover:text-white"
+                  }
+                `}
+                title={!isOpen ? item.name : undefined}
+              >
+                <item.icon size={18} className={`flex-shrink-0 ${active ? "text-blue-400" : "text-slate-400"}`} />
+                {isOpen && <span className="truncate">{item.name}</span>}
+              </div>
+            );
+          })}
 
-              {isOpen && (
-                <span className={`text-sm font-medium ${
-                  isActive(item.path) ? "text-blue-400" : "text-gray-200"
-                }`}>
-                  {item.name}
-                </span>
+        {/* Grouped Navigation Items */}
+        {navGroups.map((group) => {
+          const filteredItems = group.items.filter((item) => item.roles.includes(currentRole));
+          if (filteredItems.length === 0) return null;
+
+          const isExpanded = expandedGroups[group.title] ?? true;
+
+          return (
+            <div key={group.title} className="pt-2">
+              {/* Group Header */}
+              {isOpen ? (
+                <div
+                  onClick={() => toggleGroup(group.title)}
+                  className="flex items-center justify-between px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 cursor-pointer hover:text-slate-200 transition-colors"
+                >
+                  <span>{group.title}</span>
+                  {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </div>
+              ) : (
+                <div className="h-px bg-[#334155] mx-2 my-2" />
+              )}
+
+              {/* Group Children */}
+              {(isExpanded || !isOpen) && (
+                <div className="space-y-0.5 mt-1">
+                  {filteredItems.map((item) => {
+                    const active = isActive(item.path);
+                    return (
+                      <div
+                        key={item.name}
+                        onClick={() => handleNavClick(item.path)}
+                        className={`
+                          flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium
+                          transition-colors duration-150
+                          ${
+                            active
+                              ? "bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30"
+                              : "text-slate-300 hover:bg-[#1e293b] hover:text-white"
+                          }
+                        `}
+                        title={!isOpen ? item.name : undefined}
+                      >
+                        <item.icon size={17} className={`flex-shrink-0 ${active ? "text-blue-400" : "text-slate-400"}`} />
+                        {isOpen && <span className="truncate">{item.name}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
-          ))}
-        </>
+          );
+        })}
+      </div>
+
+      {/* Footer Status */}
+      {isOpen && (
+        <div className="p-3 border-t border-[#334155] text-[11px] text-slate-400 flex justify-between items-center bg-[#0b1120]">
+          <span>500Core v2.4</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
+        </div>
       )}
-    </div>
+    </aside>
   );
 };
 

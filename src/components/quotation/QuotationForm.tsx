@@ -11,6 +11,9 @@ import { CustomerFormModal } from "./CustomerFormModal";
 import { ItemSearchAndAdd } from "./ItemSearchAndAdd";
 import { QuotationItemsList } from "./QuotationItemsList";
 import { QuotationSummary } from "./QuotationSummary";
+import POPickerModal from "../common/POPickerModal";
+import type { PurchaseOrder } from "../../types/purchaseOrders";
+import { ClipboardList } from "lucide-react";
 
 interface QuotationFormProps {
   quotationData: QuotationData;
@@ -64,6 +67,23 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
+  const [showOrderPicker, setShowOrderPicker] = useState(false);
+  const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
+
+  const handleOrderImport = useCallback((po: PurchaseOrder) => {
+    // Map PO items to quotation line items
+    po.items.forEach(p => {
+      const lineItem: Omit<QuotationItem, 'id' | 'total'> = {
+        item: p.id || p.sku,
+        itemName: `${p.productName} (${p.sku})`,
+        quantity: p.quantity,
+        unitPrice: p.unitPrice,
+      };
+      onAddItem(lineItem);
+    });
+    setImportedOrderId(po.poNumber);
+    onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
+  }, [onAddItem, onFieldChange]);
 
   const itemTotal = useMemo(() => {
     const qty = parseInt(newItem.quantity) || 0;
@@ -246,7 +266,33 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         />
       )}
 
+      {/* PO Picker Modal */}
+      <POPickerModal
+        isOpen={showOrderPicker}
+        onClose={() => setShowOrderPicker(false)}
+        onSelect={handleOrderImport}
+      />
+
       <div className="bg-[#1e293b] rounded-lg p-5 border border-[#334155]">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-200">Create Quotation</h2>
+          <div className="flex items-center gap-2">
+            {importedOrderId && (
+              <span className="text-xs text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                <ClipboardList size={11} />
+                Ref: {importedOrderId}
+              </span>
+            )}
+            {/* <button
+              type="button"
+              onClick={() => setShowOrderPicker(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-semibold transition-colors"
+            >
+              <ClipboardList size={14} />
+              Import from PO
+            </button> */}
+          </div>
+        </div>
         <CustomerSearchAndManagement
           searchTerm={customerSearchTerm}
           onSearchChange={setCustomerSearchTerm}
