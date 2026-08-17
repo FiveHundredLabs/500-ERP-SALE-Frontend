@@ -65,13 +65,23 @@ const Orders: React.FC = () => {
     { value: 'Partial', label: 'Partial' },
   ];
 
-  // Dynamic suggestions for FilterBar instant dropdown
+  // Dynamic suggestions for FilterBar instant dropdown (Order ID & Customer Name only)
   const searchSuggestions = useMemo(() => {
     const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
     const seenCustomers = new Set<string>();
-    const seenSalesmen = new Set<string>();
 
-    // 1. Customers
+    // 1. Order IDs
+    orders.forEach(o => {
+      suggestions.push({
+        id: `ord-${o.orderId}`,
+        title: o.orderId,
+        subtitle: `${o.customerName} · LKR ${(o.grandTotal || 0).toLocaleString()} · ${o.status}`,
+        category: 'Order ID',
+        value: o.orderId,
+      });
+    });
+
+    // 2. Customer Names
     orders.forEach(o => {
       if (o.customerName && !seenCustomers.has(o.customerName)) {
         seenCustomers.add(o.customerName);
@@ -85,42 +95,16 @@ const Orders: React.FC = () => {
       }
     });
 
-    // 2. Orders
-    orders.forEach(o => {
-      suggestions.push({
-        id: `ord-${o.orderId}`,
-        title: o.orderId,
-        subtitle: `${o.customerName} · LKR ${(o.grandTotal || 0).toLocaleString()} · ${o.status}`,
-        category: 'Order ID',
-        value: o.orderId,
-      });
-    });
-
-    // 3. Salesmen
-    orders.forEach(o => {
-      if (o.salesman?.name && !seenSalesmen.has(o.salesman.name)) {
-        seenSalesmen.add(o.salesman.name);
-        suggestions.push({
-          id: `sm-${o.salesman.id || o.salesman.name}`,
-          title: o.salesman.name,
-          subtitle: `Sales Area: ${o.salesman.area || 'General'}`,
-          category: 'Salesman',
-          value: o.salesman.name,
-        });
-      }
-    });
-
     return suggestions;
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((ord) => {
+      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        searchQuery === '' ||
-        ord.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.salesman.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.contactPerson.toLowerCase().includes(searchQuery.toLowerCase());
+        q === '' ||
+        ord.orderId.toLowerCase().includes(q) ||
+        ord.customerName.toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === '' || ord.status === statusFilter;
       const matchesPayment = paymentFilter === '' || ord.paymentStatus === paymentFilter;
@@ -324,7 +308,7 @@ const Orders: React.FC = () => {
 
         <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
           <FilterBar
-            searchPlaceholder="Search order ID, customer, salesman..."
+            searchPlaceholder="Search by order ID or customer name..."
             searchValue={searchQuery}
             onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
             suggestions={searchSuggestions}
