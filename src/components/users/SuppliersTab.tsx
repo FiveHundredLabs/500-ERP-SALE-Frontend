@@ -310,7 +310,7 @@ const SuppliersTab: React.FC = () => {
       render: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => navigate(`/users/suppliers/${row.id}`)}
+            onClick={() => navigate(`/suppliers/${row.id}`)}
             className="p-1 rounded text-slate-400 hover:text-purple-400 hover:bg-slate-800"
             title="View Details"
           >
@@ -396,7 +396,7 @@ const SuppliersTab: React.FC = () => {
           data={paginatedSuppliers}
           loading={loading}
           keyExtractor={(item) => item.id}
-          onRowClick={(item) => navigate(`/users/suppliers/${item.id}`)}
+          onRowClick={(item) => navigate(`/suppliers/${item.id}`)}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}

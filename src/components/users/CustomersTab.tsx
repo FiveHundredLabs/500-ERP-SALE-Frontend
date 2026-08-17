@@ -286,7 +286,7 @@ const CustomersTab: React.FC = () => {
       render: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => navigate(`/users/customers/${row.id}`)}
+            onClick={() => navigate(`/customers/${row.id}`)}
             className="p-1 rounded text-slate-400 hover:text-blue-400 hover:bg-slate-800"
             title="View Details"
           >
@@ -371,7 +371,7 @@ const CustomersTab: React.FC = () => {
           columns={columns}
           data={paginatedCustomers}
           keyExtractor={(item) => item.id}
-          onRowClick={(item) => navigate(`/users/customers/${item.id}`)}
+          onRowClick={(item) => navigate(`/customers/${item.id}`)}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}

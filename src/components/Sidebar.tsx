@@ -86,8 +86,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       title: "Users",
       icon: Users,
       items: [
-        { name: "Customers", icon: Users, path: "/users/customers", roles: ['admin'] },
-        { name: "Suppliers", icon: Truck, path: "/users/suppliers", roles: ['admin'] },
+        { name: "Customers", icon: Users, path: "/customers", roles: ['admin'] },
+        { name: "Suppliers", icon: Truck, path: "/suppliers", roles: ['admin'] },
       ],
     },
     {
@@ -100,8 +100,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   ];
 
   const isActive = (path: string) => {
-    if (path === "/users/customers" || path === "/users/suppliers") {
-      return location.pathname.startsWith("/users");
+    if (path === "/customers") {
+      return location.pathname === "/customers" || location.pathname.startsWith("/customers/") || location.pathname.startsWith("/users/customers");
+    }
+    if (path === "/suppliers") {
+      return location.pathname === "/suppliers" || location.pathname.startsWith("/suppliers/") || location.pathname.startsWith("/users/suppliers");
     }
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };

@@ -55,7 +55,7 @@ const CustomerDetails: React.FC = () => {
       headerSubtitle={customer.customerId}
       headerRight={
         <button
-          onClick={() => navigate('/users/customers')}
+          onClick={() => navigate('/customers')}
           className="erp-btn erp-btn-outline erp-btn-sm gap-1.5 text-xs"
         >
           <ArrowLeft size={13} /> Back to Customers

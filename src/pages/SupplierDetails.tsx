@@ -51,7 +51,7 @@ const SupplierDetails: React.FC = () => {
       headerSubtitle={supplier.supplierId}
       headerRight={
         <button
-          onClick={() => navigate('/users/suppliers')}
+          onClick={() => navigate('/suppliers')}
           className="erp-btn erp-btn-outline erp-btn-sm gap-1.5 text-xs"
         >
           <ArrowLeft size={13} /> Back to Suppliers

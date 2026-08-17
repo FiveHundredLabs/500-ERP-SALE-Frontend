@@ -18,7 +18,8 @@ import Orders from "../pages/Orders";
 import OrderDetails from "../pages/OrderDetails";
 import PurchaseOrders from "../pages/PurchaseOrders";
 import PurchaseOrderDetails from "../pages/PurchaseOrderDetails";
-import Users from "../pages/Users";
+import Customers from "../pages/Customers";
+import Suppliers from "../pages/Suppliers";
 import CustomerDetails from "../pages/CustomerDetails";
 import SupplierDetails from "../pages/SupplierDetails";
 
@@ -102,34 +103,55 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* USERS (CUSTOMERS & SUPPLIERS - NEW) */}
+        {/* CUSTOMERS & SUPPLIERS (SEPARATE PAGES) */}
         <Route
-          path="/users"
-          element={<Navigate to="/users/customers" replace />}
-        />
-
-        <Route
-          path="/users/customers"
+          path="/customers"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
-                <Users />
+                <Customers />
               </RoleRoute>
             </ProtectedRoute>
           }
         />
 
         <Route
-          path="/users/suppliers"
+          path="/customers/:id"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
-                <Users />
+                <CustomerDetails />
               </RoleRoute>
             </ProtectedRoute>
           }
         />
 
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Suppliers />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/suppliers/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <SupplierDetails />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Legacy /users redirects and aliases */}
+        <Route path="/users" element={<Navigate to="/customers" replace />} />
+        <Route path="/users/customers" element={<Navigate to="/customers" replace />} />
+        <Route path="/users/suppliers" element={<Navigate to="/suppliers" replace />} />
         <Route
           path="/users/customers/:id"
           element={
@@ -140,7 +162,6 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/users/suppliers/:id"
           element={
