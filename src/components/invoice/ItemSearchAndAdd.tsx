@@ -69,21 +69,22 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               onChange={(e) => {
                 const value = e.target.value;
                 onSearchChange(value);
-                onShowSuggestionsChange(value.trim().length >= 2);
+                onShowSuggestionsChange(true);
               }}
-              onFocus={() => {
-                if (searchTerm.trim().length >= 2 && filteredItems.length > 0) {
-                  onShowSuggestionsChange(true);
-                }
-              }}
-              placeholder="Type to search items..."
+              onFocus={() => onShowSuggestionsChange(true)}
+              onClick={() => onShowSuggestionsChange(true)}
+              placeholder="Search product / item name..."
               className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Search items by name, code, or vehicle"
             />
             
             {/* Search Suggestions Dropdown */}
-            {showSuggestions && searchTerm.trim().length >= 2 && (
+            {showSuggestions && (
               <div className="absolute z-10 w-full mt-1 bg-[#0f172a] border border-[#334155] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase bg-[#1e293b]/60 flex justify-between">
+                  <span>{searchTerm ? `Matching items (${filteredItems.length})` : `All available items (${filteredItems.length})`}</span>
+                  <span className="text-[10px] text-gray-500">Product / Item</span>
+                </div>
                 {filteredItems.length === 0 ? (
                   <div className="px-3 py-2 text-gray-400 text-sm italic">
                     No items found matching "{searchTerm}"

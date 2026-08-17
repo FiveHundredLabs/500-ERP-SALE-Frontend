@@ -65,23 +65,11 @@ const Orders: React.FC = () => {
     { value: 'Partial', label: 'Partial' },
   ];
 
-  // Dynamic suggestions for FilterBar instant dropdown (Order ID & Customer Name only)
+  // Dynamic suggestions for FilterBar instant dropdown (Customer Name only)
   const searchSuggestions = useMemo(() => {
     const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
     const seenCustomers = new Set<string>();
 
-    // 1. Order IDs
-    orders.forEach(o => {
-      suggestions.push({
-        id: `ord-${o.orderId}`,
-        title: o.orderId,
-        subtitle: `${o.customerName} · LKR ${(o.grandTotal || 0).toLocaleString()} · ${o.status}`,
-        category: 'Order ID',
-        value: o.orderId,
-      });
-    });
-
-    // 2. Customer Names
     orders.forEach(o => {
       if (o.customerName && !seenCustomers.has(o.customerName)) {
         seenCustomers.add(o.customerName);
@@ -103,7 +91,6 @@ const Orders: React.FC = () => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         q === '' ||
-        ord.orderId.toLowerCase().includes(q) ||
         ord.customerName.toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === '' || ord.status === statusFilter;
@@ -308,7 +295,7 @@ const Orders: React.FC = () => {
 
         <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
           <FilterBar
-            searchPlaceholder="Search by order ID or customer name..."
+            searchPlaceholder="Search customer name..."
             searchValue={searchQuery}
             onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
             suggestions={searchSuggestions}

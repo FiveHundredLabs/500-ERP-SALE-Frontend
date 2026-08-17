@@ -48,18 +48,16 @@ export const useCustomerSearch = () => {
 
   // Filter customers based on search term
   useEffect(() => {
-    if (searchTerm.trim().length < 2) {
-      setFilteredCustomers([]);
+    if (!searchTerm.trim()) {
+      setFilteredCustomers(allCustomers);
       return;
     }
 
     const searchTermLower = searchTerm.toLowerCase().trim();
     const filtered = allCustomers.filter(customer => {
-      const matchesPhone = customer.phone?.toLowerCase().includes(searchTermLower);
       const matchesName = customer.fullName?.toLowerCase().includes(searchTermLower);
-      const matchesEmail = customer.email?.toLowerCase().includes(searchTermLower);
-      
-      return matchesPhone || matchesName || matchesEmail;
+      const matchesCode = customer.customerCode?.toLowerCase().includes(searchTermLower);
+      return matchesName || matchesCode;
     });
     
     setFilteredCustomers(filtered);
