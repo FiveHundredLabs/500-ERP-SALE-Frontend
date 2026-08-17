@@ -55,6 +55,34 @@ const CustomersTab: React.FC = () => {
     { value: 'Inactive', label: 'Inactive' },
   ];
 
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+
+    // 1. Customer Names
+    customers.forEach(c => {
+      suggestions.push({
+        id: `c-name-${c.id}`,
+        title: c.businessName,
+        subtitle: `${c.contactPerson} · ${c.phone} · ${c.city}`,
+        category: 'Customer',
+        value: c.businessName,
+      });
+    });
+
+    // 2. Customer IDs
+    customers.forEach(c => {
+      suggestions.push({
+        id: `c-id-${c.id}`,
+        title: c.customerId,
+        subtitle: `${c.businessName} · ${c.customerType}`,
+        category: 'Customer ID',
+        value: c.customerId,
+      });
+    });
+
+    return suggestions;
+  }, [customers]);
+
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       const matchesSearch =
@@ -294,6 +322,7 @@ const CustomersTab: React.FC = () => {
             setSearchQuery(val);
             setCurrentPage(1);
           }}
+          suggestions={searchSuggestions}
           selects={[
             {
               value: typeFilter,

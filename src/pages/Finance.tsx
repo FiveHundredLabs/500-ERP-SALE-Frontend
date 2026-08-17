@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "../components/Sidebar";
 import FinanceTable from "../components/FinanceTable";
 import SearchFilterBar from "../components/SearchFilterBar";
@@ -335,6 +335,48 @@ const Finance: React.FC = () => {
     await proceedWithDownload();
   };
 
+  // Suggestions for instant search dropdown
+  const financeSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenCustomers = new Set<string>();
+
+    invoices.forEach(inv => {
+      // 1. Invoices
+      suggestions.push({
+        id: `inv-${inv._id || inv.invoiceId}`,
+        title: inv.invoiceId,
+        subtitle: `${inv.customer?.fullName || 'Customer'} · LKR ${(inv.totalAmount || 0).toLocaleString()} · ${inv.paymentStatus}`,
+        category: 'Invoice ID',
+        value: inv.invoiceId,
+      });
+
+      // 2. Customers
+      if (inv.customer?.fullName && !seenCustomers.has(inv.customer.fullName)) {
+        seenCustomers.add(inv.customer.fullName);
+        suggestions.push({
+          id: `cust-${inv.customer._id || inv.customer.fullName}`,
+          title: inv.customer.fullName,
+          subtitle: `${inv.customer.phone ? `${inv.customer.phone} · ` : ''}${inv.customer.email || ''}`,
+          category: 'Customer',
+          value: inv.customer.fullName,
+        });
+      }
+
+      // 3. Vehicle Numbers
+      if (inv.vehicleNumber) {
+        suggestions.push({
+          id: `veh-${inv.invoiceId}`,
+          title: `Vehicle: ${inv.vehicleNumber}`,
+          subtitle: `Invoice: ${inv.invoiceId} (${inv.customer?.fullName})`,
+          category: 'Vehicle',
+          value: inv.vehicleNumber,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [invoices]);
+
   // Filter invoices based on search and date range
   const filteredInvoices = invoices.filter(invoice => {
     const query = filterConfig.searchQuery.toLowerCase();
@@ -429,6 +471,7 @@ const Finance: React.FC = () => {
               onSearchChange={(query) => setFilterConfig({ ...filterConfig, searchQuery: query })}
               onFieldChange={(field) => setFilterConfig({ ...filterConfig, selectedField: field })}
               onDateRangeChange={(dates) => setFilterConfig({ ...filterConfig, ...dates })}
+              suggestions={financeSuggestions}
             />
           </div>
 

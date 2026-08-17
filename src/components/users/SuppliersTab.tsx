@@ -72,6 +72,34 @@ const SuppliersTab: React.FC = () => {
     { value: 'Inactive', label: 'Inactive' },
   ];
 
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+
+    // 1. Supplier Names
+    suppliers.forEach(s => {
+      suggestions.push({
+        id: `s-name-${s.id}`,
+        title: s.companyName,
+        subtitle: `${s.contactPerson} · ${s.phone} · ${s.city}`,
+        category: 'Supplier',
+        value: s.companyName,
+      });
+    });
+
+    // 2. Supplier IDs
+    suppliers.forEach(s => {
+      suggestions.push({
+        id: `s-id-${s.id}`,
+        title: s.supplierId,
+        subtitle: `${s.companyName} · ${s.supplierType}`,
+        category: 'Supplier ID',
+        value: s.supplierId,
+      });
+    });
+
+    return suggestions;
+  }, [suppliers]);
+
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter((s) => {
       const matchesSearch =
@@ -312,12 +340,13 @@ const SuppliersTab: React.FC = () => {
       {/* Header bar within tab */}
       <div className="erp-card mb-6 p-0 overflow-hidden">
         <FilterBar
-          searchPlaceholder="Search supplier company, ID, city..."
+          searchPlaceholder="Search supplier, ID, city, phone..."
           searchValue={searchQuery}
           onSearchChange={(val) => {
             setSearchQuery(val);
             setCurrentPage(1);
           }}
+          suggestions={searchSuggestions}
           selects={[
             {
               value: typeFilter,

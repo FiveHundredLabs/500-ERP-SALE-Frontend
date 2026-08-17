@@ -56,6 +56,52 @@ const PurchaseOrders: React.FC = () => {
     { value: 'Cancelled', label: 'Cancelled' },
   ];
 
+  // Dynamic suggestions for FilterBar instant dropdown
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenSuppliers = new Set<string>();
+
+    // 1. Suppliers
+    purchaseOrders.forEach(po => {
+      if (po.supplierName && !seenSuppliers.has(po.supplierName)) {
+        seenSuppliers.add(po.supplierName);
+        suggestions.push({
+          id: `sup-${po.supplierId || po.supplierName}`,
+          title: po.supplierName,
+          subtitle: `${po.supplierContact ? `${po.supplierContact} · ` : ''}${po.supplierCity || po.supplierPhone || ''}`,
+          category: 'Supplier',
+          value: po.supplierName,
+        });
+      }
+    });
+
+    // 2. Purchase Orders
+    purchaseOrders.forEach(po => {
+      suggestions.push({
+        id: `po-${po.poNumber}`,
+        title: po.poNumber,
+        subtitle: `${po.supplierName} · LKR ${(po.grandTotal || 0).toLocaleString()} · ${po.status}`,
+        category: 'Purchase Order',
+        value: po.poNumber,
+      });
+    });
+
+    // 3. Reference Orders
+    purchaseOrders.forEach(po => {
+      if (po.referenceOrderNum) {
+        suggestions.push({
+          id: `ref-${po.referenceOrderNum}`,
+          title: `Ref: ${po.referenceOrderNum}`,
+          subtitle: `Linked PO: ${po.poNumber} (${po.supplierName})`,
+          category: 'Order ID',
+          value: po.referenceOrderNum,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [purchaseOrders]);
+
   const filteredPOs = useMemo(() => {
     return purchaseOrders.filter((po) => {
       const matchesSearch =
@@ -244,6 +290,7 @@ const PurchaseOrders: React.FC = () => {
           searchPlaceholder="Search PO number, supplier, ref order..."
           searchValue={searchQuery}
           onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+          suggestions={searchSuggestions}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}

@@ -65,6 +65,54 @@ const Orders: React.FC = () => {
     { value: 'Partial', label: 'Partial' },
   ];
 
+  // Dynamic suggestions for FilterBar instant dropdown
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenCustomers = new Set<string>();
+    const seenSalesmen = new Set<string>();
+
+    // 1. Customers
+    orders.forEach(o => {
+      if (o.customerName && !seenCustomers.has(o.customerName)) {
+        seenCustomers.add(o.customerName);
+        suggestions.push({
+          id: `cust-${o.customerId || o.customerName}`,
+          title: o.customerName,
+          subtitle: `${o.contactPerson ? `${o.contactPerson} · ` : ''}${o.customerCity || o.contactPhone || ''}`,
+          category: 'Customer',
+          value: o.customerName,
+        });
+      }
+    });
+
+    // 2. Orders
+    orders.forEach(o => {
+      suggestions.push({
+        id: `ord-${o.orderId}`,
+        title: o.orderId,
+        subtitle: `${o.customerName} · LKR ${(o.grandTotal || 0).toLocaleString()} · ${o.status}`,
+        category: 'Order ID',
+        value: o.orderId,
+      });
+    });
+
+    // 3. Salesmen
+    orders.forEach(o => {
+      if (o.salesman?.name && !seenSalesmen.has(o.salesman.name)) {
+        seenSalesmen.add(o.salesman.name);
+        suggestions.push({
+          id: `sm-${o.salesman.id || o.salesman.name}`,
+          title: o.salesman.name,
+          subtitle: `Sales Area: ${o.salesman.area || 'General'}`,
+          category: 'Salesman',
+          value: o.salesman.name,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     return orders.filter((ord) => {
       const matchesSearch =
@@ -279,6 +327,7 @@ const Orders: React.FC = () => {
             searchPlaceholder="Search order ID, customer, salesman..."
             searchValue={searchQuery}
             onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            suggestions={searchSuggestions}
             dateFrom={dateFrom}
             dateTo={dateTo}
             onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
