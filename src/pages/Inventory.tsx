@@ -12,7 +12,21 @@ import type { InventoryItem } from "../types/inventory";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 
 const Inventory: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [stats, setStats] = useState({
     totalItems: 0,
     inStock: 0,

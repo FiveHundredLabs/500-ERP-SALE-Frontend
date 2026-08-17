@@ -44,13 +44,26 @@ import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 
 const Invoice: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InvoiceInventoryItem[]>([]);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedRef = useRef<InvoiceData | null>(null);

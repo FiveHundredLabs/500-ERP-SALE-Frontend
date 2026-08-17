@@ -45,7 +45,7 @@ import { mockPurchaseOrders } from "../data/mockPurchaseOrders";
 import type { PurchaseOrder } from "../types/purchaseOrders";
 
 const Quotation: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [isMobileView, setIsMobileView] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -100,7 +100,9 @@ const Quotation: React.FC = () => {
 
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsMobileView(window.innerWidth < 1024);
+      const isMobile = window.innerWidth < 1024;
+      setIsMobileView(isMobile);
+      setIsOpen(!isMobile);
     };
 
     checkScreenSize();

@@ -15,6 +15,8 @@ import {
   Shield,
   ShieldCheck,
   DollarSign,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -121,22 +123,49 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         flex flex-col flex-shrink-0 z-30 select-none
       `}
     >
-      {/* Brand Header */}
-      <div className="flex items-center px-4 py-3.5 border-b border-[#334155] h-16 bg-[#0b1120]">
-        <div
-          className="flex items-center gap-3 cursor-pointer min-w-0"
-          onClick={() => handleNavClick('/dashboard')}
-        >
-          <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
-            <ShieldCheck size={20} />
-          </div>
-          {isOpen && (
-            <div className="overflow-hidden">
-              <h1 className="text-sm font-bold text-white tracking-tight truncate">500Core</h1>
-              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
+      {/* Brand Header with Collapse / Expand button on top */}
+      <div className={`flex items-center ${isOpen ? 'justify-between px-3.5' : 'justify-center px-2'} py-3 border-b border-[#334155] h-16 bg-[#0b1120] flex-shrink-0`}>
+        {isOpen ? (
+          <>
+            <div
+              className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1"
+              onClick={() => handleNavClick('/dashboard')}
+              title="500Core Dashboard"
+            >
+              <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
+                <ShieldCheck size={18} />
+              </div>
+              <div className="overflow-hidden">
+                <h1 className="text-sm font-bold text-white tracking-tight truncate">500Core</h1>
+                <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Collapse button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                (setIsOpen as (val: boolean) => void)(false);
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] border border-transparent hover:border-[#334155] transition-colors flex-shrink-0"
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose size={17} />
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => (setIsOpen as (val: boolean) => void)(true)}
+            className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 hover:text-white transition-colors flex-shrink-0 flex items-center justify-center"
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+          >
+            <PanelLeftOpen size={18} />
+          </button>
+        )}
       </div>
 
       {/* Navigation List */}
