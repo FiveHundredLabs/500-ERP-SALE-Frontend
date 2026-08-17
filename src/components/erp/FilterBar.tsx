@@ -64,17 +64,27 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
   useClickOutside([containerRef], () => setIsOpen(false));
 
-  // Filter suggestions dynamically based on searchValue
+  // Filter and sort suggestions dynamically based on searchValue (starts with first, then includes)
   const filteredSuggestions = useMemo(() => {
     if (!suggestions || suggestions.length === 0) return [];
     const q = searchValue.toLowerCase().trim();
-    if (!q) return suggestions;
-    return suggestions.filter(item => {
+    if (!q) {
+      return [...suggestions].sort((a, b) => a.title.localeCompare(b.title));
+    }
+    const matching = suggestions.filter(item => {
       const matchTitle = item.title.toLowerCase().includes(q);
       const matchSubtitle = item.subtitle ? item.subtitle.toLowerCase().includes(q) : false;
       const matchCategory = item.category ? item.category.toLowerCase().includes(q) : false;
       const matchValue = item.value ? item.value.toLowerCase().includes(q) : false;
       return matchTitle || matchSubtitle || matchCategory || matchValue;
+    });
+
+    return matching.sort((a, b) => {
+      const aStarts = a.title.toLowerCase().startsWith(q) || (a.value && a.value.toLowerCase().startsWith(q));
+      const bStarts = b.title.toLowerCase().startsWith(q) || (b.value && b.value.toLowerCase().startsWith(q));
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.title.localeCompare(b.title);
     });
   }, [suggestions, searchValue]);
 

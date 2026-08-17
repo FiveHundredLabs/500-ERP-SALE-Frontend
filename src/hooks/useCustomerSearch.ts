@@ -46,21 +46,30 @@ export const useCustomerSearch = () => {
     loadCustomers();
   }, []);
 
-  // Filter customers based on search term
+  // Filter customers based on search term (Prefix / first-letter matches first, then alphabetical)
   useEffect(() => {
     if (!searchTerm.trim()) {
-      setFilteredCustomers(allCustomers);
+      const sorted = [...allCustomers].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+      setFilteredCustomers(sorted);
       return;
     }
 
     const searchTermLower = searchTerm.toLowerCase().trim();
-    const filtered = allCustomers.filter(customer => {
+    const matching = allCustomers.filter(customer => {
       const matchesName = customer.fullName?.toLowerCase().includes(searchTermLower);
       const matchesCode = customer.customerCode?.toLowerCase().includes(searchTermLower);
       return matchesName || matchesCode;
     });
-    
-    setFilteredCustomers(filtered);
+
+    const sorted = matching.sort((a, b) => {
+      const aStarts = a.fullName?.toLowerCase().startsWith(searchTermLower) || false;
+      const bStarts = b.fullName?.toLowerCase().startsWith(searchTermLower) || false;
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return (a.fullName || '').localeCompare(b.fullName || '');
+    });
+
+    setFilteredCustomers(sorted);
   }, [searchTerm, allCustomers]);
 
   const refreshCustomers = useCallback(async () => {
