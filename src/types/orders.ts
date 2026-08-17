@@ -26,10 +26,10 @@ export type OrderPaymentStatusType = typeof OrderPaymentStatus[keyof typeof Orde
 
 export interface OrderProduct {
   id: string;
-  sku: string;
+  sku?: string;
   productName: string;
-  category: string;
-  brand: string;
+  category?: string;
+  brand?: string;
   quantity: number;
   unit: string;
   unitPrice: number;

@@ -97,9 +97,9 @@ const OrderDetails: React.FC = () => {
         createdByName: 'Admin User',
         items: order.products.map((p) => ({
           id: p.id || Math.random().toString(),
-          sku: p.sku,
+          sku: p.sku || 'N/A',
           productName: p.productName,
-          category: p.category,
+          category: p.category || 'General',
           quantity: p.quantity,
           unit: p.unit,
           unitPrice: p.unitPrice * 0.7,
