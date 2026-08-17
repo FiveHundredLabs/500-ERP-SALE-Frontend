@@ -1,31 +1,5 @@
 import type { User, CreateUserDto, UpdateUserDto } from "../types/users";
-
-const mockSystemUsers: User[] = [
-  {
-    _id: "usr-admin-001",
-    fullName: "Admin User",
-    email: "500labs.admin@gmail.com",
-    role: "admin",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z"
-  },
-  {
-    _id: "usr-sales-001",
-    fullName: "Kamal Perera",
-    email: "kamal@500core.lk",
-    role: "salesman",
-    createdAt: "2026-01-10T00:00:00.000Z",
-    updatedAt: "2026-01-10T00:00:00.000Z"
-  },
-  {
-    _id: "usr-inv-001",
-    fullName: "Nimal Silva",
-    email: "nimal@500core.lk",
-    role: "inventory_manager",
-    createdAt: "2026-01-15T00:00:00.000Z",
-    updatedAt: "2026-01-15T00:00:00.000Z"
-  }
-];
+import { mockSystemUsers } from "../data/mockSystemUsers";
 
 class UserService {
   private currentUser: User | null = null;
@@ -54,7 +28,7 @@ class UserService {
       email: dto.email,
       role: dto.role,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
     mockSystemUsers.push(newUser);
     return newUser;
@@ -81,9 +55,10 @@ class UserService {
   }
 
   async checkEmailExists(email: string, excludeId?: string): Promise<boolean> {
-    return mockSystemUsers.some(user => 
-      user.email.toLowerCase() === email.toLowerCase() && 
-      (!excludeId || user._id !== excludeId)
+    return mockSystemUsers.some(
+      user =>
+        user.email.toLowerCase() === email.toLowerCase() &&
+        (!excludeId || user._id !== excludeId)
     );
   }
 }

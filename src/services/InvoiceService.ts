@@ -36,12 +36,12 @@ export const invoiceService = {
 
   // Get all customers
   async getAllCustomers(): Promise<InvoiceCustomer[]> {
-    return mockCustomers.map(c => ({
+    return mockCustomers.map((c, idx) => ({
       _id: c.id,
       fullName: c.businessName || c.contactPerson,
       email: c.email || '',
       phone: c.phone || '',
-      vatNumber: '119283401-7000',
+      vatNumber: `LKR-${(100000000 + (idx + 1) * 98765).toString().substring(0, 9)}-VAT`,
       customerCode: c.customerId,
       address: {
         street: c.address,
