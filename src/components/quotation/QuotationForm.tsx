@@ -60,6 +60,31 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   });
 
   const [discountInput, setDiscountInput] = useState(quotationData.discountPercentage.toString());
+  const [creditPeriod, setCreditPeriod] = useState<string>('custom');
+
+  // When credit period preset is selected, auto-calculate validUntil from issueDate
+  const handleCreditPeriodChange = useCallback((period: string) => {
+    setCreditPeriod(period);
+    if (period !== 'custom' && quotationData.issueDate) {
+      const days = parseInt(period);
+      const issue = new Date(quotationData.issueDate);
+      issue.setDate(issue.getDate() + days);
+      const due = issue.toISOString().split('T')[0];
+      onFieldChange('validUntil', due);
+    }
+  }, [quotationData.issueDate, onFieldChange]);
+
+  // When issueDate changes, recalculate validUntil if a preset is active
+  const handleIssueDateChange = (value: string) => {
+    onFieldChange('issueDate', value);
+    if (creditPeriod !== 'custom' && value) {
+      const days = parseInt(creditPeriod);
+      const issue = new Date(value);
+      issue.setDate(issue.getDate() + days);
+      const due = issue.toISOString().split('T')[0];
+      onFieldChange('validUntil', due);
+    }
+  };
 
   React.useEffect(() => {
     setDiscountInput(quotationData.discountPercentage.toString());
@@ -119,13 +144,40 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     setShowItemSuggestions(false);
   }, [setItemSearchTerm, setShowItemSuggestions]);
 
+  const handlePaymentMethodChange = (method: string) => {
+    onFieldChange('paymentMethod', method);
+    if (method === PaymentMethod.CREDIT || method === 'Credit') {
+      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      handleCreditPeriodChange(periodToUse);
+    } else {
+      setCreditPeriod('custom');
+    }
+  };
+
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
     onCustomerIdChange(customer._id, customer);
     setCustomerSearchTerm(`${customer.fullName} (${customer.phone})`);
     setShowCustomerSuggestions(false);
     setCustomerModalMode(null);
-  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions]);
+
+    // Auto-detect customer's agreed credit payment terms (e.g. Net 30, Net 15)
+    const terms = (customer as any).paymentTerms || '';
+    if (terms && !terms.toLowerCase().includes('cash')) {
+      onFieldChange('paymentMethod', PaymentMethod.CREDIT);
+      if (terms.includes('15')) {
+        handleCreditPeriodChange('15');
+      } else if (terms.includes('45')) {
+        handleCreditPeriodChange('45');
+      } else if (terms.includes('60')) {
+        handleCreditPeriodChange('60');
+      } else if (terms.includes('7')) {
+        handleCreditPeriodChange('7');
+      } else {
+        handleCreditPeriodChange('30');
+      }
+    }
+  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -311,16 +363,84 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
+                Payment Method*
+              </label>
+              <select
+                value={quotationData.paymentMethod}
+                onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                {Object.values(PaymentMethod).map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Status*
+              </label>
+              <select
+                value={quotationData.status}
+                onChange={(e) => onFieldChange('status', e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                {Object.values(QuotationStatus).map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Issue Date / Credit Period / Valid Until */}
+          <div className={`grid grid-cols-1 ${quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Issue Date*
               </label>
               <input
                 type="date"
                 value={quotationData.issueDate}
-                onChange={(e) => onFieldChange('issueDate', e.target.value)}
+                onChange={(e) => handleIssueDateChange(e.target.value)}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
+
+            {/* Credit Period Selector - Appears ONLY when Payment Method is Credit */}
+            {(quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Credit Period
+                </label>
+                <div className="flex flex-col gap-1.5">
+                  <select
+                    value={creditPeriod}
+                    onChange={(e) => handleCreditPeriodChange(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="custom">Custom (manual)</option>
+                    <option value="0">Immediate (0 days)</option>
+                    <option value="7">7 Days</option>
+                    <option value="14">14 Days</option>
+                    <option value="15">15 Days</option>
+                    <option value="30">30 Days</option>
+                    <option value="45">45 Days</option>
+                    <option value="60">60 Days</option>
+                    <option value="90">90 Days</option>
+                  </select>
+                  {creditPeriod !== 'custom' && (
+                    <p className="text-[11px] text-blue-400 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                      Valid until auto-calculated
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Valid Until*
@@ -329,42 +449,13 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
                 type="date"
                 value={quotationData.validUntil}
                 onChange={(e) => onFieldChange('validUntil', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                readOnly={(quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit') && creditPeriod !== 'custom'}
+                className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  (quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit') && creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
                 required
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Payment Method*
-            </label>
-            <select
-              value={quotationData.paymentMethod}
-              onChange={(e) => onFieldChange('paymentMethod', e.target.value)}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              {Object.values(PaymentMethod).map(method => (
-                <option key={method} value={method}>{method}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Status*
-            </label>
-            <select
-              value={quotationData.status}
-              onChange={(e) => onFieldChange('status', e.target.value)}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              {Object.values(QuotationStatus).map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
           </div>
 
           <div>
