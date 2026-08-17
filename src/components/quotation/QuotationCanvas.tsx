@@ -23,17 +23,16 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
     }
   };
 
-  // Calculate tax and discount
+  // Calculate totals
   const calculateTotals = () => {
     const subTotal = quotationData.subTotal;
-    const discountPercentage = quotationData.discountPercentage || 0;
-    const discountAmount = subTotal * (discountPercentage / 100);
-    const totalAmount = subTotal - discountAmount;
+    const discountAmount = quotationData.discount;
+    const totalAmount = quotationData.totalAmount;
     
-    return { subTotal, discountPercentage, discountAmount, totalAmount };
+    return { subTotal, discountAmount, totalAmount };
   };
 
-  const { subTotal, discountPercentage, discountAmount, totalAmount } = calculateTotals();
+  const { subTotal, discountAmount, totalAmount } = calculateTotals();
 
   const getRowColor = (index: number) => {
     return index % 2 === 0 ? '#f5f5f5' : '#ffffff';
@@ -298,10 +297,16 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
                   paddingLeft: '2mm', 
                   fontWeight: 'bold',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                   height: '100%'
                 }}>
-                  {item.itemName || item.item || `ITEM NAME / DESCRIPTION`}
+                  <span>{item.itemName || item.item || `ITEM NAME / DESCRIPTION`}</span>
+                  {item.discountAmount && item.discountAmount > 0 ? (
+                    <span style={{ fontSize: '9px', color: '#dc2626', fontWeight: 'normal' }}>
+                      (Discount: -LKR {item.discountAmount.toFixed(2)})
+                    </span>
+                  ) : null}
                 </div>
                 <div style={{ 
                   textAlign: 'center',
@@ -414,10 +419,12 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
               <span style={{ fontWeight: 'bold' }}>SUBTOTAL:</span>
               <span style={{ textAlign: 'right', minWidth: '50px' }}>LKR {subTotal.toFixed(2)}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', marginBottom: '2mm', paddingBottom: '1mm' }}>
-              <span style={{ fontWeight: 'bold' }}>DISCOUNT ({discountPercentage}%):</span>
-              <span style={{ textAlign: 'right', minWidth: '50px' }}>- LKR {discountAmount.toFixed(2)}</span>
-            </div>
+            {discountAmount > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', marginBottom: '2mm', paddingBottom: '1mm' }}>
+                <span style={{ fontWeight: 'bold' }}>DISCOUNT:</span>
+                <span style={{ textAlign: 'right', minWidth: '50px', color: '#dc2626' }}>- LKR {discountAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', fontWeight: 'bold', fontSize: '14px', marginTop: '3mm' }}>
               <span>TOTAL AMOUNT:</span>
               <span style={{ textAlign: 'right', minWidth: '50px' }}>LKR {totalAmount.toFixed(2)}</span>

@@ -29,9 +29,15 @@ export interface QuotationItem {
   id: string;
   item: string;
   itemName?: string;
+  product_code?: string;
   description?: string;
   quantity: number;
   unitPrice: number;
+  costPrice?: number;
+  discountType?: 'percentage' | 'amount';
+  discountScope?: 'per_unit' | 'total_qty';
+  discountValue?: number;
+  discountAmount?: number;
   total: number;
 }
 

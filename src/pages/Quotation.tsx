@@ -24,7 +24,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import QuotationForm from "../components/quotation/QuotationForm";
-import QuotationCanvas from "../components/quotation/QuotationCanvas";
+import QuotationViewModal from "../components/quotation/QuotationViewModal";
 import type {
   QuotationData,
   QuotationItem,
@@ -36,8 +36,6 @@ import { PaymentMethod } from "../types/invoice";
 import { QuotationStatus } from "../types/quotation";
 import { quotationService } from "../services/QuotationService";
 import { inventoryService } from "../services/InventoryService";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -49,16 +47,11 @@ import type { PurchaseOrder } from "../types/purchaseOrders";
 const Quotation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
-  const [activePanel, setActivePanel] = useState<'form' | 'preview'>('form');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [inventoryItems, setInventoryItems] = useState<QuotationInventoryItem[]>([]);
-  const quotationRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.85);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rightPanelRef = useRef<HTMLDivElement>(null);
 
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedRef = useRef<QuotationData | null>(null);
@@ -87,9 +80,6 @@ const Quotation: React.FC = () => {
     onConfirm: () => { },
   });
 
-  // Add state for share dropdown
-  const [showShareDropdown, setShowShareDropdown] = useState(false);
-
   const getInitialQuotationData = (): QuotationData => ({
     quotationId: "",
     customer: "",
@@ -110,11 +100,7 @@ const Quotation: React.FC = () => {
 
   useEffect(() => {
     const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsMobileView(width < 1024);
-      if (width < 1024) {
-        setActivePanel('form');
-      }
+      setIsMobileView(window.innerWidth < 1024);
     };
 
     checkScreenSize();
@@ -122,34 +108,6 @@ const Quotation: React.FC = () => {
 
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
-
-  useEffect(() => {
-    const calculateInitialScale = () => {
-      if (rightPanelRef.current && !isMobileView) {
-        const panelWidth = rightPanelRef.current.clientWidth;
-        const panelHeight = rightPanelRef.current.clientHeight;
-        const a4Width = 210 * 3.78;
-        const a4Height = 297 * 3.78;
-
-        const availableWidth = panelWidth - (isMobileView ? 24 : 48);
-        const availableHeight = panelHeight - (isMobileView ? 100 : 120);
-
-        const widthScale = availableWidth / a4Width;
-        const heightScale = availableHeight / a4Height;
-
-        const calculatedScale = Math.min(widthScale, heightScale);
-        setScale(Math.max(calculatedScale, isMobileView ? 0.3 : 0.5));
-      }
-    };
-
-    calculateInitialScale();
-    const resizeObserver = new ResizeObserver(calculateInitialScale);
-    if (rightPanelRef.current) {
-      resizeObserver.observe(rightPanelRef.current);
-    }
-
-    return () => resizeObserver.disconnect();
-  }, [isMobileView]);
 
   const loadInitialData = async () => {
     try {
@@ -181,42 +139,60 @@ const Quotation: React.FC = () => {
     loadInitialData();
   }, []);
 
-  const handleAddItem = (item: Omit<QuotationItem, 'id' | 'total'>) => {
-    const total = item.quantity * item.unitPrice;
-
+  const handleAddItem = (item: Omit<QuotationItem, 'id' | 'total'> & { total?: number }) => {
     const existingItemIndex = quotationData.items.findIndex(
       existing => existing.item === item.item
     );
 
-    let newItems;
+    let newItems: QuotationItem[];
 
     if (existingItemIndex !== -1) {
       newItems = [...quotationData.items];
       const existingItem = newItems[existingItemIndex];
-      const updatedItem = {
+      const newQty = existingItem.quantity + item.quantity;
+      const baseSub = newQty * existingItem.unitPrice;
+      let discAmount = 0;
+      
+      if (item.discountType === 'percentage' || existingItem.discountType === 'percentage') {
+        const pct = item.discountValue !== undefined ? item.discountValue : (existingItem.discountValue || 0);
+        discAmount = (baseSub * pct) / 100;
+      } else if (item.discountType === 'amount' || existingItem.discountType === 'amount') {
+        const val = item.discountValue !== undefined ? item.discountValue : (existingItem.discountValue || 0);
+        const scope = item.discountScope || existingItem.discountScope || 'per_unit';
+        discAmount = scope === 'total_qty' ? Math.min(baseSub, val) : Math.min(baseSub, val * newQty);
+      } else {
+        discAmount = (existingItem.discountAmount || 0) + (item.discountAmount || 0);
+      }
+
+      const updatedTotal = Math.max(0, baseSub - discAmount);
+
+      const updatedItem: QuotationItem = {
         ...existingItem,
-        quantity: existingItem.quantity + item.quantity,
-        total: (existingItem.quantity + item.quantity) * existingItem.unitPrice
+        ...item,
+        quantity: newQty,
+        discountAmount: discAmount,
+        total: updatedTotal
       };
       newItems[existingItemIndex] = updatedItem;
     } else {
+      const lineTotal = item.total !== undefined ? item.total : (item.quantity * item.unitPrice);
       const newItem: QuotationItem = {
         ...item,
         id: Date.now().toString(),
-        total
+        total: lineTotal
       };
       newItems = [...quotationData.items, newItem];
     }
 
-    const subTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subTotal * (quotationData.discountPercentage / 100);
-    const totalAmount = subTotal - discountAmount;
+    const subTotal = newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
+    const totalDiscount = newItems.reduce((sum, it) => sum + (it.discountAmount || 0), 0);
+    const totalAmount = newItems.reduce((sum, it) => sum + it.total, 0);
 
     setQuotationData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
-      discount: discountAmount,
+      discount: totalDiscount,
       totalAmount: totalAmount > 0 ? totalAmount : 0
     }));
     setIsDirty(true);
@@ -282,90 +258,28 @@ const Quotation: React.FC = () => {
   };
 
   // share quotation link
-  const handleShareQuotation = async () => {
-    if (!quotationData._id) {
+  // Preview completed quotation on-demand
+  const handleOpenPreview = () => {
+    if (quotationData.items.length === 0) {
       setAlert({
-        type: 'error',
-        message: 'Please save the quotation first before sharing'
+        type: 'info',
+        message: 'Please add at least one item to preview the quotation'
       });
       return;
     }
+    setShowPreviewModal(true);
+  };
 
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-    
-    // copy the link to clipboard
-    try {
-      await navigator.clipboard.writeText(quotationLink);
-    } catch (err) {
-      // Silent fail for clipboard copy
-    }
-
-    // using Web Share API
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Quotation ${quotationData.quotationId}`,
-          text: `Check out Quotation ${quotationData.quotationId}`,
-          url: quotationLink,
-        });
-        setAlert({
-          type: 'success',
-          message: 'Link also copied to clipboard.'
-        });
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          setShowShareDropdown(true);
-        } else {
-          setAlert({
-            type: 'info',
-            message: 'Quotation link copied to clipboard!'
-          });
-        }
-      }
-    } else {
-      // Web Share API not supported
-      setShowShareDropdown(true);
+  // Share quotation - show preview modal first so user can review before sharing
+  const handleShareQuotation = () => {
+    if (!quotationData.customer && quotationData.items.length === 0) {
       setAlert({
-        type: 'success',
-        message: 'Quotation link copied to clipboard! Select sharing option below.'
+        type: 'error',
+        message: 'Please add customer and items to share quotation'
       });
+      return;
     }
-  };
-
-  // Share via apps
-  const shareViaWhatsApp = () => {
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-    const shareText = `Quotation ${quotationData.quotationId} - View online: ${quotationLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaEmail = () => {
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-    const subject = `Quotation ${quotationData.quotationId}`;
-    const body = `Please find the quotation here: ${quotationLink}`;
-    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaMessenger = () => {
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-    window.open(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(quotationLink)}&app_id=YOUR_APP_ID&redirect_uri=${encodeURIComponent(window.location.origin)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaSMS = () => {
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-    const shareText = `Quotation ${quotationData.quotationId}: ${quotationLink}`;
-    window.open(`sms:?body=${encodeURIComponent(shareText)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaTelegram = () => {
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-    const shareText = `Quotation ${quotationData.quotationId} - View online: ${quotationLink}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(quotationLink)}&text=${encodeURIComponent(shareText)}`, '_blank');
-    setShowShareDropdown(false);
+    setShowPreviewModal(true);
   };
 
   const statusBadgeMap: Record<
@@ -426,15 +340,15 @@ const Quotation: React.FC = () => {
 
   const handleRemoveItem = (id: string) => {
     const newItems = quotationData.items.filter(item => item.id !== id);
-    const subTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subTotal * (quotationData.discountPercentage / 100);
-    const totalAmount = subTotal - discountAmount;
+    const subTotal = newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
+    const totalDiscount = newItems.reduce((sum, it) => sum + (it.discountAmount || 0), 0);
+    const totalAmount = newItems.reduce((sum, it) => sum + it.total, 0);
 
     setQuotationData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
-      discount: discountAmount,
+      discount: totalDiscount,
       totalAmount: totalAmount > 0 ? totalAmount : 0
     }));
     setIsDirty(true);
@@ -445,22 +359,38 @@ const Quotation: React.FC = () => {
       if (item.id === id) {
         const updatedItem = { ...item, ...updates };
         if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
-          updatedItem.total = updatedItem.quantity * updatedItem.unitPrice;
+          const qty = updatedItem.quantity;
+          const baseSub = qty * updatedItem.unitPrice;
+          let discAmount = 0;
+
+          if (updatedItem.discountType === 'percentage') {
+            const pct = updatedItem.discountValue || 0;
+            discAmount = (baseSub * pct) / 100;
+          } else if (updatedItem.discountType === 'amount') {
+            const val = updatedItem.discountValue || 0;
+            const scope = updatedItem.discountScope || 'per_unit';
+            discAmount = scope === 'total_qty' ? Math.min(baseSub, val) : Math.min(baseSub, val * qty);
+          } else {
+            discAmount = updatedItem.discountAmount || 0;
+          }
+
+          updatedItem.discountAmount = discAmount;
+          updatedItem.total = Math.max(0, baseSub - discAmount);
         }
         return updatedItem;
       }
       return item;
     });
 
-    const subTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subTotal * (quotationData.discountPercentage / 100);
-    const totalAmount = subTotal - discountAmount;
+    const subTotal = newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
+    const totalDiscount = newItems.reduce((sum, it) => sum + (it.discountAmount || 0), 0);
+    const totalAmount = newItems.reduce((sum, it) => sum + it.total, 0);
 
     setQuotationData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
-      discount: discountAmount,
+      discount: totalDiscount,
       totalAmount: totalAmount > 0 ? totalAmount : 0
     }));
     setIsDirty(true);
@@ -523,6 +453,7 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData };
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setShowPreviewModal(true);
       } else {
         setAlert({
           type: 'info',
@@ -543,6 +474,7 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData, _id: response._id } as QuotationData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setShowPreviewModal(true);
       }
 
       return true;
@@ -625,8 +557,11 @@ const Quotation: React.FC = () => {
     setIsDirty(false);
     lastSavedAtRef.current = new Date().toISOString();
 
-    setViewMode('edit');
-    setActivePanel(mode === 'view' ? 'preview' : 'form');
+    if (mode === 'view') {
+      setShowPreviewModal(true);
+    } else {
+      setViewMode('edit');
+    }
   };
 
   const handleDeleteQuotation = async (quotationId: string, quotationNumber: string) => {
@@ -760,302 +695,7 @@ const Quotation: React.FC = () => {
     });
   };
 
-  const downloadPDF = async () => {
-    if (!quotationRef.current) {
-      setAlert({
-        type: 'error',
-        message: "Quotation content not available for PDF generation."
-      });
-      return;
-    }
 
-    const proceedWithDownload = async () => {
-      try {
-        setIsGeneratingPDF(true);
-        setAlert({
-          type: 'info',
-          message: 'Generating PDF... Please wait.'
-        });
-
-        const quotationContainer = quotationRef.current!;
-
-        const originalTransform = quotationContainer.style.transform;
-        const originalTransformOrigin = quotationContainer.style.transformOrigin;
-        const originalWidth = quotationContainer.style.width;
-        const originalHeight = quotationContainer.style.height;
-
-        quotationContainer.style.transform = 'none';
-        quotationContainer.style.transformOrigin = 'top left';
-        quotationContainer.style.width = '210mm';
-        quotationContainer.style.height = '297mm';
-        quotationContainer.style.position = 'fixed';
-        quotationContainer.style.left = '0';
-        quotationContainer.style.top = '0';
-        quotationContainer.style.zIndex = '9999';
-
-        void quotationContainer.offsetHeight;
-
-        const images = quotationContainer.getElementsByTagName('img');
-        const imageLoadPromises = Array.from(images).map(img => {
-          if (img.complete) return Promise.resolve();
-          return new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
-          });
-        });
-
-        await Promise.all(imageLoadPromises);
-
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        const canvas = await html2canvas(quotationContainer, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 794,
-          height: 1123,
-          onclone: (clonedDoc: Document) => {
-            const clonedContainer = clonedDoc.querySelector('[data-quotation-container]');
-            if (clonedContainer) {
-              (clonedContainer as HTMLElement).style.transform = 'none';
-              (clonedContainer as HTMLElement).style.transformOrigin = 'top left';
-              (clonedContainer as HTMLElement).style.width = '210mm';
-              (clonedContainer as HTMLElement).style.height = '297mm';
-            }
-          }
-        });
-
-        quotationContainer.style.transform = originalTransform;
-        quotationContainer.style.transformOrigin = originalTransformOrigin;
-        quotationContainer.style.width = originalWidth;
-        quotationContainer.style.height = originalHeight;
-        quotationContainer.style.position = '';
-        quotationContainer.style.left = '';
-        quotationContainer.style.top = '';
-        quotationContainer.style.zIndex = '';
-
-        const jpegData = canvas.toDataURL('image/jpeg', 1.0);
-
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
-
-        const pdfWidth = 210;
-        const pdfHeight = 297;
-
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        const finalHeight = imgHeight > pdfHeight ? pdfHeight : imgHeight;
-
-        const xPos = 0;
-        const yPos = 0;
-
-        pdf.addImage(jpegData, 'JPEG', xPos, yPos, imgWidth, finalHeight);
-        pdf.save(`quotation-${quotationData.quotationId}.pdf`);
-
-        setAlert({
-          type: 'success',
-          message: 'PDF downloaded successfully!'
-        });
-      } catch (error) {
-        setAlert({
-          type: 'error',
-          message: error instanceof Error ? error.message : 'Failed to generate PDF. Please try again.'
-        });
-      } finally {
-        setIsGeneratingPDF(false);
-      }
-    };
-
-    if (!quotationData._id) {
-      setConfirmConfig({
-        isOpen: true,
-        title: "Save Quotation",
-        message: "This quotation has not been saved yet. Do you want to save it now and then download?",
-        confirmText: "Save & Download",
-        onConfirm: async () => {
-          const saved = await handleSave();
-          if (saved) {
-            await proceedWithDownload();
-          }
-        }
-      });
-      return;
-    }
-
-    await proceedWithDownload();
-  };
-
-  const handlePrint = async () => {
-    if (!quotationRef.current) return;
-
-    const proceedWithPrint = async () => {
-      try {
-        setIsGeneratingPDF(true);
-        setAlert({
-          type: 'info',
-          message: 'Preparing print... Please wait.'
-        });
-
-        const canvas = await html2canvas(quotationRef.current!, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 794,
-          height: 1123,
-          onclone: (clonedDoc: Document) => {
-            const clonedContainer = clonedDoc.querySelector('[data-quotation-container]');
-            if (clonedContainer) {
-              (clonedContainer as HTMLElement).style.transform = 'none';
-              (clonedContainer as HTMLElement).style.transformOrigin = 'top left';
-              (clonedContainer as HTMLElement).style.width = '210mm';
-              (clonedContainer as HTMLElement).style.height = '297mm';
-            }
-          }
-        });
-
-        const imageData = canvas.toDataURL('image/png', 1.0);
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-          setAlert({
-            type: 'error',
-            message: "Popup blocked! Please allow popups for this site to print."
-          });
-          setIsGeneratingPDF(false);
-          return;
-        }
-
-        const printHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Quotation ${quotationData.quotationId}</title>
-            <style>
-              @page {
-                size: A4 portrait;
-                margin: 0;
-              }
-              
-              body {
-                margin: 0;
-                padding: 0;
-                width: 210mm;
-                height: 297mm;
-              }
-              
-              .print-container {
-                width: 100%;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-              
-              .quotation-image {
-                width: 210mm;
-                height: 297mm;
-                object-fit: contain;
-              }
-              
-              @media print {
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                
-                .print-container {
-                  page-break-inside: avoid;
-                  page-break-after: avoid;
-                }
-                
-                .quotation-image {
-                  page-break-inside: avoid;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="print-container">
-              <img src="${imageData}" alt="Quotation ${quotationData.quotationId}" class="quotation-image" />
-            </div>
-            <script>
-              // Wait for image to load then print
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  // Close window after print dialog closes
-                  setTimeout(function() {
-                    window.close();
-                  }, 1000);
-                }, 500);
-              };
-              
-              // Fallback if window.onload doesn't fire
-              setTimeout(function() {
-                window.print();
-                setTimeout(function() {
-                  window.close();
-                }, 1000);
-              }, 2000);
-            </script>
-          </body>
-        </html>
-      `;
-
-        printWindow.document.open();
-        printWindow.document.write(printHtml);
-        printWindow.document.close();
-
-        printWindow.focus();
-
-        setIsGeneratingPDF(false);
-
-      } catch (error) {
-        setAlert({
-          type: 'error',
-          message: 'Failed to prepare print. Please try again.'
-        });
-        setIsGeneratingPDF(false);
-      }
-    };
-
-    if (!quotationData._id) {
-      setConfirmConfig({
-        isOpen: true,
-        title: "Save Quotation",
-        message: "This quotation has not been saved yet. Do you want to save it now and then print?",
-        confirmText: "Save & Print",
-        onConfirm: async () => {
-          const saved = await handleSave();
-          if (saved) {
-            await proceedWithPrint();
-          }
-        }
-      });
-      return;
-    }
-
-    await proceedWithPrint();
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showShareDropdown && !(event.target as Element).closest('.share-dropdown-container')) {
-        setShowShareDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showShareDropdown]);
 
   return (
     <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
@@ -1085,90 +725,6 @@ const Quotation: React.FC = () => {
           onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
         />
 
-        {/* Share Dropdown */}
-        {showShareDropdown && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#1e293b] rounded-lg p-4 w-64 share-dropdown-container">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-200">Share Quotation</h3>
-                <button
-                  onClick={() => setShowShareDropdown(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={shareViaWhatsApp}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 transition"
-                >
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">WA</span>
-                  </div>
-                  <span>WhatsApp</span>
-                </button>
-                <button
-                  onClick={shareViaEmail}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 transition"
-                >
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">@</span>
-                  </div>
-                  <span>Email</span>
-                </button>
-                <button
-                  onClick={shareViaMessenger}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-500 transition"
-                >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">f</span>
-                  </div>
-                  <span>Messenger</span>
-                </button>
-                <button
-                  onClick={shareViaSMS}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-green-600/20 hover:bg-green-600/30 text-green-500 transition"
-                >
-                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">SMS</span>
-                  </div>
-                  <span>SMS</span>
-                </button>
-                <button
-                  onClick={shareViaTelegram}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-400/20 hover:bg-blue-400/30 text-blue-300 transition"
-                >
-                  <div className="w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">TG</span>
-                  </div>
-                  <span>Telegram</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const quotationLink = `${window.location.origin}/quotation/view/${quotationData._id}`;
-                    navigator.clipboard.writeText(quotationLink);
-                    setAlert({
-                      type: 'success',
-                      message: 'Quotation link copied to clipboard again!'
-                    });
-                    setShowShareDropdown(false);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition"
-                >
-                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                    <Copy className="w-4 h-4 text-white" />
-                  </div>
-                  <span>Copy Link Again</span>
-                </button>
-              </div>
-              <div className="mt-4 text-sm text-gray-400 text-center">
-                Link is already copied to clipboard
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="h-16 bg-[#0f172a]/70 backdrop-blur-sm border-b border-[#1f2937] flex items-center justify-between px-4 md:px-6 relative z-40">
           <div className="flex items-center gap-3">
             {viewMode === 'manage' ? (
@@ -1194,63 +750,101 @@ const Quotation: React.FC = () => {
                     : 'Create New Quotation'}
               </div>
             </div>
-          </div>
+          </div>          <div className="flex items-center gap-2 md:gap-3">
+            {viewMode === "manage" ? (
+              <>
+                <div className="relative">
+                  <input
+                    value={manageSearch}
+                    onChange={(e) => {
+                      setManageSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search by ID or customer"
+                    className="pl-9 pr-3 py-2 rounded-md bg-[#061425] text-sm placeholder:text-gray-500 text-gray-200 border border-[#16324a] focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
+                  />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+                <button
+                  onClick={() => setViewMode('edit')}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>+ New Quotation</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleConvertQuotationToPO(quotationData)}
+                  disabled={quotationData.items.length === 0}
+                  className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  title="Convert to Purchase Order"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span className="hidden sm:inline">Convert to PO</span>
+                </button>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            {viewMode === "manage" && (
-              <div className="relative">
-                <input
-                  value={manageSearch}
-                  onChange={(e) => {
-                    setManageSearch(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Search by ID or customer"
-                  className="pl-9 pr-3 py-2 rounded-md bg-[#061425] text-sm placeholder:text-gray-500 text-gray-200 border border-[#16324a] focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
-                />
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              </div>
+                <button
+                  type="button"
+                  onClick={handleOpenPreview}
+                  disabled={quotationData.items.length === 0}
+                  className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  title="Preview Quotation"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Preview</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShareQuotation}
+                  disabled={quotationData.items.length === 0}
+                  className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  title="Share Quotation"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Share</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveChanges}
+                  disabled={isLoading || isSaving}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleOpenManageModal}
+                  title="Manage quotations"
+                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                >
+                  <List className="w-4 h-4" />
+                  <span className="hidden sm:inline">Manage</span>
+                </button>
+              </>
             )}
 
-            {viewMode === "edit" && (
-              <button
-                onClick={handleOpenManageModal}
-                title="Manage quotations"
-                className="flex items-center gap-2 bg-blue-500/20 border border-blue-500/30 text-blue-400 px-3 py-1 rounded-md text-sm"
-              >
-                <List className="w-4 h-4" />
-                <span>Manage Quotations</span>
-              </button>
-            )}
-
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 ml-1">
               <UserProfileDropdown />
             </div>
           </div>
         </div>
 
-        {viewMode === 'edit' && isMobileView && (
-          <div className="flex border-b border-[#334155] bg-[#1e293b]">
-            <button
-              onClick={() => setActivePanel('form')}
-              className={`flex-1 py-3 text-center font-medium ${activePanel === 'form' ? 'bg-[#0f172a] text-blue-400' : 'text-gray-300 hover:text-white'}`}
-            >
-              Form
-            </button>
-            <button
-              onClick={() => setActivePanel('preview')}
-              className={`flex-1 py-3 text-center font-medium ${activePanel === 'preview' ? 'bg-[#0f172a] text-blue-400' : 'text-gray-300 hover:text-white'}`}
-            >
-              Preview
-            </button>
-          </div>
-        )}
-
         <div className="flex-1 flex overflow-hidden">
           {viewMode === 'manage' ? (
             <div className="w-full overflow-auto p-4">
               <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
-
                 <div className="flex-1 overflow-auto rounded-lg">
                   {isLoadingQuotations ? (
                     <div className="flex items-center justify-center h-64">
@@ -1289,30 +883,27 @@ const Quotation: React.FC = () => {
                               </th>
                             </tr>
                           </thead>
-
-                          <tbody>
-                            {currentQuotations.map((quotation, idx) => {
-                              const stripe =
-                                idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#08121d]';
-
-                              const customerDisplay = getCustomerDisplay(quotation.customer);
-
+                          <tbody className="divide-y divide-[#243244]">
+                            {currentQuotations.map((quotation: QuotationResponse) => {
+                              const statusConfig = quotation.status ? statusBadgeMap[quotation.status as keyof typeof statusBadgeMap] : null;
                               return (
                                 <tr
                                   key={quotation._id}
-                                  className={`${stripe} border-b border-[#162235] hover:bg-[#0b2a3a]/60 transition-colors`}
+                                  className="hover:bg-[#243244]/50 transition"
                                 >
                                   {/* Quotation ID */}
-                                  <td className="px-2 md:px-4 py-3 font-medium text-gray-200">
+                                  <td className="px-2 md:px-4 py-3 font-medium text-blue-400">
                                     {quotation.quotationId}
                                   </td>
 
                                   {/* Customer */}
-                                  <td
-                                    className="px-2 md:px-4 py-3 text-gray-300 truncate max-w-[120px] sm:max-w-[200px] md:max-w-[260px]"
-                                    title={customerDisplay}
-                                  >
-                                    {customerDisplay || 'Unknown Customer'}
+                                  <td className="px-2 md:px-4 py-3">
+                                    <div className="font-medium text-white">
+                                      {quotation.customer?.fullName || "Walk-in Customer"}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                      {quotation.customer?.phone || ""}
+                                    </div>
                                   </td>
 
                                   {/* Date */}
@@ -1322,11 +913,11 @@ const Quotation: React.FC = () => {
 
                                   {/* Status */}
                                   <td className="hidden sm:table-cell px-2 md:px-4 py-3">
-                                    {statusBadgeMap[quotation.status] && (
+                                    {statusConfig && (
                                       <span
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusBadgeMap[quotation.status].cls}`}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.cls}`}
                                       >
-                                        {statusBadgeMap[quotation.status].icon}
+                                        {statusConfig.icon}
                                         {quotation.status}
                                       </span>
                                     )}
@@ -1337,12 +928,12 @@ const Quotation: React.FC = () => {
                                     LKR {quotation.totalAmount.toFixed(2)}
                                   </td>
 
-                                  {/* Actions - Copy button */}
+                                  {/* Actions */}
                                   <td className="px-2 md:px-4 py-3">
                                     <div className="flex items-center justify-center gap-1.5">
                                       <button
                                         onClick={() => handleLoadQuotation(quotation, 'view')}
-                                        title="View"
+                                        title="View Preview"
                                         className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition"
                                       >
                                         <Eye className="w-4 h-4" />
@@ -1427,14 +1018,11 @@ const Quotation: React.FC = () => {
               </div>
             </div>
           ) : (
-            <>
-              {/* Left Panel - Form */}
-              <div className={`${isMobileView
-                ? (activePanel === 'form' ? 'w-full' : 'hidden')
-                : 'w-full lg:w-1/2'} overflow-y-auto p-4`}
-              >
+            /* Clean Full-Width Form View */
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="max-w-4xl mx-auto space-y-6">
                 {isLoading ? (
-                  <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center justify-center h-64">
                     <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
                   </div>
                 ) : (
@@ -1450,124 +1038,119 @@ const Quotation: React.FC = () => {
                     />
                   </ErrorBoundary>
                 )}
-              </div>
 
-              {/* Right Panel - Canvas */}
-              <div
-                ref={rightPanelRef}
-                className={`${isMobileView
-                  ? (activePanel === 'preview' ? 'w-full' : 'hidden')
-                  : 'hidden lg:flex lg:w-1/2'}
-                  flex flex-col overflow-hidden`}
-              >
-
-                {/* Canvas Container */}
-                <div
-                  ref={containerRef}
-                  className="flex-1 overflow-hidden bg-[#0F172A] flex items-center justify-center p-1 md:p-2"
-                >
-                  <div
-                    ref={quotationRef}
-                    data-quotation-container="true"
-                    style={{
-                      transform: `scale(${scale})`,
-                      transformOrigin: 'center',
-                      width: '210mm',
-                      minHeight: '297mm',
-                      transition: 'transform 0.15s ease-out',
-                      boxShadow: isMobileView
-                        ? '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)'
-                        : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                      backgroundColor: 'white'
-                    }}
-                  >
-                    <ErrorBoundary>
-                      <QuotationCanvas quotationData={quotationData} />
-                    </ErrorBoundary>
-                  </div>
-                </div>
-
-                <div className="bg-[#0F172A] p-3 md:p-4 flex-shrink-0">
-                  <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2">
-                    <div className="flex items-center mb-3 me-3 justify-end gap-2">
-                      {isDirty && (
-                        <button
-                          onClick={handleCancelEdit}
-                          disabled={isLoading || isGeneratingPDF || isSaving}
-                          className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <X className="w-4 h-4" />
-                          <span className="hidden sm:inline">Cancel</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={handleSaveChanges}
-                        disabled={isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSaving ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            <span className="hidden sm:inline">Save</span>
-                          </>
-                        )}
-                      </button>
-
-                      <div className="relative share-dropdown-container">
-                        <button
-                          onClick={handleShareQuotation}
-                          disabled={!quotationData._id || isLoading || isGeneratingPDF || isSaving}
-                          className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-md hover:bg-purple-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Share Quotation Link"
-                        >
-                          <Share2 className="w-4 h-4" />
-                          <span className="hidden sm:inline">Share</span>
-                        </button>
+                {/* Form Footer Action Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1e293b] p-4 rounded-xl border border-[#334155] shadow-lg sticky bottom-4 z-20">
+                  <div className="text-xs text-gray-400">
+                    {quotationData.items.length > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span>Items: <strong className="text-white">{quotationData.items.length}</strong></span>
+                        <span className="text-gray-600">•</span>
+                        <span>Total: <span className="text-emerald-400 font-mono font-bold text-sm">LKR {quotationData.totalAmount.toFixed(2)}</span></span>
                       </div>
+                    ) : (
+                      <span>Add products to generate quotation</span>
+                    )}
+                  </div>
 
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isDirty && (
                       <button
-                        onClick={() => handleConvertQuotationToPO(quotationData)}
-                        disabled={!quotationData._id || isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-amber-600 text-white px-3 py-1.5 rounded-md hover:bg-amber-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Convert Quotation to Purchase Order"
+                        type="button"
+                        onClick={handleCancelEdit}
+                        disabled={isLoading || isSaving}
+                        className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition"
                       >
-                        <ShoppingCart className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to PO</span>
+                        <X className="w-4 h-4" />
+                        <span>Cancel</span>
                       </button>
+                    )}
 
-                      <button
-                        onClick={downloadPDF}
-                        disabled={!quotationData._id || isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isGeneratingPDF ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">PDF</span>
-                          </>
-                        )}
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => handleConvertQuotationToPO(quotationData)}
+                      disabled={isLoading || isSaving || quotationData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Convert Quotation to Purchase Order"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      <span>Convert to PO</span>
+                    </button>
 
-                      <button
-                        onClick={handlePrint}
-                        disabled={!quotationData._id || isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Printer className="w-4 h-4" />
-                        <span className="hidden sm:inline">Print</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleShareQuotation}
+                      disabled={isLoading || isSaving || quotationData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Share Quotation"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>Share</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      disabled={isLoading || isSaving || quotationData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Download PDF via Preview"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      disabled={isLoading || isSaving || quotationData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Print Quotation via Preview"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      disabled={isLoading || isSaving || quotationData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Preview Quotation"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Preview</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveChanges}
+                      disabled={isLoading || isSaving || quotationData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
+                    >
+                      {isSaving ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Quotation</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
-
               </div>
-            </>
+            </div>
           )}
         </div>
+
+        {/* Dedicated Quotation Preview Modal */}
+        <QuotationViewModal
+          isOpen={showPreviewModal}
+          onClose={() => setShowPreviewModal(false)}
+          quotationData={quotationData}
+          onConvertToPO={(q) => handleConvertQuotationToPO(q)}
+          onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
+        />
       </div>
     </div>
   );
