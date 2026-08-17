@@ -5,7 +5,7 @@ import type { InvoiceResponse } from '../types/invoice';
 import { financeService } from '../services/FinanceService';
 
 interface PaymentDetails {
-  method: 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque';
+  method: 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque' | 'Credit';
   bankName: string;
   accountNumber: string;
   transactionRef: string;

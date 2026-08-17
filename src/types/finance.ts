@@ -1,5 +1,5 @@
 export interface PaymentMethodDetails {
-  type: 'Cash' | 'Card' | 'Bank Deposit' | 'Bank Transfer' | 'Cheque';
+  type: 'Cash' | 'Card' | 'Bank Deposit' | 'Bank Transfer' | 'Cheque' | 'Credit';
   bankName: string;
   accountNumber: string;
   transactionRef: string;

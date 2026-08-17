@@ -32,7 +32,7 @@ import type {
   InvoiceResponse
 } from "../types/invoice";
 import type { InventoryItem as InvoiceInventoryItem } from "../types/inventory";
-import { PaymentStatus, PaymentMethod } from "../types/invoice";
+import { PaymentStatus, PaymentMethod, type PaymentMethodType } from "../types/invoice";
 import { invoiceService } from "../services/InvoiceService";
 import { financeService } from "../services/FinanceService";
 import type { FinancePaymentData } from "../types/finance";
@@ -75,7 +75,7 @@ const Invoice: React.FC = () => {
   // Payment modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
-    method: PaymentMethod.CASH as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque',
+    method: PaymentMethod.CASH as PaymentMethodType,
     bankName: "",
     accountNumber: "",
     transactionRef: "",

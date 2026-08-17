@@ -50,7 +50,7 @@ const Finance: React.FC = () => {
   });
 
   const [paymentDetails, setPaymentDetails] = useState({
-    method: "Bank Transfer" as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque',
+    method: "Bank Transfer" as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque' | 'Credit',
     bankName: "",
     accountNumber: "",
     transactionRef: "",

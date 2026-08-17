@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { InvoiceData, InvoiceItem, InvoiceCustomer } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory";
-import { PaymentMethod, PaymentStatus, type PaymentStatusType } from "../types/invoice";
+import { PaymentMethod, PaymentStatus, type PaymentStatusType, type PaymentMethodType } from "../types/invoice";
 import { useCustomerSearch, type Customer } from "../hooks/useCustomerSearch";
 import { useItemSearch } from "../hooks/useItemSearch";
 import { CustomerSearchAndManagement } from "./invoice/CustomerSearchAndManagement";
@@ -128,7 +128,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   // Payment modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
-    method: invoiceData.paymentMethod as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque',
+    method: invoiceData.paymentMethod as PaymentMethodType,
     bankName: "",
     accountNumber: "",
     transactionRef: "",
@@ -544,7 +544,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           </div>
 
           {/* Issue Date / Credit Period / Due Date */}
-          <div className={`grid grid-cols-1 ${invoiceData.paymentMethod === PaymentMethod.CREDIT || invoiceData.paymentMethod === 'Credit' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
+          <div className={`grid grid-cols-1 ${invoiceData.paymentMethod === PaymentMethod.CREDIT ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Issue Date*
@@ -559,7 +559,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             </div>
 
             {/* Credit Period Selector - Appears ONLY when Payment Method is Credit */}
-            {(invoiceData.paymentMethod === PaymentMethod.CREDIT || invoiceData.paymentMethod === 'Credit') && (
+            {invoiceData.paymentMethod === PaymentMethod.CREDIT && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Credit Period
@@ -598,9 +598,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 type="date"
                 value={invoiceData.dueDate}
                 onChange={(e) => onFieldChange('dueDate', e.target.value)}
-                readOnly={(invoiceData.paymentMethod === PaymentMethod.CREDIT || invoiceData.paymentMethod === 'Credit') && creditPeriod !== 'custom'}
+                readOnly={invoiceData.paymentMethod === PaymentMethod.CREDIT && creditPeriod !== 'custom'}
                 className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  (invoiceData.paymentMethod === PaymentMethod.CREDIT || invoiceData.paymentMethod === 'Credit') && creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
+                  invoiceData.paymentMethod === PaymentMethod.CREDIT && creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
                 }`}
                 required
               />
