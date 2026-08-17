@@ -2,7 +2,6 @@ import React, { useState, useMemo, useCallback } from "react";
 import type { QuotationData, QuotationItem } from "../../types/quotation";
 import type { InventoryItem } from "../../types/inventory";
 import { PaymentMethod } from "../../types/invoice";
-import { QuotationStatus } from "../../types/quotation";
 import { useCustomerSearch, type Customer } from "../../hooks/useCustomerSearch";
 import { useItemSearch } from "../../hooks/useItemSearch";
 import { CustomerSearchAndManagement } from "./CustomerSearchAndManagement";
@@ -59,7 +58,6 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     itemName: "" 
   });
 
-  const [discountInput, setDiscountInput] = useState(quotationData.discountPercentage.toString());
   const [creditPeriod, setCreditPeriod] = useState<string>('custom');
 
   // When credit period preset is selected, auto-calculate validUntil from issueDate
@@ -85,10 +83,6 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       onFieldChange('validUntil', due);
     }
   };
-
-  React.useEffect(() => {
-    setDiscountInput(quotationData.discountPercentage.toString());
-  }, [quotationData.discountPercentage]);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
@@ -279,23 +273,6 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     totalAmount: quotationData.totalAmount,
   }), [quotationData.subTotal, quotationData.discount, quotationData.totalAmount]);
 
-  const handleDiscountPercentageChange = (value: string) => {
-    setDiscountInput(value);
-    const percentage = parseFloat(value);
-    if (!isNaN(percentage)) {
-      // Live update parent but don't clamp yet
-      onFieldChange('discountPercentage', percentage);
-    }
-  };
-
-  const handleDiscountBlur = () => {
-    let percentage = parseFloat(discountInput);
-    if (isNaN(percentage)) percentage = 0;
-    const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
-    setDiscountInput(clampedPercentage.toString());
-    onFieldChange('discountPercentage', clampedPercentage);
-  };
-
   return (
     <div className="space-y-6">
       {customerModalMode === 'view' && selectedCustomer && (
@@ -360,38 +337,20 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         />
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Payment Method*
-              </label>
-              <select
-                value={quotationData.paymentMethod}
-                onChange={(e) => handlePaymentMethodChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                {Object.values(PaymentMethod).map(method => (
-                  <option key={method} value={method}>{method}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Status*
-              </label>
-              <select
-                value={quotationData.status}
-                onChange={(e) => onFieldChange('status', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                {Object.values(QuotationStatus).map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Payment Method*
+            </label>
+            <select
+              value={quotationData.paymentMethod}
+              onChange={(e) => handlePaymentMethodChange(e.target.value)}
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              {Object.values(PaymentMethod).map(method => (
+                <option key={method} value={method}>{method}</option>
+              ))}
+            </select>
           </div>
 
           {/* Issue Date / Credit Period / Valid Until */}
@@ -455,30 +414,6 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
                 }`}
                 required
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Discount (%)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={discountInput}
-                onChange={(e) => handleDiscountPercentageChange(e.target.value)}
-                onBlur={handleDiscountBlur}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-              />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                %
-              </div>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Discount Amount: <span className="text-green-400">LKR {discountAmount.toFixed(2)}</span>
             </div>
           </div>
 
