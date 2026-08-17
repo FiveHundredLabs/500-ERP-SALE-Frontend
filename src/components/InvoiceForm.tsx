@@ -63,13 +63,23 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     quantity: string;
     unitPrice: string;
     itemName: string;
+    product_code?: string;
+    costPrice?: number;
+    discountType?: 'percentage' | 'amount';
+    discountScope?: 'per_unit' | 'total_qty';
+    discountValue?: string;
   }
 
-  const [newItem, setNewItem] = useState<NewItemState>({ 
-    item: "", 
-    quantity: "1", 
-    unitPrice: "0", 
-    itemName: "" 
+  const [newItem, setNewItem] = useState<NewItemState>({
+    item: "",
+    quantity: "1",
+    unitPrice: "0",
+    itemName: "",
+    product_code: undefined,
+    costPrice: 0,
+    discountType: 'percentage',
+    discountScope: 'per_unit',
+    discountValue: '0',
   });
 
   const [discountInput, setDiscountInput] = useState(invoiceData.discountPercentage.toString());
@@ -197,15 +207,32 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, [isProcessingPayment, showPaymentModal]);
 
   const handleItemSelect = useCallback((inventoryItem: InventoryItem) => {
-    setNewItem({ 
-      item: inventoryItem._id, 
-      itemName: inventoryItem.product_name, 
-      quantity: "1", 
-      unitPrice: inventoryItem.sell_price.toString() 
-    });
+    setNewItem(prev => ({
+      ...prev,
+      item: inventoryItem._id,
+      itemName: inventoryItem.product_name,
+      product_code: inventoryItem.product_code,
+      quantity: "1",
+      unitPrice: inventoryItem.sell_price.toString(),
+      costPrice: inventoryItem.purchase_price || 0,
+      discountValue: '0',
+    }));
     setItemSearchTerm(`${inventoryItem.product_name} (${inventoryItem.product_code})`);
     setShowItemSuggestions(false);
   }, [setItemSearchTerm, setShowItemSuggestions]);
+
+  const handleDiscountChange = useCallback((discountData: {
+    discountType: 'percentage' | 'amount';
+    discountScope: 'per_unit' | 'total_qty';
+    discountValue: string;
+  }) => {
+    setNewItem(prev => ({
+      ...prev,
+      discountType: discountData.discountType,
+      discountScope: discountData.discountScope,
+      discountValue: discountData.discountValue,
+    }));
+  }, []);
 
   // When payment method changes, show or reset credit period
   const handlePaymentMethodChange = (method: string) => {
@@ -250,48 +277,69 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, [onCustomerIdChange, setCustomerSearchTerm]);
 
   const handleClearItemSelection = useCallback(() => {
-    setNewItem({ item: "", quantity: "1", unitPrice: "0", itemName: "" });
+    setNewItem({ item: "", quantity: "1", unitPrice: "0", itemName: "", product_code: undefined, costPrice: 0, discountType: 'percentage', discountScope: 'per_unit', discountValue: '0' });
     setItemSearchTerm("");
   }, [setItemSearchTerm]);
 
-  const handleAddItem = useCallback(() => {
-    const qty = parseInt(newItem.quantity);
-    const price = parseFloat(newItem.unitPrice);
+  const handleAddItem = useCallback((itemData?: {
+    item: string;
+    itemName: string;
+    product_code?: string;
+    quantity: number;
+    unitPrice: number;
+    costPrice: number;
+    discountType: 'percentage' | 'amount';
+    discountScope: 'per_unit' | 'total_qty';
+    discountValue: number;
+    discountAmount: number;
+    total: number;
+  }) => {
+    if (!itemData) return;
 
-    if (!newItem.item || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) {
-      alert("Please select an item and enter valid quantity and price");
-      return;
-    }
+    const { item, itemName, product_code, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount, total } = itemData;
 
-    const existingItem = invoiceData.items.find(item => item.item === newItem.item);
-    const inventoryItem = inventoryItems.find(item => item._id === newItem.item);
+    const inventoryItem = inventoryItems.find(inv => inv._id === item);
+    const existingItem = invoiceData.items.find(inv => inv.item === item);
 
     if (existingItem) {
       if (inventoryItem) {
-        const newTotalQuantity = existingItem.quantity + qty;
+        const newTotalQuantity = existingItem.quantity + quantity;
         if (newTotalQuantity > inventoryItem.quantity) {
-          alert(`Cannot add ${qty} items. Only ${inventoryItem.quantity - existingItem.quantity} more available.`);
+          alert(`Cannot add ${quantity} items. Only ${inventoryItem.quantity - existingItem.quantity} more available.`);
           return;
         }
-
-        const updatedQuantity = existingItem.quantity + qty;
-        const updatedTotal = updatedQuantity * price;
-        onUpdateItem(existingItem.id, { 
-          quantity: updatedQuantity, 
-          unitPrice: price,
-          total: updatedTotal 
-        });
       }
+      // Update existing: recalculate total with new qty+discount
+      const updatedQty = existingItem.quantity + quantity;
+      const newTotal = updatedQty * unitPrice - discountAmount;
+      onUpdateItem(existingItem.id, {
+        quantity: updatedQty,
+        unitPrice,
+        total: Math.max(0, newTotal),
+        product_code,
+        costPrice,
+        discountType,
+        discountScope,
+        discountValue,
+        discountAmount,
+      });
     } else {
-      if (inventoryItem && qty > inventoryItem.quantity) {
-        alert(`Cannot add ${qty} items. Only ${inventoryItem.quantity} in stock.`);
+      if (inventoryItem && quantity > inventoryItem.quantity) {
+        alert(`Cannot add ${quantity} items. Only ${inventoryItem.quantity} in stock.`);
         return;
       }
       onAddItem({
-        item: newItem.item,
-        itemName: newItem.itemName,
-        quantity: qty,
-        unitPrice: price
+        item,
+        itemName,
+        product_code,
+        quantity,
+        unitPrice,
+        costPrice,
+        discountType,
+        discountScope,
+        discountValue,
+        discountAmount,
+        total,
       });
     }
 
@@ -510,37 +558,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         />
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Payment Method*
-              </label>
-              <select
-                value={invoiceData.paymentMethod}
-                onChange={(e) => handlePaymentMethodChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                {Object.values(PaymentMethod).map(method => (
-                  <option key={method} value={method}>{method}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Payment Status*
-              </label>
-              <select
-                value={invoiceData.paymentStatus}
-                onChange={(e) => handlePaymentStatusChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                {Object.values(PaymentStatus).map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Payment Method*
+            </label>
+            <select
+              value={invoiceData.paymentMethod}
+              onChange={(e) => handlePaymentMethodChange(e.target.value)}
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              {Object.values(PaymentMethod).map(method => (
+                <option key={method} value={method}>{method}</option>
+              ))}
+            </select>
           </div>
 
           {/* Issue Date / Credit Period / Due Date */}
@@ -623,69 +654,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Vehicle Number*
-            </label>
-            <input
-              type="text"
-              value={invoiceData.vehicleNumber || ''}
-              onChange={(e) => onFieldChange('vehicleNumber', e.target.value)}
-              placeholder="Vehicle Number"
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Discount (%)
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={discountInput}
-                  onChange={(e) => handleDiscountPercentageChange(e.target.value)}
-                  onBlur={handleDiscountBlur}
-                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  %
-                </div>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Discount Amount: <span className="text-green-400">LKR {discountAmount.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                VAT (18%)
-              </label>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={invoiceData.applyVat}
-                      onChange={handleVatToggle}
-                      className="sr-only"
-                    />
-                    <div className={`block w-12 h-6 rounded-full transition-colors ${invoiceData.applyVat ? 'bg-green-500' : 'bg-gray-600'}`}></div>
-                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${invoiceData.applyVat ? 'transform translate-x-6' : ''}`}></div>
-                  </div>
-                  <span className="ml-3 text-gray-300">
-                    {invoiceData.applyVat ? 'VAT Applied' : 'No VAT'}
-                  </span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
               Notes
             </label>
             <textarea
@@ -708,10 +676,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         newItem={newItem}
         onItemSelect={handleItemSelect}
         onQuantityChange={(quantity: string) => setNewItem(prev => ({ ...prev, quantity }))}
-        onUnitPriceChange={(unitPrice: string) => setNewItem(prev => ({ ...prev, unitPrice }))}
+        onDiscountChange={handleDiscountChange}
         onAddItem={handleAddItem}
         onClearSelection={handleClearItemSelection}
-        itemTotal={itemTotal}
         stockWarning={stockWarning}
         invoiceItems={invoiceData.items}
       />

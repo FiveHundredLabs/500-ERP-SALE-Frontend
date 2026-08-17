@@ -42,6 +42,12 @@ export interface InvoiceItem {
   total: number;
   itemName?: string;
   description?: string;
+  product_code?: string;
+  costPrice?: number;
+  discountType?: 'percentage' | 'amount';
+  discountScope?: 'per_unit' | 'total_qty';
+  discountValue?: number;
+  discountAmount?: number;
 }
 
 export interface InvoiceItemBackend {

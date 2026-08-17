@@ -22,7 +22,7 @@ import {
   Share2,
 } from "lucide-react";
 import InvoiceForm from "../components/InvoiceForm";
-import InvoiceCanvas from "../components/InvoiceCanvas";
+import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
 import PaymentModal from "../components/PaymentModal";
 import type {
   InvoiceData,
@@ -37,8 +37,6 @@ import { invoiceService } from "../services/InvoiceService";
 import { financeService } from "../services/FinanceService";
 import type { FinancePaymentData } from "../types/finance";
 import { inventoryService } from "../services/InventoryService";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -47,18 +45,12 @@ import UserProfileDropdown from "../components/UserProfileDropdown";
 
 const Invoice: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isMobileView, setIsMobileView] = useState(false);
-  const [activePanel, setActivePanel] = useState<'form' | 'preview'>('form');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InvoiceInventoryItem[]>([]);
-  const invoiceRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.85);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rightPanelRef = useRef<HTMLDivElement>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedRef = useRef<InvoiceData | null>(null);
@@ -102,8 +94,6 @@ const Invoice: React.FC = () => {
     onConfirm: () => { },
   });
 
-  // Add state for share dropdown
-  const [showShareDropdown, setShowShareDropdown] = useState(false);
 
   const getInitialInvoiceData = (): InvoiceData => ({
     invoiceId: "",
@@ -120,55 +110,13 @@ const Invoice: React.FC = () => {
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     vehicleNumber: "",
     notes: "",
-    applyVat: true,
+    applyVat: false,
     vatAmount: 0,
-    taxRate: 0.18,
+    taxRate: 0,
   });
 
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(getInitialInvoiceData());
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsMobileView(width < 1024);
-      if (width < 1024) {
-        setActivePanel('form');
-      }
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  useEffect(() => {
-    const calculateInitialScale = () => {
-      if (rightPanelRef.current && !isMobileView) {
-        const panelWidth = rightPanelRef.current.clientWidth;
-        const panelHeight = rightPanelRef.current.clientHeight;
-        const a4Width = 210 * 3.78;
-        const a4Height = 297 * 3.78;
-
-        const availableWidth = panelWidth - (isMobileView ? 24 : 48);
-        const availableHeight = panelHeight - (isMobileView ? 100 : 120);
-
-        const widthScale = availableWidth / a4Width;
-        const heightScale = availableHeight / a4Height;
-
-        const calculatedScale = Math.min(widthScale, heightScale);
-        setScale(Math.max(calculatedScale, isMobileView ? 0.3 : 0.5));
-      }
-    };
-
-    calculateInitialScale();
-    const resizeObserver = new ResizeObserver(calculateInitialScale);
-    if (rightPanelRef.current) {
-      resizeObserver.observe(rightPanelRef.current);
-    }
-
-    return () => resizeObserver.disconnect();
-  }, [isMobileView]);
 
   const loadInitialData = async () => {
     try {
@@ -311,8 +259,10 @@ const Invoice: React.FC = () => {
     await handlePaymentSubmit();
   };
 
-  const handleAddItem = (item: Omit<InvoiceItem, 'id' | 'total'>) => {
-    const total = item.quantity * item.unitPrice;
+  const handleAddItem = (item: Omit<InvoiceItem, 'id' | 'total'> & { total?: number }) => {
+    const calculatedDiscount = item.discountAmount || 0;
+    const baseSubtotal = item.quantity * item.unitPrice;
+    const total = item.total !== undefined ? item.total : Math.max(0, baseSubtotal - calculatedDiscount);
 
     const existingItemIndex = invoiceData.items.findIndex(
       existing => existing.item === item.item
@@ -323,10 +273,23 @@ const Invoice: React.FC = () => {
     if (existingItemIndex !== -1) {
       newItems = [...invoiceData.items];
       const existingItem = newItems[existingItemIndex];
-      const updatedItem = {
+      const newQty = existingItem.quantity + item.quantity;
+      let newDiscount = item.discountAmount || existingItem.discountAmount || 0;
+      if (item.discountScope === 'per_unit' && item.discountValue) {
+        if (item.discountType === 'percentage') {
+          newDiscount = (newQty * item.unitPrice) * (Number(item.discountValue) / 100);
+        } else {
+          newDiscount = Math.min(item.unitPrice, Number(item.discountValue)) * newQty;
+        }
+      }
+      const newTotal = Math.max(0, (newQty * item.unitPrice) - newDiscount);
+
+      const updatedItem: InvoiceItem = {
         ...existingItem,
-        quantity: existingItem.quantity + item.quantity,
-        total: (existingItem.quantity + item.quantity) * existingItem.unitPrice
+        ...item,
+        quantity: newQty,
+        discountAmount: newDiscount,
+        total: newTotal
       };
       newItems[existingItemIndex] = updatedItem;
     } else {
@@ -386,7 +349,12 @@ const Invoice: React.FC = () => {
     const saved = await handleSave();
     if (saved) {
       lastSavedRef.current = { ...invoiceData };
+      setShowPreviewModal(true);
     }
+  };
+
+  const handleOpenPreview = () => {
+    setShowPreviewModal(true);
   };
 
   useEffect(() => {
@@ -473,7 +441,18 @@ const Invoice: React.FC = () => {
       if (item.id === id) {
         const updatedItem = { ...item, ...updates };
         if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
-          updatedItem.total = updatedItem.quantity * updatedItem.unitPrice;
+          const qty = updatedItem.quantity;
+          const price = updatedItem.unitPrice;
+          let disc = updatedItem.discountAmount || 0;
+          if (updatedItem.discountValue && updatedItem.discountScope === 'per_unit') {
+            if (updatedItem.discountType === 'percentage') {
+              disc = (qty * price) * (Number(updatedItem.discountValue) / 100);
+            } else {
+              disc = Math.min(price, Number(updatedItem.discountValue)) * qty;
+            }
+            updatedItem.discountAmount = disc;
+          }
+          updatedItem.total = updates.total !== undefined ? updates.total : Math.max(0, (qty * price) - disc);
         }
         return updatedItem;
       }
@@ -550,14 +529,6 @@ const Invoice: React.FC = () => {
       setAlert({
         type: 'error',
         message: 'Please add at least one item before saving'
-      });
-      return false;
-    }
-
-    if (!invoiceData.vehicleNumber || invoiceData.vehicleNumber.trim() === '') {
-      setAlert({
-        type: 'error',
-        message: 'Please enter a vehicle number'
       });
       return false;
     }
@@ -872,91 +843,9 @@ const Invoice: React.FC = () => {
       });
   };
 
-  // Handle share invoice link
-  const handleShareInvoice = async () => {
-    if (!invoiceData._id) {
-      setAlert({
-        type: 'error',
-        message: 'Please save the invoice first before sharing'
-      });
-      return;
-    }
-
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-    
-    // copy the link to clipboard automatically
-    try {
-      await navigator.clipboard.writeText(invoiceLink);
-    } catch (err) {
-      // Silent fail for clipboard copy
-    }
-
-    // using Web Share API
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Invoice ${invoiceData.invoiceId}`,
-          text: `Check out Invoice ${invoiceData.invoiceId}`,
-          url: invoiceLink,
-        });
-        setAlert({
-          type: 'success',
-          message: 'Link also copied to clipboard.'
-        });
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          setShowShareDropdown(true);
-        } else {
-          setAlert({
-            type: 'info',
-            message: 'Invoice link copied to clipboard!'
-          });
-        }
-      }
-    } else {
-      // Web Share API not supported
-      setShowShareDropdown(true);
-      setAlert({
-        type: 'success',
-        message: 'Invoice link copied to clipboard! Select sharing option below.'
-      });
-    }
-  };
-
-  // Share via apps
-  const shareViaWhatsApp = () => {
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-    const shareText = `Invoice ${invoiceData.invoiceId} - View online: ${invoiceLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaEmail = () => {
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-    const subject = `Invoice ${invoiceData.invoiceId}`;
-    const body = `Please find the invoice here: ${invoiceLink}`;
-    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaMessenger = () => {
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-    window.open(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(invoiceLink)}&app_id=YOUR_APP_ID&redirect_uri=${encodeURIComponent(window.location.origin)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaSMS = () => {
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-    const shareText = `Invoice ${invoiceData.invoiceId}: ${invoiceLink}`;
-    window.open(`sms:?body=${encodeURIComponent(shareText)}`, '_blank');
-    setShowShareDropdown(false);
-  };
-
-  const shareViaTelegram = () => {
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-    const shareText = `Invoice ${invoiceData.invoiceId} - View online: ${invoiceLink}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(invoiceLink)}&text=${encodeURIComponent(shareText)}`, '_blank');
-    setShowShareDropdown(false);
+  // Open preview modal for sharing or previewing
+  const handleShareInvoice = () => {
+    setShowPreviewModal(true);
   };
 
   const handleOpenManageModal = () => {
@@ -1007,303 +896,6 @@ const Invoice: React.FC = () => {
     };
     return colors[status] || colors['Pending'];
   };
-
-  const downloadPDF = async () => {
-    if (!invoiceRef.current) {
-      setAlert({
-        type: 'error',
-        message: "Invoice content not available for PDF generation."
-      });
-      return;
-    }
-
-    const proceedWithDownload = async () => {
-      try {
-        setIsGeneratingPDF(true);
-        setAlert({
-          type: 'info',
-          message: 'Generating PDF... Please wait.'
-        });
-
-        const invoiceContainer = invoiceRef.current!;
-
-        const originalTransform = invoiceContainer.style.transform;
-        const originalTransformOrigin = invoiceContainer.style.transformOrigin;
-        const originalWidth = invoiceContainer.style.width;
-        const originalHeight = invoiceContainer.style.height;
-
-        invoiceContainer.style.transform = 'none';
-        invoiceContainer.style.transformOrigin = 'top left';
-        invoiceContainer.style.width = '210mm';
-        invoiceContainer.style.height = '297mm';
-        invoiceContainer.style.position = 'fixed';
-        invoiceContainer.style.left = '0';
-        invoiceContainer.style.top = '0';
-        invoiceContainer.style.zIndex = '9999';
-
-        void invoiceContainer.offsetHeight;
-
-        const images = invoiceContainer.getElementsByTagName('img');
-        const imageLoadPromises = Array.from(images).map(img => {
-          if (img.complete) return Promise.resolve();
-          return new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
-          });
-        });
-
-        await Promise.all(imageLoadPromises);
-
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        const canvas = await html2canvas(invoiceContainer, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 794,
-          height: 1123,
-          onclone: (clonedDoc: Document) => {
-            const clonedContainer = clonedDoc.querySelector('[data-invoice-container]');
-            if (clonedContainer) {
-              (clonedContainer as HTMLElement).style.transform = 'none';
-              (clonedContainer as HTMLElement).style.transformOrigin = 'top left';
-              (clonedContainer as HTMLElement).style.width = '210mm';
-              (clonedContainer as HTMLElement).style.height = '297mm';
-            }
-          }
-        });
-
-        invoiceContainer.style.transform = originalTransform;
-        invoiceContainer.style.transformOrigin = originalTransformOrigin;
-        invoiceContainer.style.width = originalWidth;
-        invoiceContainer.style.height = originalHeight;
-        invoiceContainer.style.position = '';
-        invoiceContainer.style.left = '';
-        invoiceContainer.style.top = '';
-        invoiceContainer.style.zIndex = '';
-
-        const jpegData = canvas.toDataURL('image/jpeg', 1.0);
-
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
-
-        const pdfWidth = 210;
-        const pdfHeight = 297;
-
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        const finalHeight = imgHeight > pdfHeight ? pdfHeight : imgHeight;
-
-        const xPos = 0;
-        const yPos = 0;
-
-        pdf.addImage(jpegData, 'JPEG', xPos, yPos, imgWidth, finalHeight);
-        pdf.save(`invoice-${invoiceData.invoiceId}.pdf`);
-
-        setAlert({
-          type: 'success',
-          message: 'PDF downloaded successfully!'
-        });
-      } catch (error) {
-        setAlert({
-          type: 'error',
-          message: error instanceof Error ? error.message : 'Failed to generate PDF. Please try again.'
-        });
-      } finally {
-        setIsGeneratingPDF(false);
-      }
-    };
-
-    if (!invoiceData._id) {
-      setConfirmConfig({
-        isOpen: true,
-        title: "Save Invoice",
-        message: "This invoice has not been saved yet. Do you want to save it now and then download?",
-        confirmText: "Save & Download",
-        onConfirm: async () => {
-          const saved = await handleSave();
-          if (saved) {
-            await proceedWithDownload();
-          }
-        }
-      });
-      return;
-    }
-
-    await proceedWithDownload();
-  };
-
-  const handlePrint = async () => {
-    if (!invoiceRef.current) return;
-
-    const proceedWithPrint = async () => {
-      try {
-        setIsGeneratingPDF(true);
-        setAlert({
-          type: 'info',
-          message: 'Preparing print... Please wait.'
-        });
-
-        const canvas = await html2canvas(invoiceRef.current!, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 794,
-          height: 1123,
-          onclone: (clonedDoc: Document) => {
-            const clonedContainer = clonedDoc.querySelector('[data-invoice-container]');
-            if (clonedContainer) {
-              (clonedContainer as HTMLElement).style.transform = 'none';
-              (clonedContainer as HTMLElement).style.transformOrigin = 'top left';
-              (clonedContainer as HTMLElement).style.width = '210mm';
-              (clonedContainer as HTMLElement).style.height = '297mm';
-            }
-          }
-        });
-
-        const imageData = canvas.toDataURL('image/png', 1.0);
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-          setAlert({
-            type: 'error',
-            message: "Popup blocked! Please allow popups for this site to print."
-          });
-          setIsGeneratingPDF(false);
-          return;
-        }
-
-        const printHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Invoice ${invoiceData.invoiceId}</title>
-            <style>
-              @page {
-                size: A4 portrait;
-                margin: 0;
-              }
-              
-              body {
-                margin: 0;
-                padding: 0;
-                width: 210mm;
-                height: 297mm;
-              }
-              
-              .print-container {
-                width: 100%;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-              
-              .invoice-image {
-                width: 210mm;
-                height: 297mm;
-                object-fit: contain;
-              }
-              
-              @media print {
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                
-                .print-container {
-                  page-break-inside: avoid;
-                  page-break-after: avoid;
-                }
-                
-                .invoice-image {
-                  page-break-inside: avoid;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="print-container">
-              <img src="${imageData}" alt="Invoice ${invoiceData.invoiceId}" class="invoice-image" />
-            </div>
-            <script>
-              // Wait for image to load then print
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  // Close window after print dialog closes
-                  setTimeout(function() {
-                    window.close();
-                  }, 1000);
-                }, 500);
-              };
-              
-              // Fallback if window.onload doesn't fire
-              setTimeout(function() {
-                window.print();
-                setTimeout(function() {
-                  window.close();
-                }, 1000);
-              }, 2000);
-            </script>
-          </body>
-        </html>
-      `;
-
-        printWindow.document.open();
-        printWindow.document.write(printHtml);
-        printWindow.document.close();
-
-        printWindow.focus();
-
-        setIsGeneratingPDF(false);
-
-      } catch (error) {
-        setAlert({
-          type: 'error',
-          message: 'Failed to prepare print. Please try again.'
-        });
-        setIsGeneratingPDF(false);
-      }
-    };
-
-    if (!invoiceData._id) {
-      setConfirmConfig({
-        isOpen: true,
-        title: "Save Invoice",
-        message: "This invoice has not been saved yet. Do you want to save it now and then print?",
-        confirmText: "Save & Print",
-        onConfirm: async () => {
-          const saved = await handleSave();
-          if (saved) {
-            await proceedWithPrint();
-          }
-        }
-      });
-      return;
-    }
-
-    await proceedWithPrint();
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showShareDropdown && !(event.target as Element).closest('.share-dropdown-container')) {
-        setShowShareDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showShareDropdown]);
 
   return (
     <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
@@ -1371,90 +963,7 @@ const Invoice: React.FC = () => {
           isProcessing={isProcessingPayment}
         />
 
-        {/* Share Dropdown */}
-        {showShareDropdown && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#1e293b] rounded-lg p-4 w-64 share-dropdown-container">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-200">Share Invoice</h3>
-                <button
-                  onClick={() => setShowShareDropdown(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={shareViaWhatsApp}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 transition"
-                >
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">WA</span>
-                  </div>
-                  <span>WhatsApp</span>
-                </button>
-                <button
-                  onClick={shareViaEmail}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 transition"
-                >
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">@</span>
-                  </div>
-                  <span>Email</span>
-                </button>
-                <button
-                  onClick={shareViaMessenger}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-500 transition"
-                >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">f</span>
-                  </div>
-                  <span>Messenger</span>
-                </button>
-                <button
-                  onClick={shareViaSMS}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-green-600/20 hover:bg-green-600/30 text-green-500 transition"
-                >
-                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">SMS</span>
-                  </div>
-                  <span>SMS</span>
-                </button>
-                <button
-                  onClick={shareViaTelegram}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-400/20 hover:bg-blue-400/30 text-blue-300 transition"
-                >
-                  <div className="w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">TG</span>
-                  </div>
-                  <span>Telegram</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceData._id}`;
-                    navigator.clipboard.writeText(invoiceLink);
-                    setAlert({
-                      type: 'success',
-                      message: 'Invoice link copied to clipboard again!'
-                    });
-                    setShowShareDropdown(false);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition"
-                >
-                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                    <Copy className="w-4 h-4 text-white" />
-                  </div>
-                  <span>Copy Link Again</span>
-                </button>
-              </div>
-              <div className="mt-4 text-sm text-gray-400 text-center">
-                Link is already copied to clipboard
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Top Header Bar */}
         <div className="h-16 bg-[#0f172a]/70 backdrop-blur-sm border-b border-[#1f2937] flex items-center justify-between px-4 md:px-6 relative z-40">
           <div className="flex items-center gap-3">
             {viewMode === 'manage' ? (
@@ -1462,11 +971,9 @@ const Invoice: React.FC = () => {
                 <ChevronLeft className="w-5 h-5" />
               </button>
             ) : (
-              isMobileView && (
-                <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg hover:bg-[#15202b] transition">
-                  {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
-              )
+              <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg hover:bg-[#15202b] transition lg:hidden">
+                {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             )}
 
             <FileText className="text-blue-400 w-5 h-5 md:w-6 md:h-6" />
@@ -1482,61 +989,90 @@ const Invoice: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            {viewMode === "manage" && (
-              <div className="relative">
-                <input
-                  value={manageSearch}
-                  onChange={(e) => {
-                    setManageSearch(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Search by ID or customer"
-                  className="pl-9 pr-3 py-2 rounded-md bg-[#061425] text-sm placeholder:text-gray-500 text-gray-200 border border-[#16324a] focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
-                />
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              </div>
+          <div className="flex items-center gap-2 md:gap-3">
+            {viewMode === "manage" ? (
+              <>
+                <div className="relative">
+                  <input
+                    value={manageSearch}
+                    onChange={(e) => {
+                      setManageSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search by ID or customer"
+                    className="pl-9 pr-3 py-2 rounded-md bg-[#061425] text-sm placeholder:text-gray-500 text-gray-200 border border-[#16324a] focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
+                  />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+                <button
+                  onClick={() => setViewMode('edit')}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>+ New Invoice</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenPreview}
+                  disabled={invoiceData.items.length === 0}
+                  className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  title="Preview Invoice"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Preview</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShareInvoice}
+                  disabled={invoiceData.items.length === 0}
+                  className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  title="Share Invoice"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Share</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveChanges}
+                  disabled={isLoading || isSaving}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleOpenManageModal}
+                  title="Manage invoices"
+                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                >
+                  <List className="w-4 h-4" />
+                  <span className="hidden sm:inline">Manage</span>
+                </button>
+              </>
             )}
 
-            {viewMode === "edit" && (
-              <button
-                onClick={handleOpenManageModal}
-                title="Manage invoices"
-                className="flex items-center gap-2 bg-blue-500/20 border border-blue-500/30 text-blue-400 px-3 py-1 rounded-md text-sm"
-              >
-                <List className="w-4 h-4" />
-                <span>Manage Invoices</span>
-              </button>
-            )}
-
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 ml-1">
               <UserProfileDropdown />
             </div>
           </div>
         </div>
 
-        {viewMode === 'edit' && isMobileView && (
-          <div className="flex border-b border-[#334155] bg-[#1e293b]">
-            <button
-              onClick={() => setActivePanel('form')}
-              className={`flex-1 py-3 text-center font-medium ${activePanel === 'form' ? 'bg-[#0f172a] text-blue-400' : 'text-gray-300 hover:text-white'}`}
-            >
-              Form
-            </button>
-            <button
-              onClick={() => setActivePanel('preview')}
-              className={`flex-1 py-3 text-center font-medium ${activePanel === 'preview' ? 'bg-[#0f172a] text-blue-400' : 'text-gray-300 hover:text-white'}`}
-            >
-              Preview
-            </button>
-          </div>
-        )}
-
         <div className="flex-1 flex overflow-hidden">
           {viewMode === 'manage' ? (
             <div className="w-full overflow-auto p-4">
               <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
-
                 <div className="flex-1 overflow-auto rounded-lg">
                   {isLoadingInvoices ? (
                     <div className="flex items-center justify-center h-64">
@@ -1550,120 +1086,61 @@ const Invoice: React.FC = () => {
                     </div>
                   ) : (
                     <>
-                      {/* Table */}
                       <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-sm">
-
-                          <thead className="sticky top-0 z-10">
-                            <tr className="bg-[#0b1220] border-b border-[#243244]">
-                              <th className="text-left px-4 py-3 font-semibold text-gray-300">
-                                Invoice ID
-                              </th>
-                              <th className="text-left px-4 py-3 font-semibold text-gray-300">
-                                Customer
-                              </th>
-                              <th className="text-left px-4 py-3 font-semibold text-gray-300">
-                                Issue Date
-                              </th>
-                              <th className="text-left px-4 py-3 font-semibold text-gray-300">
-                                Status
-                              </th>
-                              <th className="text-right px-4 py-3 font-semibold text-gray-300">
-                                Total
-                              </th>
-                              <th className="text-center px-4 py-3 font-semibold text-gray-300">
-                                Actions
-                              </th>
+                        <table className="w-full text-left">
+                          <thead className="bg-[#0f172a] text-gray-400 text-xs uppercase sticky top-0 z-10 border-b border-[#334155]">
+                            <tr>
+                              <th className="p-3">Invoice ID</th>
+                              <th className="p-3">Customer</th>
+                              <th className="p-3">Total Amount</th>
+                              <th className="p-3">Payment</th>
+                              <th className="p-3">Date</th>
+                              <th className="p-3 text-right">Actions</th>
                             </tr>
                           </thead>
-
-                          <tbody>
-                            {currentInvoices.map((invoice, idx) => {
-                              const stripe =
-                                idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#08121d]';
-
-                              const badge = getStatusBadge(invoice.paymentStatus);
-                              const customerDisplay = getCustomerDisplay(invoice);
-
+                          <tbody className="divide-y divide-[#334155] text-sm">
+                            {currentInvoices.map((inv) => {
+                              const badge = getStatusBadge(inv.paymentStatus || 'Pending');
                               return (
-                                <tr
-                                  key={invoice._id}
-                                  className={`${stripe} border-b border-[#162235] hover:bg-[#0b2a3a]/60 transition-colors`}
-                                >
-                                  {/* Invoice ID */}
-                                  <td className="px-4 py-3 font-medium text-gray-200">
-                                    {invoice.invoiceId}
+                                <tr key={inv._id || inv.invoiceId} className="hover:bg-[#0f172a]/50 transition">
+                                  <td className="p-3 font-mono font-medium text-blue-400">
+                                    {inv.invoiceId}
                                   </td>
-
-                                  {/* Customer */}
-                                  <td
-                                    className="px-4 py-3 text-gray-300 truncate max-w-[260px]"
-                                    title={customerDisplay}
-                                  >
-                                    {customerDisplay}
+                                  <td className="p-3 font-medium text-white">
+                                    {getCustomerDisplay(inv)}
                                   </td>
-
-                                  {/* Date */}
-                                  <td className="px-4 py-3 text-gray-400">
-                                    {formatDate(invoice.issueDate)}
+                                  <td className="p-3 font-mono text-emerald-400 font-semibold">
+                                    LKR {(inv.totalAmount || 0).toFixed(2)}
                                   </td>
-
-                                  {/* Status */}
-                                  <td className="px-4 py-3">
-                                    <span
-                                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${badge.cls}`}
-                                    >
+                                  <td className="p-3">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.cls}`}>
                                       {badge.icon}
-                                      {invoice.paymentStatus}
+                                      {inv.paymentStatus || 'Pending'}
                                     </span>
                                   </td>
-
-                                  {/* Amount */}
-                                  <td className="px-4 py-3 text-right font-semibold text-green-400">
-                                    LKR {invoice.totalAmount.toFixed(2)}
+                                  <td className="p-3 text-gray-400">
+                                    {formatDate(inv.issueDate)}
                                   </td>
-
-                                  {/* Actions - Copy button */}
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center justify-center gap-1.5">
+                                  <td className="p-3 text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
                                       <button
-                                        onClick={() => handleLoadInvoice(invoice)}
-                                        title="View"
-                                        className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition"
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleLoadInvoice(invoice)}
-                                        title="Edit"
-                                        className="p-2 rounded-md text-green-400 hover:bg-green-500/20 transition"
+                                        onClick={() => handleLoadInvoice(inv)}
+                                        className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"
+                                        title="Edit invoice"
                                       >
                                         <Edit className="w-4 h-4" />
                                       </button>
-
                                       <button
-                                        onClick={() => handleCopyInvoiceLink(invoice._id!, invoice.invoiceId)}
-                                        title="Copy Invoice Link"
-                                        className={`p-2 rounded-md transition ${copiedInvoiceId === invoice._id 
-                                          ? 'text-green-400 bg-green-500/20' 
-                                          : 'text-purple-400 hover:bg-purple-500/20'}`}
+                                        onClick={() => handleCopyInvoiceLink(inv._id || '', inv.invoiceId)}
+                                        className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"
+                                        title="Copy link"
                                       >
-                                        {copiedInvoiceId === invoice._id ? (
-                                          <Check className="w-4 h-4" />
-                                        ) : (
-                                          <Copy className="w-4 h-4" />
-                                        )}
+                                        {copiedInvoiceId === inv._id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                                       </button>
-
                                       <button
-                                        onClick={() => {
-                                          if (invoice._id && invoice.invoiceId) {
-                                            handleDeleteInvoice(invoice._id, invoice.invoiceId);
-                                          }
-                                        }}
-                                        title="Delete"
-                                        className="p-2 rounded-md text-red-400 hover:bg-red-500/20 transition"
+                                        onClick={() => handleDeleteInvoice(inv._id || '', inv.invoiceId)}
+                                        className="p-1.5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-400 transition"
+                                        title="Delete invoice"
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </button>
@@ -1678,7 +1155,7 @@ const Invoice: React.FC = () => {
 
                       {/* Pagination */}
                       {filteredTotalPages > 1 && (
-                        <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#334155]">
+                        <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#334155] p-4">
                           <div className="text-sm text-gray-400">Showing {startIndex + 1} to {Math.min(endIndex, filteredInvoices.length)} of {filteredInvoices.length} invoices</div>
                           <div className="flex items-center gap-2">
                             <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Previous page"><ChevronLeft className="w-4 h-4 text-gray-300" /></button>
@@ -1705,14 +1182,10 @@ const Invoice: React.FC = () => {
               </div>
             </div>
           ) : (
-            <>
-              {/* Left Panel - Form */}
-              <div className={`${isMobileView
-                ? (activePanel === 'form' ? 'w-full' : 'hidden')
-                : 'w-full lg:w-1/2'} overflow-y-auto p-4`}
-              >
+            <div className="flex-1 overflow-y-auto bg-[#0f172a] p-4 sm:p-6">
+              <div className="max-w-4xl mx-auto space-y-6">
                 {isLoading ? (
-                  <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center justify-center h-64">
                     <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
                   </div>
                 ) : (
@@ -1731,114 +1204,107 @@ const Invoice: React.FC = () => {
                     />
                   </ErrorBoundary>
                 )}
-              </div>
 
-              {/* Right Panel - Canvas */}
-              <div
-                ref={rightPanelRef}
-                className={`${isMobileView
-                  ? (activePanel === 'preview' ? 'w-full' : 'hidden')
-                  : 'hidden lg:flex lg:w-1/2'}
-                  flex flex-col overflow-hidden`}
-              >
-
-                {/* Canvas Container */}
-                <div
-                  ref={containerRef}
-                  className="flex-1 overflow-hidden bg-[#0F172A] flex items-center justify-center p-1 md:p-2"
-                >
-                  <div
-                    ref={invoiceRef}
-                    data-invoice-container="true"
-                    style={{
-                      transform: `scale(${scale})`,
-                      transformOrigin: 'center',
-                      width: '210mm',
-                      minHeight: '297mm',
-                      transition: 'transform 0.15s ease-out',
-                      boxShadow: isMobileView
-                        ? '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)'
-                        : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                      backgroundColor: 'white'
-                    }}
-                  >
-                    <ErrorBoundary>
-                      <InvoiceCanvas invoiceData={invoiceData} />
-                    </ErrorBoundary>
-                  </div>
-                </div>
-
-                <div className="bg-[#0F172A] p-3 md:p-4 flex-shrink-0">
-                  <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2">
-                    <div className="flex items-center mb-3 me-3 justify-end gap-2">
-                      {isDirty && (
-                        <button
-                          onClick={handleCancelEdit}
-                          disabled={isLoading || isGeneratingPDF || isSaving}
-                          className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <X className="w-4 h-4" />
-                          <span className="hidden sm:inline">Cancel</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={handleSaveChanges}
-                        disabled={isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSaving ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            <span className="hidden sm:inline">Save</span>
-                          </>
-                        )}
-                      </button>
-
-                      <div className="relative share-dropdown-container">
-                        <button
-                          onClick={handleShareInvoice}
-                          disabled={!invoiceData._id || isLoading || isGeneratingPDF || isSaving}
-                          className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-md hover:bg-purple-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Share Invoice Link"
-                        >
-                          <Share2 className="w-4 h-4" />
-                          <span className="hidden sm:inline">Share</span>
-                        </button>
+                {/* Form Footer Action Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1e293b] p-4 rounded-xl border border-[#334155] shadow-lg sticky bottom-4 z-20">
+                  <div className="text-xs text-gray-400">
+                    {invoiceData.items.length > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span>Items: <strong className="text-white">{invoiceData.items.length}</strong></span>
+                        <span className="text-gray-600">•</span>
+                        <span>Total: <span className="text-emerald-400 font-mono font-bold text-sm">LKR {invoiceData.totalAmount.toFixed(2)}</span></span>
                       </div>
+                    ) : (
+                      <span>Add products to generate invoice</span>
+                    )}
+                  </div>
 
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isDirty && (
                       <button
-                        onClick={downloadPDF}
-                        disabled={!invoiceData._id || isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={handleCancelEdit}
+                        disabled={isLoading || isSaving}
+                        className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition"
                       >
-                        {isGeneratingPDF ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">PDF</span>
-                          </>
-                        )}
+                        <X className="w-4 h-4" />
+                        <span>Cancel</span>
                       </button>
+                    )}
 
-                      <button
-                        onClick={handlePrint}
-                        disabled={!invoiceData._id || isLoading || isGeneratingPDF || isSaving}
-                        className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Printer className="w-4 h-4" />
-                        <span className="hidden sm:inline">Print</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleShareInvoice}
+                      disabled={isLoading || isSaving || invoiceData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Share Invoice"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>Share</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      disabled={isLoading || isSaving || invoiceData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Download PDF via Preview"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      disabled={isLoading || isSaving || invoiceData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Print Invoice via Preview"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      disabled={isLoading || isSaving || invoiceData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      title="Preview Invoice"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Preview</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveChanges}
+                      disabled={isLoading || isSaving || invoiceData.items.length === 0}
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
+                    >
+                      {isSaving ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Invoice</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
-
               </div>
-            </>
+            </div>
           )}
         </div>
+
+        {/* Invoice Preview Modal */}
+        <InvoiceViewModal
+          isOpen={showPreviewModal}
+          onClose={() => setShowPreviewModal(false)}
+          invoiceData={invoiceData}
+          onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
+        />
       </div>
     </div>
   );

@@ -297,10 +297,16 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   paddingLeft: '2mm', 
                   fontWeight: 'bold',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                   height: '100%'
                 }}>
-                  {item.itemName || item.item || `ITEM NAME / DESCRIPTION`}
+                  <span>{item.itemName || item.item || `ITEM NAME / DESCRIPTION`}</span>
+                  {item.discountAmount && item.discountAmount > 0 ? (
+                    <span style={{ fontSize: '9px', color: '#dc2626', fontWeight: 'normal' }}>
+                      (Disc: -LKR {item.discountAmount.toFixed(2)}{item.discountValue ? ` • ${item.discountValue}${item.discountType === 'percentage' ? '%' : ' Rs.'}` : ''})
+                    </span>
+                  ) : null}
                 </div>
                 <div style={{ 
                   textAlign: 'center',

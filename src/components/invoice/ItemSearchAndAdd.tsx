@@ -1,9 +1,8 @@
-import React, { useRef } from 'react';
-import { Search, Plus } from 'lucide-react';
+import React, { useRef, useMemo } from 'react';
+import { Search, Plus, X } from 'lucide-react';
 import type { InventoryItem } from '../../types/inventory';
 import type { InvoiceItem } from '../../types/invoice';
 import { useClickOutside } from '../../hooks/useClickOutside';
-import { SelectedItemPreview } from './SelectedItemPreview';
 
 interface ItemSearchAndAddProps {
   searchTerm: string;
@@ -14,15 +13,35 @@ interface ItemSearchAndAddProps {
   newItem: {
     item: string;
     itemName: string;
+    product_code?: string;
     quantity: string | number;
     unitPrice: string | number;
+    costPrice?: number;
+    discountType?: 'percentage' | 'amount';
+    discountScope?: 'per_unit' | 'total_qty';
+    discountValue?: string | number;
   };
   onItemSelect: (item: InventoryItem) => void;
   onQuantityChange: (value: string) => void;
-  onUnitPriceChange: (value: string) => void;
-  onAddItem: () => void;
+  onDiscountChange: (discountData: {
+    discountType: 'percentage' | 'amount';
+    discountScope: 'per_unit' | 'total_qty';
+    discountValue: string;
+  }) => void;
+  onAddItem: (itemData?: {
+    item: string;
+    itemName: string;
+    product_code?: string;
+    quantity: number;
+    unitPrice: number;
+    costPrice: number;
+    discountType: 'percentage' | 'amount';
+    discountScope: 'per_unit' | 'total_qty';
+    discountValue: number;
+    discountAmount: number;
+    total: number;
+  }) => void;
   onClearSelection: () => void;
-  itemTotal: number;
   stockWarning: string | null;
   invoiceItems: InvoiceItem[];
 }
@@ -36,166 +55,315 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   newItem,
   onItemSelect,
   onQuantityChange,
-  onUnitPriceChange,
+  onDiscountChange,
   onAddItem,
   onClearSelection,
-  itemTotal,
   stockWarning,
   invoiceItems,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
+  const discountType = newItem.discountType || 'percentage';
+  const discountScope = newItem.discountScope || 'per_unit';
+  const discountValue = newItem.discountValue !== undefined ? newItem.discountValue.toString() : '0';
+
   useClickOutside([containerRef], () => {
     onShowSuggestionsChange(false);
   });
 
   const isItemAlreadyAdded = invoiceItems.some(item => item.item === newItem.item);
 
+  const qty = Math.max(1, parseInt(newItem.quantity?.toString() || '1') || 1);
+  const unitPrice = parseFloat(newItem.unitPrice?.toString() || '0') || 0;
+  const costPrice = newItem.costPrice || 0;
+  const discVal = parseFloat(discountValue) || 0;
+
+  const baseSubtotal = qty * unitPrice;
+
+  const calculatedDiscountAmount = useMemo(() => {
+    if (discVal <= 0 || unitPrice <= 0) return 0;
+
+    if (discountType === 'percentage') {
+      const pct = Math.min(100, Math.max(0, discVal));
+      if (discountScope === 'per_unit') {
+        return unitPrice * (pct / 100) * qty;
+      } else {
+        return baseSubtotal * (pct / 100);
+      }
+    } else {
+      if (discountScope === 'per_unit') {
+        return Math.min(unitPrice, discVal) * qty;
+      } else {
+        return Math.min(baseSubtotal, discVal);
+      }
+    }
+  }, [discVal, unitPrice, qty, discountType, discountScope, baseSubtotal]);
+
+  const finalLineTotal = Math.max(0, baseSubtotal - calculatedDiscountAmount);
+
+  const profitPerUnit = unitPrice - costPrice;
+  const marginPct = unitPrice > 0 ? ((profitPerUnit / unitPrice) * 100).toFixed(1) : '0.0';
+
+  const handleAddClick = () => {
+    if (!newItem.item || qty <= 0 || unitPrice <= 0) {
+      alert('Please select a product from search.');
+      return;
+    }
+
+    onAddItem({
+      item: newItem.item,
+      itemName: newItem.itemName,
+      product_code: newItem.product_code,
+      quantity: qty,
+      unitPrice,
+      costPrice,
+      discountType,
+      discountScope,
+      discountValue: discVal,
+      discountAmount: calculatedDiscountAmount,
+      total: finalLineTotal,
+    });
+  };
+
   return (
-    <div className="bg-[#1e293b] rounded-lg p-6 border border-[#334155]">
-      <h3 className="text-lg font-semibold text-gray-200 mb-4">Add Item</h3>
-      
-      <div className="space-y-4">
-        {/* Item Search */}
-        <div ref={containerRef}>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Search Item*
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                const value = e.target.value;
-                onSearchChange(value);
-                onShowSuggestionsChange(true);
-              }}
-              onFocus={() => onShowSuggestionsChange(true)}
-              onClick={() => onShowSuggestionsChange(true)}
-              placeholder="Search product / item name..."
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Search items by name, code, or vehicle"
-            />
-            
-            {/* Search Suggestions Dropdown */}
-            {showSuggestions && (
-              <div className="absolute z-10 w-full mt-1 bg-[#0f172a] border border-[#334155] rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase bg-[#1e293b]/60 flex justify-between">
-                  <span>{searchTerm ? `Matching items (${filteredItems.length})` : `All available items (${filteredItems.length})`}</span>
-                  <span className="text-[10px] text-gray-500">Product / Item</span>
+    <div className="bg-[#1e293b] rounded-xl p-5 border border-[#334155] shadow-lg space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-gray-200 uppercase tracking-wider">
+          Add Line Item
+        </h3>
+        {newItem.item && (
+          <button
+            type="button"
+            onClick={onClearSelection}
+            className="text-xs text-gray-400 hover:text-red-400 flex items-center gap-1 transition-colors"
+          >
+            <X size={13} /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* Product Search Field */}
+      <div ref={containerRef} className="relative">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => {
+              onSearchChange(e.target.value);
+              onShowSuggestionsChange(true);
+            }}
+            onFocus={() => onShowSuggestionsChange(true)}
+            onClick={() => onShowSuggestionsChange(true)}
+            placeholder="Search product name or code..."
+            className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Search product"
+          />
+
+          {/* Suggestions Dropdown */}
+          {showSuggestions && (
+            <div className="absolute z-30 w-full mt-1 bg-[#0f172a] border border-[#334155] rounded-lg shadow-2xl max-h-60 overflow-y-auto divide-y divide-[#334155]/60">
+              <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase bg-[#1e293b]/60 flex justify-between">
+                <span>{searchTerm ? `Matching items (${filteredItems.length})` : `All available items (${filteredItems.length})`}</span>
+                <span className="text-[10px] text-gray-500">Price / Margin</span>
+              </div>
+              {filteredItems.length === 0 ? (
+                <div className="px-4 py-2.5 text-gray-400 text-xs italic text-center">
+                  No products found{searchTerm ? ` matching "${searchTerm}"` : ''}
                 </div>
-                {filteredItems.length === 0 ? (
-                  <div className="px-3 py-2 text-gray-400 text-sm italic">
-                    No items found matching "{searchTerm}"
-                  </div>
-                ) : (
-                  filteredItems.map((item) => {
-                    const existingItem = invoiceItems.find(invItem => invItem.item === item._id);
-                    const existingQuantity = existingItem ? existingItem.quantity : 0;
-                    const available = (item.quantity || 0) - existingQuantity;
-                    
-                    return (
-                      <div
-                        key={item._id}
-                        className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150"
-                        onClick={() => onItemSelect(item)}
-                      >
-                        <div className="font-medium text-white">{item.product_name || 'Unnamed Item'}</div>
-                        <div className="text-sm text-gray-400 flex justify-between mt-1">
-                          <span>Code: {item.product_code || 'N/A'}</span>
-                          <span className="text-green-400">LKR {(item.sell_price || 0).toFixed(2)}</span>
+              ) : (
+                filteredItems.map((item) => {
+                  const profit = (item.sell_price || 0) - (item.purchase_price || 0);
+                  const margin = item.sell_price > 0 ? ((profit / item.sell_price) * 100).toFixed(0) : '0';
+                  const existingItem = invoiceItems.find(inv => inv.item === item._id);
+                  const existingQuantity = existingItem ? existingItem.quantity : 0;
+                  const available = (item.quantity || 0) - existingQuantity;
+
+                  return (
+                    <div
+                      key={item._id || item.product_code}
+                      className="px-3.5 py-2 hover:bg-[#1e293b] cursor-pointer transition-colors duration-150 flex justify-between items-center text-xs"
+                      onClick={() => {
+                        onItemSelect(item);
+                        onShowSuggestionsChange(false);
+                      }}
+                    >
+                      <div>
+                        <div className="font-semibold text-white">{item.product_name}</div>
+                        <div className="text-[11px] font-mono text-gray-400 mt-0.5">
+                          Code: <span className="text-blue-400">{item.product_code}</span>
+                          {existingQuantity > 0 && (
+                            <span className="text-blue-400 ml-2">({existingQuantity} in invoice)</span>
+                          )}
                         </div>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs text-gray-500">
-                            Stock: {item.quantity || 0} units
-                            {existingQuantity > 0 && (
-                              <span className="text-blue-400 ml-1">({existingQuantity} in cart)</span>
-                            )}
-                          </span>
-                          <span className={`text-xs ${available > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          Stock: {item.quantity || 0} •{' '}
+                          <span className={available > 0 ? 'text-green-400' : 'text-red-400'}>
                             Available: {available}
                           </span>
                         </div>
-                        {item.vehicle && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Vehicle: {item.vehicle.brand} {item.vehicle.model} ({item.vehicle.year})
-                          </div>
-                        )}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            Search by product name, code, or vehicle brand/model
-          </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-emerald-400">
+                          LKR {(item.sell_price || 0).toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-gray-400">
+                          Cost: LKR {(item.purchase_price || 0).toLocaleString()} • Margin: {margin}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Selected Item Details */}
-        {newItem.itemName && (
-          <SelectedItemPreview
-            itemName={newItem.itemName}
-            unitPrice={Number(newItem.unitPrice)}
-            stockWarning={stockWarning}
-            onClearSelection={onClearSelection}
-          />
-        )}
-
-        {/* Quantity and Total */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Quantity*
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={newItem.quantity}
-              onChange={(e) => onQuantityChange(e.target.value)}
-              disabled={!newItem.item}
-              placeholder="Enter quantity"
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
+        {/* Minimal Selected Product Pill */}
+        {newItem.item && (
+          <div className="mt-2 px-3 py-1.5 bg-[#0f172a] border border-blue-500/20 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-white">{newItem.itemName}</span>
+              {newItem.product_code && (
+                <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                  {newItem.product_code}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-[11px] font-mono">
+              <span className="text-gray-400">
+                Cost: <span className="text-gray-200">LKR {costPrice.toLocaleString()}</span>
+              </span>
+              <span className="text-gray-400">
+                Margin: <span className="text-emerald-400 font-bold">LKR {profitPerUnit.toLocaleString()} ({marginPct}%)</span>
+              </span>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Unit Price*
-            </label>
+        )}
+      </div>
+
+      {/* Compact Form Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Quantity */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase">Qty</label>
+          <input
+            type="number"
+            min="1"
+            value={newItem.quantity}
+            onChange={(e) => onQuantityChange(e.target.value)}
+            disabled={!newItem.item}
+            placeholder="1"
+            className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          />
+        </div>
+
+        {/* Unit Price (Read-only) */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase">Unit Price (Selling)</label>
+          <input
+            type="text"
+            readOnly
+            value={unitPrice > 0 ? `LKR ${unitPrice.toFixed(2)}` : 'LKR 0.00'}
+            disabled={!newItem.item}
+            className="w-full bg-[#0f172a]/70 border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono font-bold text-emerald-400 cursor-not-allowed opacity-90"
+          />
+        </div>
+
+        {/* Discount Value */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase flex items-center justify-between">
+            <span>Discount</span>
+            <div className="flex gap-1 text-[10px]">
+              <button
+                type="button"
+                onClick={() => onDiscountChange({ discountType: 'percentage', discountScope, discountValue })}
+                className={`px-1 py-0.5 rounded ${discountType === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+              >
+                %
+              </button>
+              <button
+                type="button"
+                onClick={() => onDiscountChange({ discountType: 'amount', discountScope, discountValue })}
+                className={`px-1 py-0.5 rounded ${discountType === 'amount' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+              >
+                Rs.
+              </button>
+            </div>
+          </label>
+          <div className="relative">
             <input
               type="number"
               min="0"
-              step="0.01"
-              value={newItem.unitPrice}
-              onChange={(e) => onUnitPriceChange(e.target.value)}
+              value={discountValue}
+              onChange={(e) => onDiscountChange({ discountType, discountScope, discountValue: e.target.value })}
               disabled={!newItem.item}
-              placeholder="Enter unit price"
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder="0"
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7"
             />
-            <div className="text-xs text-gray-500 mt-1">Auto-filled from item selection, but editable</div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Item Total
-            </label>
-            <div className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2">
-              <div className="text-lg font-semibold text-green-400">
-                LKR {itemTotal.toFixed(2)}
-              </div>
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-500">
+              {discountType === 'percentage' ? '%' : 'Rs'}
             </div>
           </div>
         </div>
 
-        {/* Add Item Button */}
+        {/* Discount Scope */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase">Apply Discount</label>
+          <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[34px]">
+            <button
+              type="button"
+              disabled={!newItem.item}
+              onClick={() => onDiscountChange({ discountType, discountScope: 'per_unit', discountValue })}
+              className={`text-xs rounded font-medium transition ${
+                discountScope === 'per_unit' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Per Unit
+            </button>
+            <button
+              type="button"
+              disabled={!newItem.item}
+              onClick={() => onDiscountChange({ discountType, discountScope: 'total_qty', discountValue })}
+              className={`text-xs rounded font-medium transition ${
+                discountScope === 'total_qty' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Total Qty
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stock warning */}
+      {stockWarning && (
+        <div className="text-xs text-amber-400 bg-amber-950/30 border border-amber-800/40 rounded-lg px-3 py-1.5">
+          {stockWarning}
+        </div>
+      )}
+
+      {/* Line Total & Add Button */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#334155]">
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-gray-400">Line Total:</span>
+          <span className="font-mono text-base font-bold text-green-400">
+            LKR {finalLineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          {calculatedDiscountAmount > 0 && (
+            <span className="text-red-400 font-mono text-xs">
+              (Disc: -LKR {calculatedDiscountAmount.toFixed(2)})
+            </span>
+          )}
+        </div>
+
         <button
-          onClick={onAddItem}
+          type="button"
+          onClick={handleAddClick}
           disabled={!newItem.item}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="w-4 h-4" />
-          {isItemAlreadyAdded ? 'Update Item Quantity' : 'Add Item to Invoice'}
+          <Plus size={14} />
+          {isItemAlreadyAdded ? 'Update Line Item' : 'Add Item to Invoice'}
         </button>
       </div>
     </div>
