@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, Tag, Percent, FileCheck, FileText, CheckCircle } from 'lucide-react';
+import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, Tag, Percent, FileCheck, FileText, CheckCircle, TrendingUp } from 'lucide-react';
 import type { Order, OrderProduct } from '../../types/orders';
 import { mockSalesmen } from '../../data/mockOrders';
 import { mockCustomers } from '../../data/mockCustomers';
@@ -44,11 +44,25 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
-
   const [orderDate, setOrderDate] = useState(today);
   const [notes, setNotes] = useState('');
   const [products, setProducts] = useState<DraftProduct[]>([]);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+
+  // Quick Add Product state
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [quickProduct, setQuickProduct] = useState({
+    name: '',
+    cost: '',
+    sellPrice: '',
+  });
+  const [quickProductErrors, setQuickProductErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isOpen) {
+      setCreatedOrder(null);
+    }
+  }, [isOpen]);
 
   const customerRef = useRef<HTMLDivElement>(null);
   const salesmanRef = useRef<HTMLDivElement>(null);
@@ -153,11 +167,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   }, [products]);
 
   const handleSelectProduct = (item: InventoryItem) => {
-    const cost = item.purchase_price ?? item.sell_price ?? 0;
     setNewProduct(prev => ({
       ...prev,
       productName: item.product_name,
-      unitPrice: cost,
+      unitPrice: item.sell_price || 0,
       unit: 'PCS',
     }));
     setProductSearch(item.product_name);
@@ -165,11 +178,48 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setErrors(prev => ({ ...prev, productName: '', unitPrice: '' }));
   };
 
+  const handleSaveNewProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!quickProduct.name.trim()) errs.name = 'Product name is required';
+    if (!quickProduct.cost || Number(quickProduct.cost) <= 0) errs.cost = 'Valid cost price is required';
+    if (!quickProduct.sellPrice || Number(quickProduct.sellPrice) <= 0) errs.sellPrice = 'Valid selling price is required';
+    if (Object.keys(errs).length > 0) {
+      setQuickProductErrors(errs);
+      return;
+    }
+
+    const newId = `inv-${Date.now()}`;
+    const newCode = `PRD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newItem: InventoryItem = {
+      _id: newId,
+      id: newId,
+      product_name: quickProduct.name.trim(),
+      product_code: newCode,
+      quantity: 100,
+      sold_count: 0,
+      status: 'in_stock',
+      vehicle: { brand: 'Universal', model: 'All Models', chassis_no: 'N/A', year: 2026 },
+      purchase_price: Number(quickProduct.cost),
+      sell_price: Number(quickProduct.sellPrice),
+      shipment_code: 'SHP-NEW',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    mockInventoryItems.unshift(newItem);
+    handleSelectProduct(newItem);
+    setShowAddProductModal(false);
+    setQuickProduct({ name: '', cost: '', sellPrice: '' });
+    setQuickProductErrors({});
+    toast.success('Product Added', `"${newItem.product_name}" added to inventory and selected.`);
+  };
+
   const handleAddProduct = () => {
     const errs: Record<string, string> = {};
     if (!newProduct.productName.trim()) errs.productName = 'Product name required';
     if (newProduct.quantity <= 0) errs.quantity = 'Qty must be > 0';
-    if (newProduct.unitPrice <= 0) errs.unitPrice = 'Cost required';
+    if (newProduct.unitPrice <= 0) errs.unitPrice = 'Selling price required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setProducts(prev => [...prev, { ...newProduct, id: Date.now().toString() }]);
@@ -256,6 +306,27 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (!createdOrder) return;
     const generatedPONumber = `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const poItems = createdOrder.products.map(p => {
+      const invItem = mockInventoryItems.find(item => item.product_name === p.productName);
+      const costPrice = invItem ? invItem.purchase_price : (p.unitPrice * 0.7);
+      const subtotal = p.quantity * costPrice;
+      return {
+        id: p.id || Math.random().toString(),
+        sku: p.sku || invItem?.product_code || 'N/A',
+        productName: p.productName,
+        category: p.category || invItem?.vehicle?.brand || 'General',
+        quantity: p.quantity,
+        unit: p.unit || 'PCS',
+        unitPrice: costPrice,
+        discount: 0,
+        tax: 0,
+        subtotal,
+        total: subtotal,
+      };
+    });
+
+    const poSubtotal = poItems.reduce((acc, item) => acc + item.total, 0);
+
     const newPO: PurchaseOrder = {
       id: Math.random().toString(36).substring(2, 9),
       poNumber: generatedPONumber,
@@ -271,25 +342,13 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       customerName: createdOrder.customerName,
       createdById: 'usr-001',
       createdByName: 'Admin User',
-      items: createdOrder.products.map(p => ({
-        id: p.id || Math.random().toString(),
-        sku: p.sku || 'N/A',
-        productName: p.productName,
-        category: p.category || 'General',
-        quantity: p.quantity,
-        unit: p.unit || 'PCS',
-        unitPrice: p.unitPrice,
-        discount: p.discount || 0,
-        tax: 0,
-        subtotal: p.subtotal,
-        total: p.total,
-      })),
-      numberOfItems: createdOrder.products.length,
-      subTotal: createdOrder.subTotal,
-      totalDiscount: createdOrder.totalDiscount,
+      items: poItems,
+      numberOfItems: poItems.length,
+      subTotal: poSubtotal,
+      totalDiscount: 0,
       totalTax: 0,
       shippingCharges: 2500,
-      grandTotal: createdOrder.grandTotal + 2500,
+      grandTotal: poSubtotal + 2500,
       status: 'Draft',
       paymentStatus: 'Unpaid',
       paymentTerms: 'Net 30',
@@ -298,7 +357,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     };
 
     mockPurchaseOrders.unshift(newPO);
-    toast.success('Converted to PO', `Purchase Order ${generatedPONumber} created from ${createdOrder.orderId}`);
+    toast.success('Converted to PO', `Purchase Order ${generatedPONumber} created using product cost price.`);
     handleReset();
     onClose();
     navigate('/purchase-orders');
@@ -608,9 +667,26 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
                 {/* Product Name Search Field with Instant Dropdown */}
                 <div ref={productRef} className="relative">
-                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                    Product Name <span className="text-red-400">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-300">
+                      Product Name <span className="text-red-400">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickProduct({
+                          name: productSearch.trim() || '',
+                          cost: '',
+                          sellPrice: '',
+                        });
+                        setQuickProductErrors({});
+                        setShowAddProductModal(true);
+                      }}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <Plus size={13} /> Add New Product
+                    </button>
+                  </div>
                   <div className="relative">
                     <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
@@ -668,23 +744,40 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                             <span className="font-semibold text-gray-200">{item.product_name}</span>
                             <div className="text-right shrink-0 ml-3">
                               <span className="font-bold text-emerald-400 font-mono">
-                                LKR {((item.purchase_price ?? item.sell_price) || 0).toLocaleString()}
+                                LKR {(item.sell_price || 0).toLocaleString()}
                               </span>
                             </div>
                           </div>
                         ))
                       )}
+                      {/* Quick Add Product button in dropdown footer */}
+                      <div
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setQuickProduct({
+                            name: productSearch.trim() || '',
+                            cost: '',
+                            sellPrice: '',
+                          });
+                          setQuickProductErrors({});
+                          setShowAddProductModal(true);
+                          setShowProductDropdown(false);
+                        }}
+                        className="p-2.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer border-t border-[#334155] transition-colors"
+                      >
+                        <Plus size={13} /> {productSearch ? `Add "${productSearch}" as New Product` : 'Add New Product'}
+                      </div>
                     </div>
                   )}
                   {errors.productName && <p className="text-red-400 text-xs mt-1">{errors.productName}</p>}
                 </div>
 
-                {/* Same Row: Cost (Not editable), Quantity (starts on 0, PCS), and Discount */}
+                {/* Same Row: Selling Price (Not editable), Quantity (starts on 0, PCS), and Discount */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                  {/* Cost (Not Editable) */}
+                  {/* Selling Price (Not Editable) */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                      Cost
+                      Selling Price
                     </label>
                     <div className="w-full bg-[#0a101f] border border-[#334155]/60 rounded-lg px-3 py-2.5 text-sm text-emerald-400 font-mono font-semibold flex items-center justify-between cursor-not-allowed select-none">
                       <span>{newProduct.unitPrice > 0 ? formatCurrency(newProduct.unitPrice) : 'LKR 0.00'}</span>
@@ -801,7 +894,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       <tr className="bg-[#1e293b] text-gray-300 text-xs border-b border-[#334155]">
                         <th className="p-3 text-left">Product Name</th>
                         <th className="p-3 text-right">Qty</th>
-                        <th className="p-3 text-right">Cost</th>
+                        <th className="p-3 text-right">Selling Price</th>
                         <th className="p-3 text-right">Discount</th>
                         <th className="p-3 text-right">Line Total</th>
                         <th className="p-3 w-10"></th>
@@ -944,6 +1037,153 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
           </div>
         </div>
       </div>
+
+      {/* Add New Product Modal Dialog */}
+      {showAddProductModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#1e293b] border border-[#334155] rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#334155] bg-[#0f172a]/60">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                  <Plus size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Add New Product</h3>
+                  <p className="text-[11px] text-gray-400">Create a product and auto-fill it into the order</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddProductModal(false)}
+                className="p-1 text-gray-400 hover:text-white rounded-lg transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveNewProduct} className="p-5 space-y-4">
+              {/* Product Name */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Product Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  className={`w-full bg-[#0f172a] border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    quickProductErrors.name ? 'border-red-500' : 'border-[#334155]'
+                  }`}
+                  placeholder="e.g. PVC High Pressure Valve 25mm"
+                  value={quickProduct.name}
+                  onChange={e => {
+                    setQuickProduct(p => ({ ...p, name: e.target.value }));
+                    if (quickProductErrors.name) setQuickProductErrors(p => ({ ...p, name: '' }));
+                  }}
+                  autoFocus
+                />
+                {quickProductErrors.name && (
+                  <p className="text-red-400 text-[11px] mt-1">{quickProductErrors.name}</p>
+                )}
+              </div>
+
+              {/* Cost & Selling Price in 2 Columns */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Cost Price */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                    Cost (LKR) <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className={`w-full bg-[#0f172a] border rounded-lg px-3 py-2 text-sm text-gray-200 font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      quickProductErrors.cost ? 'border-red-500' : 'border-[#334155]'
+                    }`}
+                    placeholder="0.00"
+                    value={quickProduct.cost}
+                    onChange={e => {
+                      setQuickProduct(p => ({ ...p, cost: e.target.value }));
+                      if (quickProductErrors.cost) setQuickProductErrors(p => ({ ...p, cost: '' }));
+                    }}
+                  />
+                  {quickProductErrors.cost && (
+                    <p className="text-red-400 text-[11px] mt-1">{quickProductErrors.cost}</p>
+                  )}
+                </div>
+
+                {/* Selling Price */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                    Selling Price (LKR) <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className={`w-full bg-[#0f172a] border rounded-lg px-3 py-2 text-sm text-gray-200 font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      quickProductErrors.sellPrice ? 'border-red-500' : 'border-[#334155]'
+                    }`}
+                    placeholder="0.00"
+                    value={quickProduct.sellPrice}
+                    onChange={e => {
+                      setQuickProduct(p => ({ ...p, sellPrice: e.target.value }));
+                      if (quickProductErrors.sellPrice) setQuickProductErrors(p => ({ ...p, sellPrice: '' }));
+                    }}
+                  />
+                  {quickProductErrors.sellPrice && (
+                    <p className="text-red-400 text-[11px] mt-1">{quickProductErrors.sellPrice}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Auto-Calculated Profit Margin Card */}
+              {Number(quickProduct.sellPrice) > 0 && Number(quickProduct.cost) > 0 && (
+                <div className="bg-[#0f172a] border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-inner">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <TrendingUp size={14} />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-300">Profit Margin:</span>
+                  </div>
+                  <div className="text-right">
+                    <span className={`font-mono text-xs font-bold ${
+                      Number(quickProduct.sellPrice) >= Number(quickProduct.cost) ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {formatCurrency(Number(quickProduct.sellPrice) - Number(quickProduct.cost))}
+                    </span>
+                    <span className="ml-2 text-[10px] font-mono text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                      {(
+                        ((Number(quickProduct.sellPrice) - Number(quickProduct.cost)) /
+                          Number(quickProduct.sellPrice)) *
+                        100
+                      ).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#334155] mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddProductModal(false)}
+                  className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20"
+                >
+                  <Plus size={14} /> Save & Select Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

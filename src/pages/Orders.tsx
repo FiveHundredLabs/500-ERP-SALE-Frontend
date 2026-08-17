@@ -151,12 +151,8 @@ const Orders: React.FC = () => {
     try {
       const created = await orderService.create(newOrder);
       setOrders(prev => [created, ...prev]);
-      setShowCreateModal(false);
-      success('Order Created', `Order ${created.orderId} has been created successfully.`);
     } catch {
       setOrders(prev => [newOrder, ...prev]);
-      setShowCreateModal(false);
-      success('Order Created', `Order ${newOrder.orderId} has been created.`);
     }
   };
 

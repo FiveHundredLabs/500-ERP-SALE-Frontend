@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, AlertCircle, Edit, Trash2, Plus, Eye } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../api/axios";
+import { mockInventoryItems } from "../data/mockInventory";
 
 interface TableProps {
   endpoint: string;
@@ -29,7 +30,8 @@ const ReusableTable: React.FC<TableProps> = ({
   showActions = true,
   refreshTrigger = 0,
   searchTerm = "",
-  selectedCategory = "all"
+  selectedCategory = "all",
+  computeRowValue
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
@@ -52,25 +54,32 @@ const ReusableTable: React.FC<TableProps> = ({
         setError(null);
         
         const response = await api.get(endpoint);
-        const items = Array.isArray(response.data) ? response.data : [];
+        const items = Array.isArray(response.data) && response.data.length > 0
+          ? response.data
+          : (endpoint === "/inventory-items" ? [...mockInventoryItems] : []);
         setData(items);
         setFilteredData(items);
         setPage(1);
       } catch (error: any) {
-        console.error(`Error fetching data from ${endpoint}:`, error);
-        
-        if (error.response?.status === 401) {
-          setError("Authentication failed. Please log in again.");
-        } else if (error.response?.status === 403) {
-          setError("You don't have permission to view this data.");
-        } else if (error.response?.status === 404) {
-          setError("Data not found. The endpoint might be incorrect.");
+        if (endpoint === "/inventory-items") {
+          setData([...mockInventoryItems]);
+          setFilteredData([...mockInventoryItems]);
+          setPage(1);
+          setError(null);
         } else {
-          setError(error.response?.data?.message || error.message || "Failed to fetch data");
+          console.error(`Error fetching data from ${endpoint}:`, error);
+          if (error.response?.status === 401) {
+            setError("Authentication failed. Please log in again.");
+          } else if (error.response?.status === 403) {
+            setError("You don't have permission to view this data.");
+          } else if (error.response?.status === 404) {
+            setError("Data not found. The endpoint might be incorrect.");
+          } else {
+            setError(error.response?.data?.message || error.message || "Failed to fetch data");
+          }
+          setData([]);
+          setFilteredData([]);
         }
-        
-        setData([]);
-        setFilteredData([]);
       } finally {
         setLoading(false);
       }
@@ -222,7 +231,7 @@ const ReusableTable: React.FC<TableProps> = ({
                   >
                     {tableColumns.map((col) => (
                       <td key={col} className="p-3 text-sm text-gray-300">
-                        {formatCellValue(row[col], col)}
+                        {computeRowValue ? computeRowValue(col, row) : formatCellValue(row[col], col)}
                       </td>
                     ))}
                     {showActions && (
