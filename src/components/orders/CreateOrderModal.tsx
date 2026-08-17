@@ -1,11 +1,17 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, Tag, Percent } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, Tag, Percent, FileCheck, FileText, CheckCircle } from 'lucide-react';
 import type { Order, OrderProduct } from '../../types/orders';
 import { mockSalesmen } from '../../data/mockOrders';
 import { mockCustomers } from '../../data/mockCustomers';
 import { mockInventoryItems } from '../../data/mockInventory';
 import type { InventoryItem } from '../../types/inventory';
+import { mockPurchaseOrders } from '../../data/mockPurchaseOrders';
+import type { PurchaseOrder } from '../../types/purchaseOrders';
+import { mockInvoicesList } from '../../data/mockInvoices';
+import type { InvoiceResponse } from '../../types/invoice';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { useToast } from '../erp/Toast';
 
 interface CreateOrderModalProps {
   isOpen: boolean;
@@ -24,6 +30,8 @@ interface DraftProduct {
 }
 
 const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const navigate = useNavigate();
+  const toast = useToast();
   const today = new Date().toISOString().split('T')[0];
 
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -40,6 +48,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const [orderDate, setOrderDate] = useState(today);
   const [notes, setNotes] = useState('');
   const [products, setProducts] = useState<DraftProduct[]>([]);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
   const customerRef = useRef<HTMLDivElement>(null);
   const salesmanRef = useRef<HTMLDivElement>(null);
@@ -239,7 +248,108 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     };
 
     onSubmit(newOrder);
+    setCreatedOrder(newOrder);
+    toast.success('Order Created', `Order ${newOrder.orderId} created successfully! You can now convert to PO or Invoice.`);
+  };
+
+  const handleConvertToPO = () => {
+    if (!createdOrder) return;
+    const generatedPONumber = `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newPO: PurchaseOrder = {
+      id: Math.random().toString(36).substring(2, 9),
+      poNumber: generatedPONumber,
+      poDate: new Date().toISOString().split('T')[0],
+      expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      supplierId: 'SUP-00001',
+      supplierName: 'Petrotec Industries Ltd',
+      supplierContact: 'Shantha Wijesinghe',
+      supplierPhone: '011-567-8901',
+      supplierAddress: '78, Grandpass Road',
+      supplierCity: 'Colombo 14',
+      supplierEmail: 'orders@petrotec.lk',
+      customerName: createdOrder.customerName,
+      createdById: 'usr-001',
+      createdByName: 'Admin User',
+      items: createdOrder.products.map(p => ({
+        id: p.id || Math.random().toString(),
+        sku: p.sku || 'N/A',
+        productName: p.productName,
+        category: p.category || 'General',
+        quantity: p.quantity,
+        unit: p.unit || 'PCS',
+        unitPrice: p.unitPrice,
+        discount: p.discount || 0,
+        tax: 0,
+        subtotal: p.subtotal,
+        total: p.total,
+      })),
+      numberOfItems: createdOrder.products.length,
+      subTotal: createdOrder.subTotal,
+      totalDiscount: createdOrder.totalDiscount,
+      totalTax: 0,
+      shippingCharges: 2500,
+      grandTotal: createdOrder.grandTotal + 2500,
+      status: 'Draft',
+      paymentStatus: 'Unpaid',
+      paymentTerms: 'Net 30',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    mockPurchaseOrders.unshift(newPO);
+    toast.success('Converted to PO', `Purchase Order ${generatedPONumber} created from ${createdOrder.orderId}`);
     handleReset();
+    onClose();
+    navigate('/purchase-orders');
+  };
+
+  const handleConvertToInvoice = () => {
+    if (!createdOrder) return;
+    const nextIdStr = `INV-2026-${(mockInvoicesList.length + 1).toString().padStart(3, '0')}`;
+
+    const newInv: InvoiceResponse = {
+      _id: `inv-${Date.now()}`,
+      invoiceId: nextIdStr,
+      customer: {
+        _id: `c-${Date.now()}`,
+        fullName: createdOrder.customerName,
+        email: 'customer@business.lk',
+        phone: createdOrder.contactPhone || '011-0000000',
+        vatNumber: 'VAT-PENDING',
+        customerCode: createdOrder.customerId || 'CUST-000',
+        address: {
+          street: createdOrder.customerAddress || 'N/A',
+          city: createdOrder.customerCity || 'Colombo',
+          country: 'Sri Lanka',
+          zip: '00100',
+        },
+      },
+      items: createdOrder.products.map((p, idx) => ({
+        _id: `ii-${Date.now()}-${idx}`,
+        item: p.id,
+        quantity: p.quantity,
+        unitPrice: p.unitPrice,
+        total: p.total,
+      })),
+      subTotal: createdOrder.subTotal,
+      discount: createdOrder.totalDiscount,
+      totalAmount: createdOrder.grandTotal,
+      paymentStatus: 'Pending',
+      paymentMethod: 'Bank Transfer',
+      issueDate: new Date().toISOString(),
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      vehicleNumber: 'WP-CAD-1024',
+      notes: `Generated from Order ${createdOrder.orderId}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    mockInvoicesList.unshift(newInv);
+    toast.success('Converted to Invoice', `Invoice ${nextIdStr} created from ${createdOrder.orderId}`);
+    handleReset();
+    onClose();
+    navigate('/invoice');
   };
 
   const handleReset = () => {
@@ -252,6 +362,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setNotes('');
     setProducts([]);
     setErrors({});
+    setCreatedOrder(null);
     setNewProduct({
       id: '',
       productName: '',
@@ -297,7 +408,19 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
-          <form id="create-order-form" onSubmit={handleSubmit}>
+          <form id="create-order-form" onSubmit={handleSubmit} className="space-y-6">
+
+            {/* Order Created Success Banner */}
+            {createdOrder && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3.5 text-xs text-emerald-300 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-emerald-400 shrink-0" />
+                  <span>
+                    Order <strong>{createdOrder.orderId}</strong> created successfully! You can now use <strong>Convert to PO</strong> or <strong>Convert to Invoice</strong> below.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Section: Customer & Salesman */}
             <div className="space-y-4">
@@ -761,21 +884,64 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-[#334155] bg-[#1e293b]/60 flex items-center justify-between gap-3">
+        <div className="flex-shrink-0 px-6 py-4 border-t border-[#334155] bg-[#1e293b]/80 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium transition-colors"
+            onClick={() => {
+              handleReset();
+              onClose();
+            }}
+            className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 rounded-lg text-xs font-medium transition-colors"
           >
-            Cancel
+            {createdOrder ? 'Close' : 'Cancel'}
           </button>
-          <button
-            type="submit"
-            form="create-order-form"
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
-          >
-            <ShoppingBag size={15} /> Create Order
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Convert to PO button */}
+            <button
+              type="button"
+              onClick={handleConvertToPO}
+              disabled={!createdOrder}
+              title={!createdOrder ? 'Create the order first to convert to Purchase Order' : 'Convert order to Purchase Order'}
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                createdOrder
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 cursor-pointer'
+                  : 'bg-[#1e293b]/50 border border-[#334155] text-gray-500 cursor-not-allowed opacity-50'
+              }`}
+            >
+              <FileCheck size={14} /> Convert to PO
+            </button>
+
+            {/* Convert to Invoice button */}
+            <button
+              type="button"
+              onClick={handleConvertToInvoice}
+              disabled={!createdOrder}
+              title={!createdOrder ? 'Create the order first to convert to Invoice' : 'Convert order to Invoice'}
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                createdOrder
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 cursor-pointer'
+                  : 'bg-[#1e293b]/50 border border-[#334155] text-gray-500 cursor-not-allowed opacity-50'
+              }`}
+            >
+              <FileText size={14} /> Convert to Invoice
+            </button>
+
+            {/* Create Order button / Created State */}
+            {!createdOrder ? (
+              <button
+                type="submit"
+                form="create-order-form"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20"
+              >
+                <ShoppingBag size={14} /> Create Order
+              </button>
+            ) : (
+              <div className="px-3.5 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 select-none">
+                <CheckCircle size={14} /> Order Created
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
