@@ -1247,169 +1247,137 @@ html.light .absolute.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover .text-gray-40
    TARGETED FIXES: DASHBOARD, FORMS, CARDS & STATUS BADGES
    ==================================================== */
 
-/* 1. Dashboard "Orders by Status" Donut & List */
-html.light .bg-\[\#0f172a\]\/60 {
-  background-color: #f8fafc !important;
+/* 11. TABLE 3-DOT ACTION POPOVER MENUS */
+html.light div.absolute.right-0.top-8.z-50.w-48,
+html.light div.absolute.z-50.w-48.bg-\[\#0b132b\] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+  color: #0f172a !important;
+}
+
+html.light div.absolute.z-50.w-48 .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
   border-color: #e2e8f0 !important;
 }
 
-html.light .hover\:bg-\[\#0f172a\]:hover {
-  background-color: #f1f5f9 !important;
-}
-
-html.light .space-y-2\.5 .bg-\[\#0f172a\]\/60 span.text-white {
-  color: #0f172a !important;
-}
-
-html.light .space-y-2\.5 .bg-\[\#0f172a\]\/60 span.text-slate-400 {
-  color: #64748b !important;
-}
-
-html.light .space-y-2\.5 .bg-\[\#1e293b\] {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* 2. Top-Selling Products Ranked Circle & Progress Bar */
-html.light .bg-slate-800,
-html.light .bg-slate-800\/80 {
-  background-color: #f1f5f9 !important;
-  color: #475569 !important;
-  border-color: #cbd5e1 !important;
-}
-
-html.light .bg-gray-800 {
-  background-color: #f1f5f9 !important;
-  color: #475569 !important;
-  border-color: #cbd5e1 !important;
-}
-
-html.light .bg-\[\#0f172a\].rounded-full.h-2 {
-  background-color: #e2e8f0 !important;
-  border-color: #cbd5e1 !important;
-}
-
-/* 3. Invoice / Quotation "Total Discount" Row & Action Bar */
-html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 {
-  background-color: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-}
-
-html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 span.text-gray-300 {
-  color: #0f172a !important;
-  font-weight: 600 !important;
-}
-
-html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 .bg-\[\#1e293b\] {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-}
-
-html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 input {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
-}
-
-/* Sticky Action Footer */
-html.light .sticky.bottom-4.bg-\[\#1e293b\] {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
-}
-
-html.light .bg-gray-700 {
-  background-color: #f1f5f9 !important;
+html.light div.absolute.z-50.w-48 button {
   color: #334155 !important;
-  border: 1px solid #cbd5e1 !important;
 }
 
-html.light .hover\:bg-gray-600:hover {
-  background-color: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-
-/* 4. Finance KPI Cards, Overdue Banner, & Filter Tabs */
-html.light .bg-gradient-to-r.from-red-950\/20 {
-  background: #ffffff !important;
-  border-color: #fca5a5 !important;
-}
-
-html.light .bg-gradient-to-r.from-amber-950\/20 {
-  background: #ffffff !important;
-  border-color: #fcd34d !important;
-}
-
-html.light .border-green-500\/30 {
-  border-color: #86efac !important;
-}
-
-html.light .text-red-300 {
-  color: #991b1b !important;
-}
-
-html.light .text-red-400 {
-  color: #dc2626 !important;
-}
-
-html.light .text-red-400\/80,
-html.light .text-red-400\/90 {
-  color: #b91c1c !important;
-}
-
-html.light .text-amber-300 {
-  color: #92400e !important;
-}
-
-html.light .text-amber-400 {
-  color: #d97706 !important;
-}
-
-html.light .text-amber-400\/80 {
-  color: #b45309 !important;
-}
-
-html.light .text-green-400 {
-  color: #15803d !important;
-}
-
-html.light .text-green-500 {
-  color: #16a34a !important;
-}
-
-html.light .text-emerald-400 {
-  color: #15803d !important;
-}
-
-/* Credit Expiry Alert Banner in Light Mode */
-html.light .bg-red-500\/10.border-red-500\/30 {
-  background-color: #fef2f2 !important;
-  border-color: #fecaca !important;
-}
-
-/* Filter Tabs in Finance Table */
-html.light .border-b.border-\[\#334155\] button.text-gray-400 {
-  color: #475569 !important;
-}
-
-html.light .border-b.border-\[\#334155\] button.text-gray-400:hover {
+html.light div.absolute.z-50.w-48 button:hover,
+html.light div.absolute.z-50.w-48 button.hover\:bg-slate-700\/50:hover {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
 }
 
-/* 5. Status Column Badges (Outstanding, Due Soon, Paid, etc.) */
-html.light span.bg-slate-800,
-html.light span.bg-gray-800 {
+html.light div.absolute.z-50.w-48 button.hover\:bg-blue-600\/20:hover {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+html.light div.absolute.z-50.w-48 button.hover\:bg-green-600\/20:hover {
+  background-color: #f0fdf4 !important;
+  color: #15803d !important;
+}
+
+html.light div.absolute.z-50.w-48 .text-green-400 {
+  color: #15803d !important;
+}
+
+html.light div.absolute.z-50.w-48 .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+
+/* 12. INVENTORY: PRODUCT DETAILS MODAL (Selling Quantity Bar & Profit Margin) */
+html.light .bg-\[\#0f172a\]\/70.border.border-\[\#334155\].rounded-xl.p-3\.5 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#0f172a\]\/70.border.border-\[\#334155\].rounded-xl.p-3\.5 span.text-gray-400 {
+  color: #334155 !important;
+}
+
+html.light .bg-\[\#0f172a\].border.border-emerald-500\/30.rounded-xl.p-3\.5 {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.light .bg-\[\#0f172a\].border.border-emerald-500\/30.rounded-xl.p-3\.5 span.text-gray-300 {
+  color: #166534 !important;
+}
+
+html.light .bg-\[\#0f172a\].border.border-emerald-500\/30.rounded-xl.p-3\.5 span.text-gray-500 {
+  color: #15803d !important;
+}
+
+/* 13. CUSTOMER MODAL: SECTION CONTAINER TINTS IN LIGHT MODE */
+html.light .bg-\[\#111c3a\]\/80 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#0f2420\]\/70,
+html.light .bg-\[\#0f2420\] {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.light .bg-\[\#0f2420\]\/70 .text-emerald-400,
+html.light .bg-\[\#0f2420\]\/70 .text-emerald-300,
+html.light .bg-\[\#0f2420\]\/70 span {
+  color: #166534 !important;
+}
+
+html.light .bg-\[\#201435\]\/70,
+html.light .bg-\[\#201435\] {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+html.light .bg-\[\#201435\]\/70 .text-purple-400,
+html.light .bg-\[\#201435\]\/70 .text-purple-300,
+html.light .bg-\[\#201435\]\/70 span {
+  color: #6b21a8 !important;
+}
+
+/* 14. INVOICE & QUOTATION PREVIEW MODAL BACKDROP */
+html.light .overflow-auto.bg-\[\#0b1329\],
+html.light .overflow-auto.bg-\[\#0b1120\] {
   background-color: #f1f5f9 !important;
-  color: #475569 !important;
   border-color: #cbd5e1 !important;
-  font-weight: 600 !important;
 }
 
-html.light span.text-slate-300.bg-slate-800,
-html.light span.text-gray-300.bg-gray-800 {
-  color: #475569 !important;
+html.light .flex-shrink-0.bg-\[\#0f172a\].p-3.rounded-xl.border.border-\[\#334155\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] span.text-gray-300 {
+  color: #0f172a !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-\[\#1e293b\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-gray-700\/60 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-gray-700\/60:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
 
