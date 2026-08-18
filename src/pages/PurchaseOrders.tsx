@@ -242,27 +242,29 @@ const PurchaseOrders: React.FC = () => {
       key: 'actions',
       header: '',
       align: 'right',
-      minWidth: '270px',
+      minWidth: '220px',
       render: (row) => {
         const isEligibleForInvoice = !!(row.items && row.items.length > 0);
         return (
-          <div className="flex gap-1.5 justify-end items-center">
+          <div className="flex gap-2 justify-end items-center">
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
-              className="erp-btn erp-btn-secondary erp-btn-sm gap-1"
+              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm"
+              title="View Purchase Order"
+              aria-label="View Purchase Order"
             >
-              <Eye size={13} /> View
+              <Eye size={14} />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setSelectedPOToUpdate(row);
               }}
-              className="erp-btn erp-btn-secondary erp-btn-sm p-2"
-              style={{color: "#f4af38ff"}}
+              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm"
               title="Edit Purchase Order"
+              aria-label="Edit Purchase Order"
             >
-              <Edit size={13} /> Edit
+              <Edit size={14} />
             </button>
             <button
               onClick={(e) => {
@@ -270,14 +272,15 @@ const PurchaseOrders: React.FC = () => {
                 navigate('/invoice', { state: { convertFromPO: row } });
               }}
               disabled={!isEligibleForInvoice}
-              className={`erp-btn erp-btn-secondary erp-btn-sm gap-1 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition whitespace-nowrap ${
                 isEligibleForInvoice
-                  ? 'text-emerald-400 hover:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/10'
-                  : 'opacity-40 cursor-not-allowed text-gray-500'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                  : 'bg-[#1e293b] text-gray-500 border border-[#334155] cursor-not-allowed opacity-50'
               }`}
               title={isEligibleForInvoice ? "Convert Purchase Order to Sales Invoice" : "No items to convert"}
             >
-              <FileText size={13} /> Invoice
+              <FileText size={13} />
+              <span>Invoice</span>
             </button>
           </div>
         );
