@@ -5,7 +5,7 @@ import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
-import { Eye, Download, ShoppingCart, Plus } from 'lucide-react';
+import { Eye, Download, ShoppingCart, Plus, Edit } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
 
@@ -24,6 +24,22 @@ const PurchaseOrders: React.FC = () => {
   const itemsPerPage = 10;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedPOToUpdate, setSelectedPOToUpdate] = useState<PurchaseOrder | null>(null);
+
+  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
+    const index = initialPOs.findIndex(po => po.id === updatedPO.id);
+    if (index !== -1) {
+      initialPOs[index] = updatedPO;
+    }
+    try {
+      await purchaseOrderService.updateStatus(updatedPO.id, updatedPO.status);
+    } catch {
+      // ignore
+    }
+    setSelectedPOToUpdate(null);
+    success('PO Updated', `Purchase order ${updatedPO.poNumber} has been updated.`);
+    fetchPOs();
+  };
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,7 +204,12 @@ const PurchaseOrders: React.FC = () => {
       render: (row) => (
         <div>
           <p className="font-semibold text-[#F8FAFC] text-sm truncate max-w-[180px]">{row.supplierName}</p>
-          <p className="text-[11px] text-[#94A3B8]">{row.supplierCity}</p>
+          <p
+            className="text-[11px] text-[#94A3B8] cursor-help hover:text-purple-400 transition-colors"
+            title={`Full Address: ${row.supplierAddress || 'N/A'}, ${row.supplierCity || 'N/A'}`}
+          >
+            {row.supplierCity}
+          </p>
         </div>
       ),
     },
@@ -222,14 +243,26 @@ const PurchaseOrders: React.FC = () => {
       key: 'actions',
       header: '',
       align: 'right',
-      minWidth: '70px',
+      minWidth: '150px',
       render: (row) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
-          className="erp-btn erp-btn-secondary erp-btn-sm gap-1"
-        >
-          <Eye size={13} /> View
-        </button>
+        <div className="flex gap-1.5 justify-end">
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
+            className="erp-btn erp-btn-secondary erp-btn-sm gap-1"
+          >
+            <Eye size={13} /> View
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedPOToUpdate(row);
+            }}
+            className="erp-btn erp-btn-secondary erp-btn-sm p-2"
+            title="Edit Purchase Order"
+          >
+            <Edit size={13} />
+          </button>
+        </div>
       ),
     },
   ];
@@ -322,6 +355,13 @@ const PurchaseOrders: React.FC = () => {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreatePO}
+      />
+
+      <CreatePOModal
+        isOpen={selectedPOToUpdate !== null}
+        onClose={() => setSelectedPOToUpdate(null)}
+        onSubmit={handleUpdatePO}
+        poToEdit={selectedPOToUpdate}
       />
     </AppLayout>
   );
