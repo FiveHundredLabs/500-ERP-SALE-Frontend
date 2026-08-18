@@ -1,15 +1,3 @@
-// ============= Supplier Type =============
-
-export const SupplierType = {
-  MANUFACTURER: 'Manufacturer',
-  WHOLESALER: 'Wholesaler',
-  IMPORTER: 'Importer',
-  LOCAL_SUPPLIER: 'Local Supplier',
-  OTHER: 'Other',
-} as const;
-
-export type SupplierTypeValue = typeof SupplierType[keyof typeof SupplierType];
-
 // ============= Supplier Status =============
 
 export const SupplierStatus = {
@@ -25,19 +13,18 @@ export interface Supplier {
   id: string;
   supplierId: string;         // SUP-XXXXX
   companyName: string;
-  contactPerson: string;
+  contactPerson?: string;     // Optional
   phone: string;              // Primary / WhatsApp number (Required)
   phone2?: string;            // Second phone number (Optional)
   phone3?: string;            // Third phone number (Optional)
   email?: string;
   address: string;
-  city: string;
+  city?: string;
   country?: string;
 
-  supplierType: SupplierTypeValue;
+  supplierType?: string;      // Optional / Deprecated
   status: SupplierStatusValue;
 
-  paymentTerms: string;       // e.g., "Net 45", "Advance Payment"
   bankDetails?: string;
 
   // Categories they supply
@@ -56,17 +43,16 @@ export interface Supplier {
 
 export interface SupplierCreateDto {
   companyName: string;
-  contactPerson: string;
+  contactPerson?: string;     // Optional
   phone: string;              // Primary / WhatsApp number (Required)
   phone2?: string;            // Second phone number (Optional)
   phone3?: string;            // Third phone number (Optional)
   email?: string;
   address: string;
-  city: string;
+  city?: string;
   country?: string;
-  supplierType: SupplierTypeValue;
+  supplierType?: string;
   status: SupplierStatusValue;
-  paymentTerms: string;
   bankDetails?: string;
   categories?: string[];
   notes?: string;

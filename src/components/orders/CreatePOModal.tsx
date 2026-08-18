@@ -236,7 +236,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     return mockSuppliers.filter(
       (s) =>
         s.companyName.toLowerCase().includes(q) ||
-        s.contactPerson.toLowerCase().includes(q) ||
+        (s.contactPerson && s.contactPerson.toLowerCase().includes(q)) ||
         s.supplierId.toLowerCase().includes(q)
     );
   }, [supplierSearch]);
@@ -416,10 +416,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       if (found) {
         supplierInfo.supplierId = found.supplierId;
         supplierInfo.supplierName = found.companyName;
-        supplierInfo.supplierContact = found.contactPerson;
+        supplierInfo.supplierContact = found.contactPerson || 'N/A';
         supplierInfo.supplierPhone = found.phone;
         supplierInfo.supplierAddress = found.address;
-        supplierInfo.supplierCity = found.city;
+        supplierInfo.supplierCity = found.city || (typeof found.address === 'string' ? found.address.split(',').pop()?.trim() || 'N/A' : 'N/A');
       }
     }
 

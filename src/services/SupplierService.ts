@@ -1,55 +1,82 @@
 import type { Supplier } from '../types/suppliers';
 import { mockSuppliers } from '../data/mockSuppliers';
 
+const STORAGE_KEY = 'erp_suppliers_list';
+
 export const supplierService = {
-  async getAll(): Promise<Supplier[]> {
-    return [...mockSuppliers];
+  getStored(): Supplier[] {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockSuppliers));
+      return mockSuppliers;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return mockSuppliers;
+    }
   },
 
-  async getById(id: string): Promise<Supplier> {
-    const found = mockSuppliers.find(s => s.id === id || s.supplierId === id || (s as any)._id === id);
-    if (found) return found;
-    return mockSuppliers[0];
+  saveStored(data: Supplier[]): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  },
+
+  async getAll(): Promise<Supplier[]> {
+    return this.getStored();
+  },
+
+  async getById(id: string): Promise<Supplier | undefined> {
+    const all = this.getStored();
+    return all.find(s => s.id === id || s.supplierId === id);
   },
 
   async create(data: Partial<Supplier>): Promise<Supplier> {
+    const all = this.getStored();
     const newSup: Supplier = {
-      id: Date.now().toString(),
-      supplierId: data.supplierId || `SUP-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `sup-${Date.now()}`,
+      supplierId: data.supplierId || `SUP-${Math.floor(10000 + Math.random() * 90000)}`,
       companyName: data.companyName || 'New Supplier',
       contactPerson: data.contactPerson || '',
       phone: data.phone || '',
+      phone2: data.phone2 || '',
+      phone3: data.phone3 || '',
       email: data.email || '',
       address: data.address || '',
-      city: data.city || '',
+      city: data.city || (typeof data.address === 'string' ? data.address.split(',').pop()?.trim() : ''),
       country: data.country || 'Sri Lanka',
-      supplierType: data.supplierType || 'Wholesaler',
-      paymentTerms: data.paymentTerms || 'Net 30',
       status: (data.status as any) || 'Active',
       totalPOs: 0,
       totalPurchaseAmount: 0,
       outstandingPayments: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      notes: data.notes || '',
     };
-    mockSuppliers.unshift(newSup);
+    all.unshift(newSup);
+    this.saveStored(all);
     return newSup;
   },
 
   async update(id: string, data: Partial<Supplier>): Promise<Supplier> {
-    const found = mockSuppliers.find(s => s.id === id || s.supplierId === id);
-    if (found) {
-      Object.assign(found, data);
-      return found;
+    const all = this.getStored();
+    const index = all.findIndex(s => s.id === id || s.supplierId === id);
+    if (index === -1) {
+      throw new Error(`Supplier with ID ${id} not found`);
     }
-    return data as Supplier;
+    const updated = {
+      ...all[index],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
+    all[index] = updated;
+    this.saveStored(all);
+    return updated;
   },
 
   async delete(id: string): Promise<boolean> {
-    const index = mockSuppliers.findIndex(s => s.id === id || s.supplierId === id);
-    if (index !== -1) {
-      mockSuppliers.splice(index, 1);
-    }
+    const all = this.getStored();
+    const filtered = all.filter(s => s.id !== id && s.supplierId !== id);
+    this.saveStored(filtered);
     return true;
   },
 };
