@@ -22,6 +22,7 @@ import {
   Check,
   Share2,
   ShoppingCart,
+  MessageCircle,
 } from "lucide-react";
 import QuotationForm from "../components/quotation/QuotationForm";
 import QuotationViewModal from "../components/quotation/QuotationViewModal";
@@ -933,6 +934,14 @@ const Quotation: React.FC = () => {
                                   {/* Actions */}
                                   <td className="px-2 md:px-4 py-3">
                                     <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        onClick={() => handleLoadQuotation(quotation, 'view')}
+                                        title="Preview & Share on WhatsApp"
+                                        className="p-2 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition"
+                                      >
+                                        <MessageCircle className="w-4 h-4" />
+                                      </button>
+
                                       <button
                                         onClick={() => handleLoadQuotation(quotation, 'view')}
                                         title="View Preview"

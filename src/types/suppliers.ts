@@ -26,7 +26,9 @@ export interface Supplier {
   supplierId: string;         // SUP-XXXXX
   companyName: string;
   contactPerson: string;
-  phone: string;
+  phone: string;              // Primary / WhatsApp number (Required)
+  phone2?: string;            // Second phone number (Optional)
+  phone3?: string;            // Third phone number (Optional)
   email?: string;
   address: string;
   city: string;
@@ -55,7 +57,9 @@ export interface Supplier {
 export interface SupplierCreateDto {
   companyName: string;
   contactPerson: string;
-  phone: string;
+  phone: string;              // Primary / WhatsApp number (Required)
+  phone2?: string;            // Second phone number (Optional)
+  phone3?: string;            // Third phone number (Optional)
   email?: string;
   address: string;
   city: string;

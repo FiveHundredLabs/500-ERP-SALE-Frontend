@@ -119,22 +119,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
   }, [onAddItem, onFieldChange]);
 
-  const stockWarning = useMemo(() => {
-    if (!newItem.item) return null;
-    const selectedItem = inventoryItems.find(item => item._id === newItem.item || item.id === newItem.item);
-    if (!selectedItem) return null;
-    
-    const qty = parseInt(newItem.quantity?.toString() || '0') || 0;
-    const existingQuantity = quotationData.items
-      .filter(item => item.item === newItem.item)
-      .reduce((sum, it) => sum + it.quantity, 0);
-    
-    const remaining = (selectedItem.quantity || 0) - existingQuantity;
-    if (qty + existingQuantity > (selectedItem.quantity || 0)) {
-      return `Only ${remaining} items available (${existingQuantity} already in quotation)`;
-    }
-    return null;
-  }, [newItem.item, newItem.quantity, inventoryItems, quotationData.items]);
+  const stockWarning = null;
 
   const handleItemSelect = useCallback((inventoryItem: InventoryItem) => {
     setNewItem(prev => ({ 

@@ -36,7 +36,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   onRemoveItem,
   onUpdateItem,
   inventoryItems,
-  onPaymentStatusChange,
   onPaymentComplete,
   isProcessingPayment = false,
 }) => {
@@ -82,7 +81,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     discountValue: '0',
   });
 
-  const [discountInput, setDiscountInput] = useState(invoiceData.discountPercentage.toString());
   const [creditPeriod, setCreditPeriod] = useState<string>('custom');
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
@@ -128,10 +126,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
   };
 
-  useEffect(() => {
-    setDiscountInput(invoiceData.discountPercentage.toString());
-  }, [invoiceData.discountPercentage]);
-
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
 
@@ -146,59 +140,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     transactionDate: new Date().toISOString().split('T')[0]
   });
 
-  const [paymentModalTriggered, setPaymentModalTriggered] = useState(false);
-
-  const itemTotal = useMemo(() => {
-    const qty = parseInt(newItem.quantity) || 0;
-    const price = parseFloat(newItem.unitPrice) || 0;
-    return qty * price;
-  }, [newItem.quantity, newItem.unitPrice]);
-
-  const stockWarning = useMemo(() => {
-    if (!newItem.item) return null;
-    const selectedItem = inventoryItems.find(item => item._id === newItem.item);
-    if (!selectedItem) return null;
-    
-    const qty = parseInt(newItem.quantity) || 0;
-    const existingQuantity = invoiceData.items
-      .filter(item => item.item === newItem.item)
-      .reduce((sum, it) => sum + it.quantity, 0);
-    
-    const remaining = selectedItem.quantity - existingQuantity;
-    if (qty + existingQuantity > selectedItem.quantity) {
-      return `Only ${remaining} items available (${existingQuantity} already in cart)`;
-    }
-    return null;
-  }, [newItem.item, newItem.quantity, inventoryItems, invoiceData.items]);
-
-  const handlePaymentStatusChange = useCallback((value: string) => {
-    const newStatus = value as PaymentStatusType;
-   
-    onFieldChange('paymentStatus', newStatus);
-    
-    if (newStatus === PaymentStatus.COMPLETED && !paymentModalTriggered && !isProcessingPayment) {
-      setPaymentDetails(prev => ({
-        ...prev,
-        method: invoiceData.paymentMethod,
-        amount: (invoiceData.totalAmount > 0 ? invoiceData.totalAmount : 0).toFixed(2)
-      }));
-      
-      // Show payment modal
-      setShowPaymentModal(true);
-      setPaymentModalTriggered(true);
-      if (onPaymentStatusChange) {
-        onPaymentStatusChange(newStatus, invoiceData);
-      }
-    } else if (newStatus !== PaymentStatus.COMPLETED) {
-      setPaymentModalTriggered(false);
-    }
-  }, [invoiceData, onFieldChange, onPaymentStatusChange, paymentModalTriggered, isProcessingPayment]);
-
-  useEffect(() => {
-    if (invoiceData.paymentStatus !== PaymentStatus.COMPLETED) {
-      setPaymentModalTriggered(false);
-    }
-  }, [invoiceData.paymentStatus]);
+  const stockWarning = null;
 
   useEffect(() => {
     if (isProcessingPayment && showPaymentModal) {
@@ -296,19 +238,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }) => {
     if (!itemData) return;
 
-    const { item, itemName, product_code, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount, total } = itemData;
+    const { item, itemName, product_code, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount } = itemData;
 
-    const inventoryItem = inventoryItems.find(inv => inv._id === item);
     const existingItem = invoiceData.items.find(inv => inv.item === item);
 
     if (existingItem) {
-      if (inventoryItem) {
-        const newTotalQuantity = existingItem.quantity + quantity;
-        if (newTotalQuantity > inventoryItem.quantity) {
-          alert(`Cannot add ${quantity} items. Only ${inventoryItem.quantity - existingItem.quantity} more available.`);
-          return;
-        }
-      }
       // Update existing: recalculate total with new qty+discount
       const updatedQty = existingItem.quantity + quantity;
       const newTotal = updatedQty * unitPrice - discountAmount;
@@ -324,10 +258,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         discountAmount,
       });
     } else {
-      if (inventoryItem && quantity > inventoryItem.quantity) {
-        alert(`Cannot add ${quantity} items. Only ${inventoryItem.quantity} in stock.`);
-        return;
-      }
       onAddItem({
         item,
         itemName,
@@ -339,12 +269,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         discountScope,
         discountValue,
         discountAmount,
-        total,
       });
     }
 
     handleClearItemSelection();
-  }, [newItem, invoiceData.items, inventoryItems, onAddItem, onUpdateItem, handleClearItemSelection]);
+  }, [newItem, invoiceData.items, onAddItem, onUpdateItem, handleClearItemSelection]);
 
   const handleUpdateItemQuantity = useCallback((id: string, newQuantity: number) => {
     const item = invoiceData.items.find(item => item.id === id);
@@ -388,27 +317,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     return { subTotal, discountAmount, taxAmount, totalAmount };
   }, [invoiceData.subTotal, invoiceData.discount, invoiceData.totalAmount, invoiceData.applyVat, invoiceData.vatAmount]);
 
-  const handleDiscountPercentageChange = (value: string) => {
-    setDiscountInput(value);
-    const percentage = parseFloat(value);
-    if (!isNaN(percentage)) {
-      onFieldChange('discountPercentage', percentage);
-    }
-  };
-
-  const handleDiscountBlur = () => {
-    let percentage = parseFloat(discountInput);
-    if (isNaN(percentage)) percentage = 0;
-    const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
-    setDiscountInput(clampedPercentage.toString());
-    onFieldChange('discountPercentage', clampedPercentage);
-  };
-
-  const handleVatToggle = () => {
-    const newVatState = !invoiceData.applyVat;
-    onFieldChange('applyVat', newVatState);
-  };
-
   useEffect(() => {
     if (invoiceData.customerDetails && !selectedCustomer) {
       setSelectedCustomer(invoiceData.customerDetails as Customer);
@@ -418,7 +326,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handlePaymentModalClose = () => {
     setShowPaymentModal(false);
-    setPaymentModalTriggered(false);
     
     if (!isProcessingPayment && invoiceData.paymentStatus === PaymentStatus.COMPLETED) {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
@@ -427,7 +334,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handlePaymentCompleteInternal = async () => {
     setShowPaymentModal(false);
-    setPaymentModalTriggered(true);
     
     if (onPaymentComplete) {
       await onPaymentComplete();

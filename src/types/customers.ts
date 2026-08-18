@@ -27,7 +27,9 @@ export interface Customer {
   customerId: string;         // CUST-XXXXX
   businessName: string;       // Shop / Company name
   contactPerson: string;
-  phone: string;
+  phone: string;              // Primary / WhatsApp number (Required)
+  phone2?: string;            // Second phone number (Optional)
+  phone3?: string;            // Third phone number (Optional)
   email?: string;
   address: string;
   city: string;
@@ -53,7 +55,9 @@ export interface Customer {
 export interface CustomerCreateDto {
   businessName: string;
   contactPerson: string;
-  phone: string;
+  phone: string;              // Primary / WhatsApp number (Required)
+  phone2?: string;            // Second phone number (Optional)
+  phone3?: string;            // Third phone number (Optional)
   email?: string;
   address: string;
   city: string;

@@ -71,11 +71,6 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
       <div className="space-y-3">
         {items.map((item) => {
           const inventoryItem = inventoryItems.find(inv => inv._id === item.item);
-          const totalQuantityInCart = items
-            .filter(invItem => invItem.item === item.item)
-            .reduce((sum, invItem) => sum + invItem.quantity, 0);
-
-          const hasInsufficientStock = inventoryItem && totalQuantityInCart > inventoryItem.quantity;
           const hasDiscount = (item.discountAmount && item.discountAmount > 0) || (item.discountValue && item.discountValue > 0);
 
           return (
@@ -90,14 +85,6 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                       <div className="text-xs text-gray-400 mt-0.5">
                         Code: <span className="text-blue-400 font-mono">{item.product_code || inventoryItem?.product_code || 'N/A'}</span>
                       </div>
-                      {inventoryItem && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Stock: {inventoryItem.quantity || 0} units
-                          {hasInsufficientStock && (
-                            <span className="text-red-400 ml-2 font-medium">(Insufficient stock!)</span>
-                          )}
-                        </div>
-                      )}
                     </div>
                     <button
                       type="button"

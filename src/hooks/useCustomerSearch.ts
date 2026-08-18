@@ -5,7 +5,9 @@ export interface Customer {
   _id: string;
   fullName: string;
   email: string;
-  phone: string;
+  phone: string;              // WhatsApp (Primary)
+  phone2?: string;            // Secondary
+  phone3?: string;            // Alternative
   vatNumber: string;
   address?: {
     street?: string;

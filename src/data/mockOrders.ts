@@ -19,7 +19,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00105',
     customerName: 'Nirosha Hardware Mart',
     contactPerson: 'Nirosha Bandara',
-    contactPhone: '011-234-5678',
+    contactPhone: '+94705787818',
     customerAddress: '145, Baseline Road',
     customerCity: 'Colombo 09',
     products: [
@@ -47,7 +47,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00107',
     customerName: 'Saman Building Materials',
     contactPerson: 'Saman Rathnayake',
-    contactPhone: '011-456-7890',
+    contactPhone: '+94705787818',
     customerAddress: '78, High Level Road',
     customerCity: 'Maharagama',
     products: [
@@ -76,7 +76,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00104',
     customerName: 'Kandy Construction Supplies',
     contactPerson: 'Pradeep Weerasekara',
-    contactPhone: '081-234-5678',
+    contactPhone: '+94705787818',
     customerAddress: '23, Peradeniya Road',
     customerCity: 'Kandy',
     products: [
@@ -105,7 +105,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00109',
     customerName: 'Jayantha Hardware & Paint',
     contactPerson: 'Jayantha Dissanayake',
-    contactPhone: '033-234-5678',
+    contactPhone: '+94705787818',
     customerAddress: '12, New Kandy Road',
     customerCity: 'Kadawatha',
     products: [
@@ -135,7 +135,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00101',
     customerName: 'Lanka Hardware Traders',
     contactPerson: 'Mahinda Rajapaksha',
-    contactPhone: '011-255-4321',
+    contactPhone: '+94705787818',
     customerAddress: '45, Main Street, Pettah',
     customerCity: 'Colombo',
     products: [
@@ -164,7 +164,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00108',
     customerName: 'City Plumbing & Electrical',
     contactPerson: 'Nalika Perera',
-    contactPhone: '011-567-8901',
+    contactPhone: '+94705787818',
     customerAddress: '34, Deans Road',
     customerCity: 'Colombo 10',
     products: [
@@ -193,7 +193,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00110',
     customerName: 'Ravi Plumbing & Hardware',
     contactPerson: 'Ravi Kumar',
-    contactPhone: '011-678-9012',
+    contactPhone: '+94705787818',
     customerAddress: '89, Stanley Thilakaratne Mawatha',
     customerCity: 'Nugegoda',
     products: [
@@ -222,7 +222,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00103',
     customerName: 'Modern Build Solutions',
     contactPerson: 'Chamara Wickramasinghe',
-    contactPhone: '033-456-7890',
+    contactPhone: '+94705787818',
     customerAddress: '45, Kandy Road',
     customerCity: 'Gampaha',
     products: [
@@ -249,7 +249,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00106',
     customerName: 'Up Country Hardware',
     contactPerson: 'Priyantha Hewage',
-    contactPhone: '081-345-6789',
+    contactPhone: '+94705787818',
     customerAddress: '67, Clock Tower Road',
     customerCity: 'Nuwara Eliya',
     products: [
@@ -279,7 +279,7 @@ export const mockOrders: Order[] = [
     customerId: 'CUST-00102',
     customerName: 'Galle Hardware Palace',
     contactPerson: 'Suresh Mendis',
-    contactPhone: '091-234-5678',
+    contactPhone: '+94705787818',
     customerAddress: '23, Colombo Road',
     customerCity: 'Galle',
     products: [

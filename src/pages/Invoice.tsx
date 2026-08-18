@@ -20,6 +20,7 @@ import {
   Copy,
   Check,
   Share2,
+  MessageCircle,
 } from "lucide-react";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
@@ -793,7 +794,6 @@ const Invoice: React.FC = () => {
       lastSavedAtRef.current = new Date().toISOString();
 
       setViewMode('edit');
-      setActivePanel('form');
 
       setAlert({
         type: 'success',
@@ -856,15 +856,13 @@ const Invoice: React.FC = () => {
       });
   };
 
-  // Open preview modal for sharing or previewing
-  const handleShareInvoice = () => {
-    setShowPreviewModal(true);
-  };
-
   const handleOpenManageModal = () => {
     setViewMode('manage');
     setCurrentPage(1);
-    fetchAllInvoices();
+  };
+
+  const handleShareInvoice = () => {
+    setShowPreviewModal(true);
   };
 
   useEffect(() => {
@@ -1136,6 +1134,26 @@ const Invoice: React.FC = () => {
                                   </td>
                                   <td className="p-3 text-right">
                                     <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => {
+                                          handleLoadInvoice(inv);
+                                          setShowPreviewModal(true);
+                                        }}
+                                        className="p-1.5 hover:bg-emerald-500/20 rounded-lg text-emerald-400 hover:text-emerald-300 transition"
+                                        title="Preview & Share on WhatsApp"
+                                      >
+                                        <MessageCircle className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleLoadInvoice(inv);
+                                          setShowPreviewModal(true);
+                                        }}
+                                        className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"
+                                        title="View Preview PDF"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </button>
                                       <button
                                         onClick={() => handleLoadInvoice(inv)}
                                         className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"

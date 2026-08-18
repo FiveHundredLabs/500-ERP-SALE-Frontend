@@ -40,7 +40,9 @@ export const invoiceService = {
       _id: c.id,
       fullName: c.businessName || c.contactPerson,
       email: c.email || '',
-      phone: c.phone || '',
+      phone: c.phone || '+94705787818',
+      phone2: c.phone2 || '',
+      phone3: c.phone3 || '',
       vatNumber: `LKR-${(100000000 + (idx + 1) * 98765).toString().substring(0, 9)}-VAT`,
       customerCode: c.customerId,
       address: {

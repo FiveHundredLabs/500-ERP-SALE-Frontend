@@ -4,8 +4,9 @@ import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../e
 import type { Column } from '../erp/DataTable';
 import { mockSuppliers as initialSuppliers } from '../../data/mockSuppliers';
 import type { Supplier, SupplierCreateDto, SupplierTypeValue, SupplierStatusValue } from '../../types/suppliers';
-import { Plus, Eye, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, X, MessageCircle, Phone } from 'lucide-react';
 import { supplierService } from '../../services/SupplierService';
+import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 
 const SuppliersTab: React.FC = () => {
   const navigate = useNavigate();
@@ -50,6 +51,8 @@ const SuppliersTab: React.FC = () => {
     companyName: '',
     contactPerson: '',
     phone: '',
+    phone2: '',
+    phone3: '',
     email: '',
     address: '',
     city: '',
@@ -80,7 +83,7 @@ const SuppliersTab: React.FC = () => {
       suggestions.push({
         id: `s-name-${s.id}`,
         title: s.companyName,
-        subtitle: `${s.contactPerson} · ${s.phone} · ${s.city}`,
+        subtitle: `${s.contactPerson} · WA: ${s.phone}${s.phone2 ? ` · ${s.phone2}` : ''} · ${s.city}`,
         category: 'Supplier',
         value: s.companyName,
       });
@@ -107,6 +110,9 @@ const SuppliersTab: React.FC = () => {
         s.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.supplierId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.phone2 && s.phone2.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.phone3 && s.phone3.toLowerCase().includes(searchQuery.toLowerCase())) ||
         s.city.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === '' || s.status === statusFilter;
@@ -190,6 +196,8 @@ const SuppliersTab: React.FC = () => {
       companyName: supplier.companyName,
       contactPerson: supplier.contactPerson,
       phone: supplier.phone,
+      phone2: supplier.phone2 || '',
+      phone3: supplier.phone3 || '',
       email: supplier.email || '',
       address: supplier.address,
       city: supplier.city,
@@ -217,6 +225,8 @@ const SuppliersTab: React.FC = () => {
       companyName: '',
       contactPerson: '',
       phone: '',
+      phone2: '',
+      phone3: '',
       email: '',
       address: '',
       city: '',
@@ -249,12 +259,29 @@ const SuppliersTab: React.FC = () => {
     },
     {
       key: 'contactPerson',
-      header: 'Contact Person',
-      minWidth: '140px',
+      header: 'Contact & WhatsApp',
+      minWidth: '180px',
       render: (row) => (
         <div>
           <p className="text-xs text-slate-300 font-semibold">{row.contactPerson}</p>
-          <p className="text-[11px] text-slate-500 font-mono">{row.phone}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <a
+              href={`https://wa.me/${cleanWhatsAppNumber(row.phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-medium transition"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle size={11} className="text-emerald-400" />
+              <span>{row.phone}</span>
+            </a>
+          </div>
+          {(row.phone2 || row.phone3) && (
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[170px]" title={`Phone 2: ${row.phone2 || '-'} | Phone 3: ${row.phone3 || '-'}`}>
+              {[row.phone2, row.phone3].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
       ),
     },
@@ -436,28 +463,73 @@ const SuppliersTab: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
-                  <input
-                    required
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Shantha Wijesinghe"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  />
+              {/* Contact Person */}
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
+                <input
+                  required
+                  type="text"
+                  className="erp-input"
+                  placeholder="e.g. Shantha Wijesinghe"
+                  value={formData.contactPerson}
+                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                />
+              </div>
+
+              {/* Phone Numbers Section (Up to 3) */}
+              <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                  <div className="flex items-center gap-1.5">
+                    <Phone size={13} className="text-emerald-400" />
+                    <span className="text-xs font-semibold text-slate-200">Phone Numbers (Up to 3)</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40 flex items-center gap-1">
+                    <MessageCircle size={10} /> 1st = WhatsApp
+                  </span>
                 </div>
+
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Phone Number *</label>
+                  <label className="flex items-center justify-between text-slate-400 mb-1 font-medium">
+                    <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                      <MessageCircle size={12} className="text-emerald-400" /> WhatsApp Number * (Required)
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">Primary WhatsApp</span>
+                  </label>
                   <input
                     required
                     type="text"
-                    className="erp-input"
-                    placeholder="011-567-8901"
+                    className="erp-input border-emerald-500/30 focus:border-emerald-500 font-mono text-emerald-300"
+                    placeholder="e.g. +94705787818"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-medium">
+                      Phone 2 <span className="text-slate-500 text-[10px]">(Optional - Landline / Alt)</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="erp-input font-mono"
+                      placeholder="e.g. 011-567-8901"
+                      value={formData.phone2 || ''}
+                      onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-medium">
+                      Phone 3 <span className="text-slate-500 text-[10px]">(Optional - Secondary Mobile)</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="erp-input font-mono"
+                      placeholder="e.g. 077-456-7890"
+                      value={formData.phone3 || ''}
+                      onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 

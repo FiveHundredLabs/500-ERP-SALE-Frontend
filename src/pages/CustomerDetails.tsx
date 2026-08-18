@@ -9,7 +9,6 @@ import {
   Building2,
   Phone,
   Mail,
-  MapPin,
   ArrowLeft,
   ShoppingBag,
   CreditCard,
@@ -18,31 +17,40 @@ import {
   Calendar,
   TrendingUp,
   AlertCircle,
+  MessageCircle,
 } from 'lucide-react';
+import { cleanWhatsAppNumber } from '../utils/whatsapp';
 
 const CustomerDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const customer: Customer | undefined =
-    mockCustomers.find((c) => c.id === id || c.customerId === id) || mockCustomers[0];
+    mockCustomers.find((c) => c.id === id || c.customerId === id);
+
+  if (!customer) {
+    return (
+      <AppLayout headerTitle="Customer Profile">
+        <div className="flex flex-col items-center justify-center h-64 text-center space-y-3">
+          <Building2 className="w-12 h-12 text-slate-600" />
+          <p className="text-slate-400">Customer account not found or no customer data available.</p>
+          <button
+            onClick={() => navigate('/customers')}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
+          >
+            Back to Customers Directory
+          </button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
   const customerOrders = mockOrders.filter(
-    (o) => o.customerId === customer?.customerId || o.customerName === customer?.businessName
+    (o) => o.customerId === customer.customerId || o.customerName === customer.businessName
   );
-
-  if (!customer) {
-    return (
-      <AppLayout headerTitle="Customer Profile">
-        <div className="flex items-center justify-center h-64">
-          <p className="text-slate-400">Customer not found.</p>
-        </div>
-      </AppLayout>
-    );
-  }
 
   const creditUtilization = customer.creditLimit > 0
     ? Math.min(100, Math.round((customer.outstandingBalance / customer.creditLimit) * 100))
@@ -90,18 +98,39 @@ const CustomerDetails: React.FC = () => {
               <p className="text-sm text-slate-400 mb-3">
                 {customer.contactPerson} &middot; {customer.customerType} &middot; {customer.city}
               </p>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                <span className="flex items-center gap-1.5">
-                  <Phone size={12} className="text-emerald-400" /> {customer.phone}
-                </span>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                {/* Primary WhatsApp */}
+                <a
+                  href={`https://wa.me/${cleanWhatsAppNumber(customer.phone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono font-medium transition"
+                  title="Chat with customer on WhatsApp"
+                >
+                  <MessageCircle size={13} className="text-emerald-400" />
+                  <span>{customer.phone}</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-sans font-semibold">WhatsApp</span>
+                </a>
+
+                {/* Optional Phone 2 */}
+                {customer.phone2 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                    <Phone size={12} className="text-slate-400" /> {customer.phone2} <span className="text-[10px] text-slate-500 font-sans">(Phone 2)</span>
+                  </span>
+                )}
+
+                {/* Optional Phone 3 */}
+                {customer.phone3 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                    <Phone size={12} className="text-slate-400" /> {customer.phone3} <span className="text-[10px] text-slate-500 font-sans">(Phone 3)</span>
+                  </span>
+                )}
+
                 {customer.email && (
                   <span className="flex items-center gap-1.5">
                     <Mail size={12} className="text-blue-400" /> {customer.email}
                   </span>
                 )}
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={12} className="text-amber-400" /> {customer.address}
-                </span>
               </div>
             </div>
 
@@ -132,7 +161,7 @@ const CustomerDetails: React.FC = () => {
             <div>
               <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Total Orders</p>
               <p className="text-2xl font-bold text-slate-100">{customer.totalOrders}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Completed trade orders</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Lifetime purchase count</p>
             </div>
           </div>
 
@@ -141,9 +170,9 @@ const CustomerDetails: React.FC = () => {
               <DollarSign size={22} />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Total Revenue</p>
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Total Sales</p>
               <p className="text-2xl font-bold text-slate-100">{formatCurrency(customer.totalSales)}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Lifetime trade value</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Lifetime invoice value</p>
             </div>
           </div>
 
@@ -156,17 +185,17 @@ const CustomerDetails: React.FC = () => {
               <p className={`text-2xl font-bold ${customer.outstandingBalance > 0 ? 'text-amber-400' : 'text-slate-100'}`}>
                 {formatCurrency(customer.outstandingBalance)}
               </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Limit: {formatCurrency(customer.creditLimit)}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Unsettled invoices</p>
             </div>
           </div>
         </div>
 
         {/* ── Detail Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Account Details */}
+          {/* Account Profile */}
           <div className="erp-card space-y-3">
             <h3 className="text-sm font-semibold text-slate-200 pb-2 border-b border-slate-800 flex items-center gap-2">
-              <User size={15} className="text-blue-400" /> Account Details
+              <User size={15} className="text-blue-400" /> Account Profile
             </h3>
             <div className="space-y-2.5 text-xs">
               {[
@@ -187,24 +216,65 @@ const CustomerDetails: React.FC = () => {
 
           {/* Contact Info */}
           <div className="erp-card space-y-3">
-            <h3 className="text-sm font-semibold text-slate-200 pb-2 border-b border-slate-800 flex items-center gap-2">
-              <Phone size={15} className="text-emerald-400" /> Contact Info
+            <h3 className="text-sm font-semibold text-slate-200 pb-2 border-b border-slate-800 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Phone size={15} className="text-emerald-400" /> Contact Info
+              </span>
+              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+                Up to 3 Phones
+              </span>
             </h3>
             <div className="space-y-2.5 text-xs">
-              {[
-                { label: 'Contact Person', value: customer.contactPerson, bold: true },
-                { label: 'Phone', value: customer.phone, mono: true },
-                { label: 'Email', value: customer.email || 'N/A' },
-                { label: 'City / District', value: customer.city },
-                { label: 'Address', value: customer.address, truncate: true },
-              ].map(({ label, value, mono, bold, truncate }) => (
-                <div key={label} className="flex justify-between items-center gap-2">
-                  <span className="text-slate-500 flex-shrink-0">{label}:</span>
-                  <span className={`${mono ? 'font-mono' : ''} ${bold ? 'font-semibold text-slate-200' : 'text-slate-300'} ${truncate ? 'truncate max-w-[150px]' : ''}`}>
-                    {value}
-                  </span>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-500 flex-shrink-0">Contact Person:</span>
+                <span className="font-semibold text-slate-200">{customer.contactPerson}</span>
+              </div>
+
+              {/* WhatsApp Number (Phone 1) */}
+              <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-800/60">
+                <span className="text-slate-500 flex-shrink-0 flex items-center gap-1">
+                  <MessageCircle size={11} className="text-emerald-400" /> WhatsApp (Primary):
+                </span>
+                <a
+                  href={`https://wa.me/${cleanWhatsAppNumber(customer.phone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 transition"
+                  title="Open chat in WhatsApp"
+                >
+                  <span>{customer.phone}</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-sans font-semibold">Chat</span>
+                </a>
+              </div>
+
+              {/* Phone 2 */}
+              {customer.phone2 && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-slate-500 flex-shrink-0">Phone 2 (Secondary):</span>
+                  <span className="font-mono text-slate-300">{customer.phone2}</span>
                 </div>
-              ))}
+              )}
+
+              {/* Phone 3 */}
+              {customer.phone3 && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-slate-500 flex-shrink-0">Phone 3 (Alternative):</span>
+                  <span className="font-mono text-slate-300">{customer.phone3}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-800/60">
+                <span className="text-slate-500 flex-shrink-0">Email:</span>
+                <span className="text-slate-300">{customer.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-500 flex-shrink-0">City / District:</span>
+                <span className="text-slate-300">{customer.city}</span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-500 flex-shrink-0">Address:</span>
+                <span className="text-slate-300 truncate max-w-[150px]">{customer.address}</span>
+              </div>
             </div>
           </div>
 

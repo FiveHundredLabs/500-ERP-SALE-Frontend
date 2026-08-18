@@ -12,7 +12,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-001",
     customer: {
       _id: "c-001", fullName: "Kandy Construction Supplies", email: "pradeep@kandycon.lk",
-      phone: "081-234-5678", vatNumber: "KAD-7800-001", customerCode: "CUST-00104",
+      phone: "+94705787818", phone2: "081-234-5678", phone3: "070-456-7890",
+      vatNumber: "KAD-7800-001", customerCode: "CUST-00104",
       address: { street: "23, Peradeniya Road", city: "Kandy", country: "Sri Lanka", zip: "20000" },
     },
     items: [
@@ -31,7 +32,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-002",
     customer: {
       _id: "c-002", fullName: "Lanka Hardware Traders", email: "info@lankahardware.lk",
-      phone: "011-255-4321", vatNumber: "COL-9920-003", customerCode: "CUST-00101",
+      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
+      vatNumber: "COL-9920-003", customerCode: "CUST-00101",
       address: { street: "45, Main Street, Pettah", city: "Colombo", country: "Sri Lanka", zip: "01100" },
     },
     items: [
@@ -50,7 +52,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-003",
     customer: {
       _id: "c-003", fullName: "Modern Build Solutions", email: "chamara@modernbuild.lk",
-      phone: "033-456-7890", vatNumber: "GAM-5560-010", customerCode: "CUST-00103",
+      phone: "+94705787818", phone2: "033-456-7890", phone3: "071-345-6789",
+      vatNumber: "GAM-5560-010", customerCode: "CUST-00103",
       address: { street: "45, Kandy Road", city: "Gampaha", country: "Sri Lanka", zip: "11000" },
     },
     items: [
@@ -69,7 +72,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-004",
     customer: {
       _id: "c-004", fullName: "Jayantha Hardware & Paint", email: "jayantha@jayhw.lk",
-      phone: "033-234-5678", vatNumber: "GAM-3310-004", customerCode: "CUST-00109",
+      phone: "+94705787818", phone2: "033-234-5678", phone3: "075-123-9876",
+      vatNumber: "GAM-3310-004", customerCode: "CUST-00109",
       address: { street: "12, New Kandy Road", city: "Kadawatha", country: "Sri Lanka", zip: "11850" },
     },
     items: [
@@ -88,7 +92,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-005",
     customer: {
       _id: "c-005", fullName: "Galle Hardware Palace", email: "suresh@gallehw.lk",
-      phone: "091-234-5678", vatNumber: "GAL-2210-008", customerCode: "CUST-00102",
+      phone: "+94705787818", phone2: "091-234-5678", phone3: "076-234-5678",
+      vatNumber: "GAL-2210-008", customerCode: "CUST-00102",
       address: { street: "23, Colombo Road", city: "Galle", country: "Sri Lanka", zip: "80000" },
     },
     items: [
@@ -107,7 +112,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-006",
     customer: {
       _id: "c-006", fullName: "City Plumbing & Electrical", email: "nalika@cityplumb.lk",
-      phone: "011-567-8901", vatNumber: "COL-8840-008", customerCode: "CUST-00108",
+      phone: "+94705787818", phone2: "011-567-8901",
+      vatNumber: "COL-8840-008", customerCode: "CUST-00108",
       address: { street: "34, Deans Road", city: "Colombo 10", country: "Sri Lanka", zip: "01000" },
     },
     items: [
@@ -126,7 +132,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-007",
     customer: {
       _id: "c-007", fullName: "Ravi Plumbing & Hardware", email: "ravi@raviplumb.lk",
-      phone: "011-678-9012", vatNumber: "COL-6630-007", customerCode: "CUST-00110",
+      phone: "+94705787818", phone2: "011-678-9012", phone3: "071-876-5432",
+      vatNumber: "COL-6630-007", customerCode: "CUST-00110",
       address: { street: "89, Stanley Thilakaratne Mawatha", city: "Nugegoda", country: "Sri Lanka", zip: "10250" },
     },
     items: [
@@ -145,7 +152,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-008",
     customer: {
       _id: "c-008", fullName: "Up Country Hardware", email: "priyantha@upcohw.lk",
-      phone: "081-345-6789", vatNumber: "NUW-8840-009", customerCode: "CUST-00106",
+      phone: "+94705787818", phone2: "081-345-6789",
+      vatNumber: "NUW-8840-009", customerCode: "CUST-00106",
       address: { street: "67, Clock Tower Road", city: "Nuwara Eliya", country: "Sri Lanka", zip: "22200" },
     },
     items: [
@@ -164,7 +172,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-009",
     customer: {
       _id: "c-009", fullName: "Saman Building Materials", email: "saman@samanbm.lk",
-      phone: "011-456-7890", vatNumber: "COL-5510-002", customerCode: "CUST-00107",
+      phone: "+94705787818", phone2: "011-456-7890", phone3: "077-987-6543",
+      vatNumber: "COL-5510-002", customerCode: "CUST-00107",
       address: { street: "78, High Level Road", city: "Maharagama", country: "Sri Lanka", zip: "10280" },
     },
     items: [
@@ -183,7 +192,8 @@ export const mockQuotationsList: QuotationResponse[] = [
     quotationId: "QUO-2026-010",
     customer: {
       _id: "c-010", fullName: "Nirosha Hardware Mart", email: "nirosha@nirhw.lk",
-      phone: "011-234-5678", vatNumber: "COL-1120-011", customerCode: "CUST-00105",
+      phone: "+94705787818", phone2: "011-234-5678", phone3: "078-567-8901",
+      vatNumber: "COL-1120-011", customerCode: "CUST-00105",
       address: { street: "145, Baseline Road", city: "Colombo 09", country: "Sri Lanka", zip: "00900" },
     },
     items: [

@@ -1,10 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { FileText, Download, Printer, Share2, Copy, Check, ShoppingCart, MessageCircle, Mail } from 'lucide-react';
+import { FileText, Download, Printer, Share2, Copy, Check, ShoppingCart, MessageCircle, Mail, CheckCircle, ExternalLink } from 'lucide-react';
 import { Modal, LoadingSpinner } from '../common';
 import QuotationCanvas from './QuotationCanvas';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { QuotationData } from '../../types/quotation';
+import { generateQuotationWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
+import { mockCustomers } from '../../data/mockCustomers';
 
 interface QuotationViewModalProps {
   isOpen: boolean;
@@ -26,8 +28,37 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   const [isPrinting, setIsPrinting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<{
+    phone: string;
+    pdfName: string;
+    waUrl: string;
+  } | null>(null);
 
   if (!quotationData) return null;
+
+  // Retrieve customer WhatsApp number (1st phone number)
+  const getCustomerPhone = (): string => {
+    if (quotationData.customerDetails?.phone) return quotationData.customerDetails.phone;
+    if (typeof quotationData.customer === 'object' && (quotationData.customer as any)?.phone) {
+      return (quotationData.customer as any).phone;
+    }
+    const custId = typeof quotationData.customer === 'string' ? quotationData.customer : quotationData.customerDetails?._id;
+    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
+    return found?.phone || '+94705787818';
+  };
+
+  const getCustomerName = (): string => {
+    if (quotationData.customerDetails?.fullName) return quotationData.customerDetails.fullName;
+    if (typeof quotationData.customer === 'object' && (quotationData.customer as any)?.fullName) {
+      return (quotationData.customer as any).fullName;
+    }
+    const custId = typeof quotationData.customer === 'string' ? quotationData.customer : quotationData.customerDetails?._id;
+    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
+    return found?.businessName || found?.contactPerson || 'Valued Customer';
+  };
+
+  const customerPhone = getCustomerPhone();
+  const customerName = getCustomerName();
 
   const quotationShareUrl = quotationData._id
     ? `${window.location.origin}/quotation/view/${quotationData._id}`
@@ -44,21 +75,9 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     }
   };
 
-  const handleShareWhatsApp = () => {
-    const text = `Quotation ${quotationData.quotationId} - Total: LKR ${quotationData.totalAmount.toFixed(2)}: ${quotationShareUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    setShowShareMenu(false);
-  };
-
-  const handleShareEmail = () => {
-    const subject = `Quotation ${quotationData.quotationId}`;
-    const body = `Hello,\n\nPlease find the quotation details here:\n${quotationShareUrl}\n\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}`;
-    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-    setShowShareMenu(false);
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!quotationRef.current) return;
+  // Generate and Download PDF
+  const generateAndDownloadPDF = async (): Promise<boolean> => {
+    if (!quotationRef.current) return false;
     try {
       setIsGeneratingPDF(true);
       const canvas = await html2canvas(quotationRef.current, {
@@ -74,12 +93,54 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Quotation-${quotationData.quotationId || 'draft'}.pdf`);
+      const fileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+      pdf.save(fileName);
+      return true;
     } catch (err) {
       console.error('Failed to export PDF:', err);
+      return false;
     } finally {
       setIsGeneratingPDF(false);
     }
+  };
+
+  // Main WhatsApp Share Flow: Preview -> Generate PDF -> Open WhatsApp chat pre-filled with customer number & message
+  const handleShareWhatsApp = async () => {
+    setShowShareMenu(false);
+    
+    // Step 1: Generate & Download PDF
+    await generateAndDownloadPDF();
+    const pdfFileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+
+    // Step 2: Build formatted WhatsApp message
+    const message = generateQuotationWhatsAppMessage({
+      quotationId: quotationData.quotationId || 'Draft',
+      customerName: customerName,
+      totalAmount: quotationData.totalAmount,
+      issueDate: quotationData.issueDate || new Date().toISOString().split('T')[0],
+      itemsCount: quotationData.items.length,
+      shareUrl: quotationShareUrl,
+    });
+
+    // Step 3: Open WhatsApp with target phone number
+    const waUrl = getWhatsAppUrl(customerPhone, message);
+    window.open(waUrl, '_blank');
+
+    // Step 4: Show user guidance
+    setShareFeedback({
+      phone: customerPhone,
+      pdfName: pdfFileName,
+      waUrl: waUrl,
+    });
+
+    onShareSuccess?.(`WhatsApp chat opened for ${customerPhone}! PDF downloaded — attach and click Send.`);
+  };
+
+  const handleShareEmail = () => {
+    const subject = `Quotation ${quotationData.quotationId} from 500Core ERP`;
+    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationId}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500Core!`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+    setShowShareMenu(false);
   };
 
   const handlePrint = async () => {
@@ -127,7 +188,10 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => {
+        setShareFeedback(null);
+        onClose();
+      }}
       title={`Quotation Preview — ${quotationData.quotationId || 'Draft'}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
@@ -142,37 +206,58 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             </span>
             <span className="text-xs text-gray-500">•</span>
             <span className="text-xs text-gray-400">{quotationData.items.length} {quotationData.items.length === 1 ? 'item' : 'items'}</span>
+            <span className="text-xs text-gray-500">•</span>
+            <span className="text-xs text-slate-300 font-mono flex items-center gap-1">
+              <MessageCircle size={11} className="text-emerald-400" />
+              <span>{customerPhone}</span>
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Share Menu */}
+            {/* Primary Action: Share to WhatsApp with Customer's 1st Phone Number */}
+            <button
+              type="button"
+              onClick={handleShareWhatsApp}
+              disabled={isGeneratingPDF || isPrinting}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
+              title={`Generate PDF & Open WhatsApp chat for ${customerPhone}`}
+            >
+              <MessageCircle size={14} className="text-white" />
+              <span>Share to WhatsApp</span>
+              <span className="text-[10px] bg-emerald-800/80 text-emerald-100 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
+                {customerPhone}
+              </span>
+            </button>
+
+            {/* Share Options Dropdown */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowShareMenu(!showShareMenu)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-semibold transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e293b] hover:bg-[#334155] text-gray-200 border border-[#334155] rounded-lg text-xs font-semibold transition"
+                title="More Share Options"
               >
                 <Share2 size={13} />
-                <span>Share</span>
+                <span>Options</span>
               </button>
 
               {showShareMenu && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl z-50 p-1.5 space-y-1">
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl z-50 p-1.5 space-y-1">
+                  <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-emerald-400 hover:bg-[#1e293b] rounded-lg transition font-medium"
+                  >
+                    <MessageCircle size={14} />
+                    <span>WhatsApp ({customerPhone})</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleCopyLink}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-gray-200 hover:bg-[#1e293b] rounded-lg transition"
                   >
                     {copiedLink ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                    <span>{copiedLink ? "Link Copied!" : "Copy Link"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareWhatsApp}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-emerald-400 hover:bg-[#1e293b] rounded-lg transition"
-                  >
-                    <MessageCircle size={14} />
-                    <span>WhatsApp</span>
+                    <span>{copiedLink ? "Link Copied!" : "Copy Public Link"}</span>
                   </button>
                   <button
                     type="button"
@@ -180,7 +265,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-blue-400 hover:bg-[#1e293b] rounded-lg transition"
                   >
                     <Mail size={14} />
-                    <span>Email</span>
+                    <span>Send via Email</span>
                   </button>
                 </div>
               )}
@@ -212,20 +297,46 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             {/* Download PDF */}
             <button
               type="button"
-              onClick={handleDownloadPDF}
+              onClick={generateAndDownloadPDF}
               disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
             >
               <Download size={13} />
-              <span>{isGeneratingPDF ? 'Generating...' : 'PDF'}</span>
+              <span>{isGeneratingPDF ? 'Generating...' : 'Download PDF'}</span>
             </button>
           </div>
         </div>
 
+        {/* WhatsApp Share Success & Guidance Banner */}
+        {shareFeedback && (
+          <div className="flex-shrink-0 bg-emerald-950/80 border border-emerald-500/40 rounded-xl p-3 flex items-start justify-between gap-3 text-xs text-emerald-200 animate-fadeIn">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white">
+                  WhatsApp chat opened for <span className="font-mono text-emerald-300">{shareFeedback.phone}</span>
+                </p>
+                <p className="text-emerald-300/90 mt-0.5">
+                  The PDF file <strong className="text-white font-mono">{shareFeedback.pdfName}</strong> has been downloaded to your device. Simply drag & drop or attach the PDF file in your WhatsApp chat and click <strong>Send</strong>!
+                </p>
+              </div>
+            </div>
+            <a
+              href={shareFeedback.waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition"
+            >
+              <ExternalLink size={12} />
+              <span>Reopen Chat</span>
+            </a>
+          </div>
+        )}
+
         {/* Canvas Render Area */}
         <div className="flex-1 overflow-auto bg-[#0b1120] rounded-xl p-4 flex items-center justify-center min-h-[550px]">
           {isGeneratingPDF ? (
-            <LoadingSpinner size="lg" text="Exporting Quotation PDF..." />
+            <LoadingSpinner size="lg" text="Preparing PDF Document..." />
           ) : (
             <div
               ref={quotationRef}

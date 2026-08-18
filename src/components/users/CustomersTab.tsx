@@ -4,7 +4,8 @@ import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../e
 import type { Column } from '../erp/DataTable';
 import { mockCustomers as initialCustomers } from '../../data/mockCustomers';
 import type { Customer, CustomerCreateDto, CustomerTypeValue, CustomerStatusValue } from '../../types/customers';
-import { Plus, Eye, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, X, MessageCircle, Phone } from 'lucide-react';
+import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 
 const CustomersTab: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +34,8 @@ const CustomersTab: React.FC = () => {
     businessName: '',
     contactPerson: '',
     phone: '',
+    phone2: '',
+    phone3: '',
     email: '',
     address: '',
     city: '',
@@ -63,7 +66,7 @@ const CustomersTab: React.FC = () => {
       suggestions.push({
         id: `c-name-${c.id}`,
         title: c.businessName,
-        subtitle: `${c.contactPerson} · ${c.phone} · ${c.city}`,
+        subtitle: `${c.contactPerson} · WA: ${c.phone}${c.phone2 ? ` · ${c.phone2}` : ''} · ${c.city}`,
         category: 'Customer',
         value: c.businessName,
       });
@@ -90,6 +93,9 @@ const CustomersTab: React.FC = () => {
         c.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.customerId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.phone2 && c.phone2.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (c.phone3 && c.phone3.toLowerCase().includes(searchQuery.toLowerCase())) ||
         c.city.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === '' || c.status === statusFilter;
@@ -139,6 +145,10 @@ const CustomersTab: React.FC = () => {
       setCustomers((prev) =>
         prev.map((c) => (c.id === editCustomer.id ? { ...c, ...formData, updatedAt: new Date().toISOString() } : c))
       );
+      const foundIdx = initialCustomers.findIndex(c => c.id === editCustomer.id);
+      if (foundIdx !== -1) {
+        initialCustomers[foundIdx] = { ...initialCustomers[foundIdx], ...formData, updatedAt: new Date().toISOString() };
+      }
       success('Customer Updated', `Successfully updated ${formData.businessName}.`);
       setEditCustomer(null);
     } else {
@@ -154,6 +164,7 @@ const CustomersTab: React.FC = () => {
         updatedAt: new Date().toISOString(),
       };
       setCustomers((prev) => [newCust, ...prev]);
+      initialCustomers.unshift(newCust);
       success('Customer Created', `Added ${formData.businessName} to database.`);
     }
 
@@ -167,6 +178,8 @@ const CustomersTab: React.FC = () => {
       businessName: customer.businessName,
       contactPerson: customer.contactPerson,
       phone: customer.phone,
+      phone2: customer.phone2 || '',
+      phone3: customer.phone3 || '',
       email: customer.email || '',
       address: customer.address,
       city: customer.city,
@@ -182,6 +195,10 @@ const CustomersTab: React.FC = () => {
   const handleDeleteConfirm = () => {
     if (!deleteCustomer) return;
     setCustomers((prev) => prev.filter((c) => c.id !== deleteCustomer.id));
+    const foundIdx = initialCustomers.findIndex(c => c.id === deleteCustomer.id);
+    if (foundIdx !== -1) {
+      initialCustomers.splice(foundIdx, 1);
+    }
     success('Customer Deleted', `Deleted customer ${deleteCustomer.businessName}.`);
     setDeleteCustomer(null);
   };
@@ -191,6 +208,8 @@ const CustomersTab: React.FC = () => {
       businessName: '',
       contactPerson: '',
       phone: '',
+      phone2: '',
+      phone3: '',
       email: '',
       address: '',
       city: '',
@@ -223,12 +242,29 @@ const CustomersTab: React.FC = () => {
     },
     {
       key: 'contactPerson',
-      header: 'Contact',
-      minWidth: '140px',
+      header: 'Contact & WhatsApp',
+      minWidth: '180px',
       render: (row) => (
         <div>
           <p className="text-xs text-slate-300 font-semibold">{row.contactPerson}</p>
-          <p className="text-[11px] text-slate-500 font-mono">{row.phone}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <a
+              href={`https://wa.me/${cleanWhatsAppNumber(row.phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-medium transition"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle size={11} className="text-emerald-400" />
+              <span>{row.phone}</span>
+            </a>
+          </div>
+          {(row.phone2 || row.phone3) && (
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[170px]" title={`Phone 2: ${row.phone2 || '-'} | Phone 3: ${row.phone3 || '-'}`}>
+              {[row.phone2, row.phone3].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
       ),
     },
@@ -411,28 +447,73 @@ const CustomersTab: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
-                  <input
-                    required
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Nirosha Bandara"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  />
+              {/* Contact Person */}
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
+                <input
+                  required
+                  type="text"
+                  className="erp-input"
+                  placeholder="e.g. Nirosha Bandara"
+                  value={formData.contactPerson}
+                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                />
+              </div>
+
+              {/* Phone Numbers Section (Up to 3) */}
+              <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                  <div className="flex items-center gap-1.5">
+                    <Phone size={13} className="text-emerald-400" />
+                    <span className="text-xs font-semibold text-slate-200">Phone Numbers (Up to 3)</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40 flex items-center gap-1">
+                    <MessageCircle size={10} /> 1st = WhatsApp
+                  </span>
                 </div>
+
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Phone Number *</label>
+                  <label className="flex items-center justify-between text-slate-400 mb-1 font-medium">
+                    <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                      <MessageCircle size={12} className="text-emerald-400" /> WhatsApp Number * (Required)
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">Primary WhatsApp</span>
+                  </label>
                   <input
                     required
                     type="text"
-                    className="erp-input"
-                    placeholder="077-123-4567"
+                    className="erp-input border-emerald-500/30 focus:border-emerald-500 font-mono text-emerald-300"
+                    placeholder="e.g. +94705787818"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-medium">
+                      Phone 2 <span className="text-slate-500 text-[10px]">(Optional - Landline / Alt)</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="erp-input font-mono"
+                      placeholder="e.g. 011-255-4321"
+                      value={formData.phone2 || ''}
+                      onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-medium">
+                      Phone 3 <span className="text-slate-500 text-[10px]">(Optional - Secondary Mobile)</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="erp-input font-mono"
+                      placeholder="e.g. 077-123-4567"
+                      value={formData.phone3 || ''}
+                      onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 
