@@ -23,6 +23,7 @@ import {
   Share2,
   ShoppingCart,
   MessageCircle,
+  RotateCcw,
 } from "lucide-react";
 import QuotationForm from "../components/quotation/QuotationForm";
 import QuotationViewModal from "../components/quotation/QuotationViewModal";
@@ -832,6 +833,16 @@ const Quotation: React.FC = () => {
                       <span>Save</span>
                     </>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  title="Clear quotation"
+                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Clear</span>
                 </button>
 
                 <button
