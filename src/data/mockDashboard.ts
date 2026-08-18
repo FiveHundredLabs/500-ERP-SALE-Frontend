@@ -129,7 +129,86 @@ export const salesmenPerformance = mockSalesmen.map(sm => {
   };
 }).sort((a, b) => b.sales - a.sales);
 
-// ─── Low Stock Alerts ─────────────────────────────────────────────────────────
+// ─── Overdue Cheques List ──────────────────────────────────────────────────
+
+export interface OverdueCheque {
+  id: string;
+  chequeNumber: string;
+  bankName: string;
+  customerName: string;
+  invoiceId: string;
+  dueDate: string;
+  daysOverdue: number;
+  amount: number;
+  status: "Overdue" | "Deposited" | "Returned";
+}
+
+export const mockChequesOverdue: OverdueCheque[] = [
+  {
+    id: "chq-01",
+    chequeNumber: "CHQ-884210",
+    bankName: "Commercial Bank",
+    customerName: "Lanka Hardware Traders",
+    invoiceId: "INV-2026-104",
+    dueDate: "2026-08-05",
+    daysOverdue: 14,
+    amount: 185000,
+    status: "Overdue",
+  },
+  {
+    id: "chq-02",
+    chequeNumber: "CHQ-449102",
+    bankName: "Hatton National Bank",
+    customerName: "Metro Auto Care",
+    invoiceId: "INV-2026-082",
+    dueDate: "2026-07-28",
+    daysOverdue: 22,
+    amount: 94500,
+    status: "Overdue",
+  },
+  {
+    id: "chq-03",
+    chequeNumber: "CHQ-110933",
+    bankName: "Sampath Bank",
+    customerName: "Apex Motors Ltd",
+    invoiceId: "INV-2026-091",
+    dueDate: "2026-07-20",
+    daysOverdue: 30,
+    amount: 320000,
+    status: "Overdue",
+  },
+  {
+    id: "chq-04",
+    chequeNumber: "CHQ-772184",
+    bankName: "Bank of Ceylon",
+    customerName: "Kandy Construction Supplies",
+    invoiceId: "INV-2026-045",
+    dueDate: "2026-07-15",
+    daysOverdue: 35,
+    amount: 142800,
+    status: "Overdue",
+  },
+  {
+    id: "chq-05",
+    chequeNumber: "CHQ-556129",
+    bankName: "Nations Trust Bank",
+    customerName: "Silver Star Motors",
+    invoiceId: "INV-2026-033",
+    dueDate: "2026-07-08",
+    daysOverdue: 42,
+    amount: 215000,
+    status: "Overdue",
+  },
+];
+
+// ─── Operational Status (Order / PO / Pending / Settle) ──────────────────────
+
+export const operationalStatusBreakdown = [
+  { name: "Order", count: mockOrders.filter(o => o.status === 'Approved' || o.status === 'Converted to PO').length || 112, color: "#3b82f6", label: "Active Orders" },
+  { name: "PO", count: mockPurchaseOrders.length || 38, color: "#8b5cf6", label: "Purchase Orders" },
+  { name: "Pending", count: mockOrders.filter(o => o.status === 'Pending' || o.status === 'Reviewing').length || 48, color: "#f59e0b", label: "Pending Invoices" },
+  { name: "Settle", count: mockOrders.filter(o => o.status === 'Completed').length || 64, color: "#10b981", label: "Settled / Invoiced" },
+];
 
 export const lowStockAlerts = mockInventoryItems
   .filter(item => item.quantity >= 0 && item.quantity <= 20)

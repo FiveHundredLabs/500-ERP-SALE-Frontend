@@ -18,6 +18,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   UserCheck,
+  BarChart3,
+  Smartphone,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -32,6 +34,7 @@ interface NavItem {
   icon: React.ElementType;
   path: string;
   roles: string[];
+  badge?: string;
 }
 
 interface NavGroup {
@@ -50,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
     Purchasing: true,
     Products: true,
     Users: true,
-    Reports: false,
+    "Reports & Mobile": true,
     Settings: false,
   });
 
@@ -90,6 +93,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         { name: "Customers", icon: Users, path: "/customers", roles: ['admin'] },
         { name: "Sales Officers", icon: UserCheck, path: "/sales-officers", roles: ['admin'] },
         { name: "Suppliers", icon: Truck, path: "/suppliers", roles: ['admin'] },
+      ],
+    },
+    {
+      title: "Reports & Mobile",
+      icon: BarChart3,
+      items: [
+        { name: "Reports", icon: BarChart3, path: "/reports", roles: ['admin', 'inventory_manager'], badge: "DEV" },
+        { name: "Mobile App", icon: Smartphone, path: "/mobile-app", roles: ['admin', 'salesman', 'inventory_manager'], badge: "DEV" },
       ],
     },
     {
@@ -200,7 +211,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                 title={!isOpen ? item.name : undefined}
               >
                 <item.icon size={18} className={`flex-shrink-0 ${active ? "text-blue-400" : "text-slate-400"}`} />
-                {isOpen && <span className="truncate">{item.name}</span>}
+                {isOpen && (
+                  <>
+                    <span className="truncate flex-1">{item.name}</span>
+                    {item.badge && (
+                      <span className="text-[0.62rem] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 flex-shrink-0">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
               </div>
             );
           })}
@@ -249,7 +269,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                         title={!isOpen ? item.name : undefined}
                       >
                         <item.icon size={17} className={`flex-shrink-0 ${active ? "text-blue-400" : "text-slate-400"}`} />
-                        {isOpen && <span className="truncate">{item.name}</span>}
+                        {isOpen && (
+                          <>
+                            <span className="truncate flex-1">{item.name}</span>
+                            {item.badge && (
+                              <span className="text-[0.62rem] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 flex-shrink-0">
+                                {item.badge}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
                     );
                   })}

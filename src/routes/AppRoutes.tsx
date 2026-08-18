@@ -23,6 +23,8 @@ import Suppliers from "../pages/Suppliers";
 import CustomerDetails from "../pages/CustomerDetails";
 import SupplierDetails from "../pages/SupplierDetails";
 import SalesOfficers from "../pages/SalesOfficers";
+import Reports from "../pages/Reports";
+import MobileApp from "../pages/MobileApp";
 
 const AppRoutes: React.FC = () => {
   return (
@@ -248,6 +250,30 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
                 <UserManagement />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* REPORTS & ANALYTICS */}
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <Reports />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* MOBILE APP (UNDER DEVELOPMENT) */}
+        <Route
+          path="/mobile-app"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "salesman", "inventory_manager"]}>
+                <MobileApp />
               </RoleRoute>
             </ProtectedRoute>
           }
