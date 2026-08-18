@@ -4,8 +4,7 @@ import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
-import type { PurchaseOrder } from '../types/purchaseOrders';
-import { Eye, Download, ShoppingCart, Plus, Edit } from 'lucide-react';
+import { Eye, Download, ShoppingCart, Plus, Edit, FileText } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
 
@@ -243,28 +242,46 @@ const PurchaseOrders: React.FC = () => {
       key: 'actions',
       header: '',
       align: 'right',
-      minWidth: '150px',
-      render: (row) => (
-        <div className="flex gap-1.5 justify-end">
-          <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
-            className="erp-btn erp-btn-secondary erp-btn-sm gap-1"
-          >
-            <Eye size={13} /> View
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedPOToUpdate(row);
-            }}
-            className="erp-btn erp-btn-secondary erp-btn-sm p-2"
-            style={{color: "#f4af38ff"}}
-            title="Edit Purchase Order"
-          >
-            <Edit size={13} /> Edit
-          </button>
-        </div>
-      ),
+      minWidth: '270px',
+      render: (row) => {
+        const isEligibleForInvoice = !!(row.items && row.items.length > 0);
+        return (
+          <div className="flex gap-1.5 justify-end items-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
+              className="erp-btn erp-btn-secondary erp-btn-sm gap-1"
+            >
+              <Eye size={13} /> View
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPOToUpdate(row);
+              }}
+              className="erp-btn erp-btn-secondary erp-btn-sm p-2"
+              style={{color: "#f4af38ff"}}
+              title="Edit Purchase Order"
+            >
+              <Edit size={13} /> Edit
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/invoice', { state: { convertFromPO: row } });
+              }}
+              disabled={!isEligibleForInvoice}
+              className={`erp-btn erp-btn-secondary erp-btn-sm gap-1 ${
+                isEligibleForInvoice
+                  ? 'text-emerald-400 hover:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/10'
+                  : 'opacity-40 cursor-not-allowed text-gray-500'
+              }`}
+              title={isEligibleForInvoice ? "Convert Purchase Order to Sales Invoice" : "No items to convert"}
+            >
+              <FileText size={13} /> Invoice
+            </button>
+          </div>
+        );
+      },
     },
   ];
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trash2, Tag } from 'lucide-react';
 import type { InvoiceItem } from '../../types/invoice';
 import type { InventoryItem } from '../../types/inventory';
@@ -8,6 +8,7 @@ interface InvoiceItemsListProps {
   inventoryItems: InventoryItem[];
   onUpdateQuantity: (id: string, newQuantity: number) => void;
   onUpdateUnitPrice?: (id: string, newPrice: number) => void;
+  onUpdateItem?: (id: string, updates: Partial<InvoiceItem>) => void;
   onRemoveItem: (id: string) => void;
 }
 
@@ -15,9 +16,10 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
   items,
   inventoryItems,
   onUpdateQuantity,
+  onUpdateItem,
   onRemoveItem,
 }) => {
-  const [editingValues, setEditingValues] = React.useState<Record<string, { quantity?: string }>>({});
+  const [editingValues, setEditingValues] = useState<Record<string, { quantity?: string; discount?: string }>>({});
 
   if (items.length === 0) {
     return null;
@@ -52,6 +54,53 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
         if (Object.keys(next[id]).length === 0) delete next[id];
       }
       return next;
+    });
+  };
+
+  const handleItemDiscountChange = (
+    id: string,
+    updates: {
+      discountType?: 'percentage' | 'amount';
+      discountScope?: 'per_unit' | 'total_qty';
+      discountValue?: number;
+    }
+  ) => {
+    const currentItem = items.find((it) => it.id === id);
+    if (!currentItem || !onUpdateItem) return;
+
+    const discountType = updates.discountType ?? currentItem.discountType ?? 'percentage';
+    const discountScope = updates.discountScope ?? currentItem.discountScope ?? 'per_unit';
+    const discountValue = updates.discountValue !== undefined ? updates.discountValue : (currentItem.discountValue ?? 0);
+
+    const qty = currentItem.quantity;
+    const price = currentItem.unitPrice;
+    let discAmount = 0;
+
+    if (discountValue > 0 && price > 0) {
+      if (discountType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discountValue));
+        if (discountScope === 'per_unit') {
+          discAmount = price * (pct / 100) * qty;
+        } else {
+          discAmount = (qty * price) * (pct / 100);
+        }
+      } else {
+        if (discountScope === 'per_unit') {
+          discAmount = Math.min(price, discountValue) * qty;
+        } else {
+          discAmount = Math.min(qty * price, discountValue);
+        }
+      }
+    }
+
+    const newTotal = Math.max(0, qty * price - discAmount);
+
+    onUpdateItem(id, {
+      discountType,
+      discountScope,
+      discountValue,
+      discountAmount: discAmount,
+      total: newTotal,
     });
   };
 
@@ -118,21 +167,89 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                       </div>
                     </div>
 
+                    {/* Interactive Item Discount */}
                     <div className="text-gray-400">
-                      <div className="text-[11px] font-medium uppercase mb-1">Discount</div>
-                      {hasDiscount ? (
-                        <div className="w-full bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1.5 text-red-400 font-mono text-xs flex items-center gap-1">
-                          <Tag size={11} />
-                          <span>- LKR {(item.discountAmount || 0).toFixed(2)}</span>
-                          <span className="text-[10px] text-gray-400 ml-auto">
-                            ({item.discountValue}{item.discountType === 'percentage' ? '%' : ' Rs.'} {item.discountScope === 'per_unit' ? '/u' : 'tot'})
+                      <div className="flex items-center justify-between text-[11px] font-medium uppercase mb-1">
+                        <span className="flex items-center gap-1">
+                          <Tag size={11} className="text-amber-400" /> Discount
+                        </span>
+                        {onUpdateItem && (
+                          <div className="flex items-center gap-0.5 bg-[#0b1120] p-0.5 rounded border border-[#334155]">
+                            <button
+                              type="button"
+                              onClick={() => handleItemDiscountChange(item.id, { discountType: 'percentage' })}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${
+                                item.discountType !== 'amount'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-400 hover:text-white'
+                              }`}
+                              title="Percentage discount"
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleItemDiscountChange(item.id, { discountType: 'amount' })}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${
+                                item.discountType === 'amount'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-400 hover:text-white'
+                              }`}
+                              title="Fixed amount discount"
+                            >
+                              LKR
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max={item.discountType === 'amount' ? undefined : 100}
+                            value={
+                              editingValues[item.id]?.discount !== undefined
+                                ? editingValues[item.id]?.discount
+                                : item.discountValue !== undefined && item.discountValue > 0
+                                ? item.discountValue
+                                : ''
+                            }
+                            placeholder="0"
+                            onChange={(e) => {
+                              const strVal = e.target.value;
+                              setEditingValues((prev) => ({
+                                ...prev,
+                                [item.id]: { ...prev[item.id], discount: strVal },
+                              }));
+                              const val = Math.max(0, parseFloat(strVal) || 0);
+                              handleItemDiscountChange(item.id, { discountValue: val });
+                            }}
+                            onBlur={() => {
+                              setEditingValues((prev) => {
+                                const next = { ...prev };
+                                if (next[item.id]) {
+                                  delete next[item.id].discount;
+                                  if (Object.keys(next[item.id]).length === 0) delete next[item.id];
+                                }
+                                return next;
+                              });
+                            }}
+                            className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs text-right"
+                          />
+                          <span className="text-xs text-gray-400 font-mono shrink-0">
+                            {item.discountType === 'amount' ? 'LKR' : '%'}
                           </span>
                         </div>
-                      ) : (
-                        <div className="w-full bg-[#1e293b]/40 border border-[#334155] rounded-lg px-2.5 py-1.5 text-gray-500 font-mono text-xs">
-                          None (0.00)
-                        </div>
-                      )}
+
+                        {hasDiscount && (
+                          <div className="flex items-center justify-between text-[11px] text-amber-400 font-mono">
+                            <span>Discount:</span>
+                            <span className="font-semibold">- LKR {(item.discountAmount || 0).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="text-gray-400">
@@ -151,3 +268,5 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
     </div>
   );
 };
+
+export default InvoiceItemsList;

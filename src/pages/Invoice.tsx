@@ -44,8 +44,11 @@ import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
+import { useLocation } from "react-router-dom";
+import type { PurchaseOrder } from "../types/purchaseOrders";
 
 const Invoice: React.FC = () => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -141,13 +144,43 @@ const Invoice: React.FC = () => {
       setInventoryItems(items as InvoiceInventoryItem[]);
 
       const nextId = await invoiceService.getNextId();
-      const initialInvoiceData = {
+
+      const convertFromPO = location.state?.convertFromPO as PurchaseOrder | undefined;
+
+      let initialInvoiceItems: InvoiceItem[] = [];
+      let initialNotes = "";
+
+      if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
+        initialInvoiceItems = convertFromPO.items.map((p, idx) => ({
+          id: `inv-item-${Date.now()}-${idx}`,
+          item: p.sku || p.id || `item-${idx}`,
+          itemName: p.productName,
+          product_code: p.sku,
+          quantity: p.quantity,
+          unitPrice: p.unitPrice, // PO Cost Price automatically becomes Invoice Selling Price!
+          costPrice: p.unitPrice,
+          discountType: 'percentage',
+          discountScope: 'per_unit',
+          discountValue: 0,
+          discountAmount: 0,
+          total: p.quantity * p.unitPrice,
+        }));
+        initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
+      }
+
+      const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
+
+      const initialInvoiceData: InvoiceData = {
         ...getInitialInvoiceData(),
-        invoiceId: nextId
+        invoiceId: nextId,
+        items: initialInvoiceItems,
+        subTotal,
+        totalAmount: subTotal,
+        notes: initialNotes,
       };
       setInvoiceData(initialInvoiceData);
       lastSavedRef.current = null;
-      setIsDirty(false);
+      setIsDirty(initialInvoiceItems.length > 0);
       lastSavedAtRef.current = null;
 
       // Update paymentDetails
@@ -155,6 +188,14 @@ const Invoice: React.FC = () => {
         ...prev,
         method: initialInvoiceData.paymentMethod
       }));
+
+      if (initialInvoiceItems.length > 0) {
+        setViewMode('edit');
+        setAlert({
+          type: 'info',
+          message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.`,
+        });
+      }
 
     } catch (error) {
       setAlert({
@@ -455,20 +496,32 @@ const Invoice: React.FC = () => {
     const newItems = invoiceData.items.map(item => {
       if (item.id === id) {
         const updatedItem = { ...item, ...updates };
-        if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
-          const qty = updatedItem.quantity;
-          const price = updatedItem.unitPrice;
-          let disc = updatedItem.discountAmount || 0;
-          if (updatedItem.discountValue && updatedItem.discountScope === 'per_unit') {
-            if (updatedItem.discountType === 'percentage') {
-              disc = (qty * price) * (Number(updatedItem.discountValue) / 100);
+        const qty = updatedItem.quantity;
+        const price = updatedItem.unitPrice;
+        const discVal = Number(updatedItem.discountValue) || 0;
+        const discType = updatedItem.discountType || 'percentage';
+        const discScope = updatedItem.discountScope || 'per_unit';
+
+        let discAmount = 0;
+        if (discVal > 0 && price > 0) {
+          if (discType === 'percentage') {
+            const pct = Math.min(100, Math.max(0, discVal));
+            if (discScope === 'per_unit') {
+              discAmount = price * (pct / 100) * qty;
             } else {
-              disc = Math.min(price, Number(updatedItem.discountValue)) * qty;
+              discAmount = (qty * price) * (pct / 100);
             }
-            updatedItem.discountAmount = disc;
+          } else {
+            if (discScope === 'per_unit') {
+              discAmount = Math.min(price, discVal) * qty;
+            } else {
+              discAmount = Math.min(qty * price, discVal);
+            }
           }
-          updatedItem.total = updates.total !== undefined ? updates.total : Math.max(0, (qty * price) - disc);
         }
+
+        updatedItem.discountAmount = discAmount;
+        updatedItem.total = updates.total !== undefined ? updates.total : Math.max(0, (qty * price) - discAmount);
         return updatedItem;
       }
       return item;

@@ -12,6 +12,7 @@ import {
   Printer,
   MessageCircle,
   MessageSquare,
+  FileText,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 
@@ -110,6 +111,16 @@ const PurchaseOrderDetails: React.FC = () => {
 
               <button
                 onClick={() => {
+                  navigate('/invoice', { state: { convertFromPO: po } });
+                }}
+                className="px-3 py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+                title="Convert Purchase Order to Sales Invoice"
+              >
+                <FileText size={14} /> Convert to Invoice
+              </button>
+
+              <button
+                onClick={() => {
                   const message = generatePOWhatsAppMessage({
                     poNumber: po.poNumber,
                     supplierName: po.supplierName,
@@ -122,7 +133,7 @@ const PurchaseOrderDetails: React.FC = () => {
                   window.open(waUrl, '_blank');
                   success('WhatsApp Shared', `Opened chat for ${po.supplierName} (${po.supplierPhone})`);
                 }}
-                className="px-3 py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+                className="px-3 py-2 border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
               >
                 <MessageCircle size={14} /> Send via WhatsApp
               </button>

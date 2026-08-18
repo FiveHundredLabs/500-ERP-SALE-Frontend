@@ -596,6 +596,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               items={invoiceData.items}
               inventoryItems={inventoryItems}
               onUpdateQuantity={handleUpdateItemQuantity}
+              onUpdateItem={onUpdateItem}
               onRemoveItem={onRemoveItem}
             />
 
