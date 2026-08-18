@@ -111,97 +111,104 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
   const subTotal = items.reduce((sum, item) => sum + item.total, 0);
 
   return (
-    <div className="bg-[#1e293b] rounded-lg p-6 border border-[#334155]">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-200">
-          Items List ({items.length} {items.length === 1 ? 'item' : 'items'})
+    <div className="bg-[#1e293b] rounded-lg p-5 border border-[#334155]">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+          <span>Items List</span>
+          <span className="text-xs font-normal text-gray-400">
+            ({items.length} {items.length === 1 ? 'item' : 'items'})
+          </span>
         </h3>
-        <div className="text-sm text-gray-400">
+        <div className="text-xs text-gray-400 font-mono">
           Subtotal: <span className="text-green-400 font-semibold">{formatAmount(subTotal)}</span>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {items.map((item) => {
-          const inventoryItem = inventoryItems.find((inv) => inv._id === item.item);
-          const hasDiscount = (item.discountAmount && item.discountAmount > 0) || (item.discountValue && item.discountValue > 0);
-          const discountType = item.discountType || 'percentage';
-          const discountScope = item.discountScope || 'per_unit';
+      <div className="overflow-x-auto rounded-lg border border-[#334155]">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-[#334155] text-[11px] font-semibold text-gray-300 uppercase bg-[#0f172a]">
+              <th className="py-2.5 px-3 w-10 text-center">#</th>
+              <th className="py-2.5 px-3 min-w-[180px]">Product</th>
+              <th className="py-2.5 px-3 w-20 text-center">Qty</th>
+              <th className="py-2.5 px-3 w-28 text-right">Unit Price (LKR)</th>
+              <th className="py-2.5 px-3 w-44 text-center">Discount</th>
+              <th className="py-2.5 px-3 w-36 text-center">Apply Discount</th>
+              <th className="py-2.5 px-3 w-28 text-right">Line Total (LKR)</th>
+              <th className="py-2.5 px-3 w-10 text-center"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#334155]/60 text-xs bg-[#0f172a]/50">
+            {items.map((item, idx) => {
+              const inventoryItem = inventoryItems.find((inv) => inv._id === item.item);
+              const hasDiscount =
+                (item.discountAmount && item.discountAmount > 0) ||
+                (item.discountValue && item.discountValue > 0);
+              const discountType = item.discountType || 'percentage';
+              const discountScope = item.discountScope || 'per_unit';
 
-          return (
-            <div key={item.id} className="bg-[#0f172a] p-4 rounded-xl border border-[#334155]">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-semibold text-gray-100 text-sm">
-                        {item.itemName || inventoryItem?.product_name || `Item ${item.item ? item.item.substring(0, 8) : 'Unknown'}...`}
-                      </h4>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onRemoveItem(item.id)}
-                      className="text-gray-400 hover:text-red-400 ml-4 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
-                      title="Remove item"
-                      aria-label={`Remove ${item.itemName || 'item'}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+              return (
+                <tr key={item.id} className="hover:bg-[#1e293b]/50 transition-colors">
+                  {/* # */}
+                  <td className="py-2 px-3 text-center text-gray-500 font-mono text-xs">
+                    {idx + 1}
+                  </td>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm mt-3 pt-3 border-t border-[#334155]/60 items-start">
-                    {/* Quantity */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
-                        Quantity
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={editingValues[item.id]?.quantity ?? item.quantity}
-                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                        onBlur={() => handleQuantityBlur(item.id, item.quantity)}
-                        className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 h-[38px]"
-                        aria-label={`Quantity for ${item.itemName || 'item'}`}
-                      />
-                    </div>
+                  {/* Product */}
+                  <td className="py-2 px-3">
+                    <p className="font-semibold text-gray-100 text-xs">
+                      {item.itemName || inventoryItem?.product_name || `Item ${item.item ? item.item.substring(0, 8) : 'Unknown'}...`}
+                    </p>
+                  </td>
 
-                    {/* Selling Price */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
-                        Unit Price (LKR)
-                      </label>
-                      <div className="w-full bg-[#1e293b]/60 border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono font-bold text-emerald-400 h-[38px] flex items-center">
-                        {formatAmount(item.unitPrice)}
+                  {/* Quantity */}
+                  <td className="py-2 px-3 text-center">
+                    <input
+                      type="number"
+                      min="1"
+                      value={editingValues[item.id]?.quantity ?? item.quantity}
+                      onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                      onBlur={() => handleQuantityBlur(item.id, item.quantity)}
+                      className="w-16 bg-[#1e293b] border border-[#334155] rounded-md px-2 py-1 text-center text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      aria-label={`Quantity for ${item.itemName || 'item'}`}
+                    />
+                  </td>
+
+                  {/* Unit Price */}
+                  <td className="py-2 px-3 text-right">
+                    <span className="font-mono text-xs text-gray-300 font-semibold">
+                      {formatAmount(item.unitPrice)}
+                    </span>
+                  </td>
+
+                  {/* Discount (% / Rs. + input) */}
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-1 justify-center">
+                      <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155] shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleItemDiscountChange(item.id, { discountType: 'percentage' })}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                            discountType === 'percentage'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleItemDiscountChange(item.id, { discountType: 'amount' })}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                            discountType === 'amount'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          Rs.
+                        </button>
                       </div>
-                    </div>
-
-                    {/* Discount Value with % / Rs. Toggle */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] flex items-center justify-between">
-                        <span>Discount</span>
-                        <div className="flex gap-1 text-[10px]">
-                          <button
-                            type="button"
-                            onClick={() => handleItemDiscountChange(item.id, { discountType: 'percentage' })}
-                            className={`px-1.5 py-0.5 rounded font-bold transition ${
-                              discountType === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white bg-[#1e293b]'
-                            }`}
-                          >
-                            %
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleItemDiscountChange(item.id, { discountType: 'amount' })}
-                            className={`px-1.5 py-0.5 rounded font-bold transition ${
-                              discountType === 'amount' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white bg-[#1e293b]'
-                            }`}
-                          >
-                            Rs.
-                          </button>
-                        </div>
-                      </label>
-                      <div className="relative">
+                      <div className="relative flex-1 min-w-[70px]">
                         <input
                           type="number"
                           min="0"
@@ -233,63 +240,74 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                               return next;
                             });
                           }}
-                          className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-7 h-[38px]"
+                          className="w-full bg-[#1e293b] border border-[#334155] rounded-md px-2 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-6"
                         />
-                        <div className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-500 pointer-events-none">
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-bold pointer-events-none">
                           {discountType === 'percentage' ? '%' : 'Rs'}
                         </div>
                       </div>
                     </div>
+                  </td>
 
-                    {/* Apply Discount Scope: Per Unit / Total Qty */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
-                        Apply Discount
-                      </label>
-                      <div className="grid grid-cols-2 gap-1 bg-[#1e293b] p-1 border border-[#334155] rounded-lg h-[38px] items-center">
-                        <button
-                          type="button"
-                          onClick={() => handleItemDiscountChange(item.id, { discountScope: 'per_unit' })}
-                          className={`h-full text-xs rounded font-medium transition flex items-center justify-center ${
-                            discountScope === 'per_unit' ? 'bg-purple-600 text-white shadow-sm font-semibold' : 'text-gray-400 hover:text-gray-200'
-                          }`}
-                        >
-                          Per Unit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleItemDiscountChange(item.id, { discountScope: 'total_qty' })}
-                          className={`h-full text-xs rounded font-medium transition flex items-center justify-center ${
-                            discountScope === 'total_qty' ? 'bg-purple-600 text-white shadow-sm font-semibold' : 'text-gray-400 hover:text-gray-200'
-                          }`}
-                        >
-                          Total Qty
-                        </button>
-                      </div>
+                  {/* Apply Discount Scope */}
+                  <td className="py-2 px-3">
+                    <div className="grid grid-cols-2 gap-0.5 bg-[#1e293b] p-0.5 border border-[#334155] rounded-md h-[26px] items-center">
+                      <button
+                        type="button"
+                        onClick={() => handleItemDiscountChange(item.id, { discountScope: 'per_unit' })}
+                        className={`h-full px-1 text-[10px] rounded font-medium transition flex items-center justify-center ${
+                          discountScope === 'per_unit'
+                            ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        Per Unit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleItemDiscountChange(item.id, { discountScope: 'total_qty' })}
+                        className={`h-full px-1 text-[10px] rounded font-medium transition flex items-center justify-center ${
+                          discountScope === 'total_qty'
+                            ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        Total Qty
+                      </button>
                     </div>
+                  </td>
 
-                    {/* Line Total */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
-                        Line Total (LKR)
-                      </label>
-                      <div className="w-full bg-[#1e293b]/60 border border-[#334155] rounded-lg px-3 py-1.5 h-[38px] flex items-center justify-between">
-                        <span className="text-emerald-400 font-mono font-bold text-sm">
-                          {formatAmount(item.total)}
+                  {/* Line Total */}
+                  <td className="py-2 px-3 text-right">
+                    <div className="flex flex-col items-end justify-center">
+                      <span className="font-mono text-xs font-bold text-emerald-400">
+                        {formatAmount(item.total)}
+                      </span>
+                      {hasDiscount && (
+                        <span className="text-[10px] text-amber-400 font-mono">
+                          -{formatAmount(item.discountAmount || 0)}
                         </span>
-                        {hasDiscount && (
-                          <span className="text-[10px] text-amber-400 font-mono">
-                            -{formatAmount(item.discountAmount || 0)}
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                  </td>
+
+                  {/* Action */}
+                  <td className="py-2 px-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onRemoveItem(item.id)}
+                      className="text-gray-400 hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors"
+                      title="Remove item"
+                      aria-label={`Remove ${item.itemName || 'item'}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

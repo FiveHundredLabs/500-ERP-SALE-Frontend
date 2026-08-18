@@ -121,11 +121,13 @@ const Invoice: React.FC = () => {
     subTotal: 0,
     discount: 0,
     discountPercentage: 0,
+    totalDiscountType: 'percentage',
+    totalDiscountValue: 0,
     totalAmount: 0,
-    paymentStatus: PaymentStatus.PENDING,
+    paymentStatus: PaymentStatus.COMPLETED,
     paymentMethod: PaymentMethod.CASH,
     issueDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dueDate: new Date().toISOString().split('T')[0],
     vehicleNumber: "",
     notes: "",
     applyVat: false,
@@ -358,16 +360,26 @@ const Invoice: React.FC = () => {
     }
 
     const subTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subTotal * (invoiceData.discountPercentage / 100);
+    const discType = invoiceData.totalDiscountType || 'percentage';
+    const discVal = invoiceData.totalDiscountValue || 0;
+    let totalDiscount = 0;
+    if (discVal > 0) {
+      if (discType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discVal));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discVal);
+      }
+    }
     const taxAmount = invoiceData.applyVat ? subTotal * invoiceData.taxRate : 0;
-    const totalAmount = subTotal + taxAmount - discountAmount;
+    const totalAmount = Math.max(0, subTotal - totalDiscount + taxAmount);
 
     setInvoiceData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
-      discount: discountAmount,
-      totalAmount: totalAmount > 0 ? totalAmount : 0,
+      discount: totalDiscount,
+      totalAmount,
       vatAmount: taxAmount
     }));
     setIsDirty(true);
@@ -477,16 +489,26 @@ const Invoice: React.FC = () => {
   const handleRemoveItem = (id: string) => {
     const newItems = invoiceData.items.filter(item => item.id !== id);
     const subTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subTotal * (invoiceData.discountPercentage / 100);
+    const discType = invoiceData.totalDiscountType || 'percentage';
+    const discVal = invoiceData.totalDiscountValue || 0;
+    let totalDiscount = 0;
+    if (discVal > 0) {
+      if (discType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discVal));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discVal);
+      }
+    }
     const taxAmount = invoiceData.applyVat ? subTotal * invoiceData.taxRate : 0;
-    const totalAmount = subTotal + taxAmount - discountAmount;
+    const totalAmount = Math.max(0, subTotal - totalDiscount + taxAmount);
 
     setInvoiceData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
-      discount: discountAmount,
-      totalAmount: totalAmount > 0 ? totalAmount : 0,
+      discount: totalDiscount,
+      totalAmount,
       vatAmount: taxAmount
     }));
     setIsDirty(true);
@@ -528,17 +550,53 @@ const Invoice: React.FC = () => {
     });
 
     const subTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subTotal * (invoiceData.discountPercentage / 100);
+    const discType = invoiceData.totalDiscountType || 'percentage';
+    const discVal = invoiceData.totalDiscountValue || 0;
+    let totalDiscount = 0;
+    if (discVal > 0) {
+      if (discType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discVal));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discVal);
+      }
+    }
     const taxAmount = invoiceData.applyVat ? subTotal * invoiceData.taxRate : 0;
-    const totalAmount = subTotal + taxAmount - discountAmount;
+    const totalAmount = Math.max(0, subTotal - totalDiscount + taxAmount);
 
     setInvoiceData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
-      discount: discountAmount,
-      totalAmount: totalAmount > 0 ? totalAmount : 0,
+      discount: totalDiscount,
+      totalAmount,
       vatAmount: taxAmount
+    }));
+    setIsDirty(true);
+  };
+
+  const handleTotalDiscountChange = (discountType: 'percentage' | 'amount', discountValue: number) => {
+    const subTotal = invoiceData.subTotal;
+    let totalDiscount = 0;
+    if (discountValue > 0) {
+      if (discountType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discountValue));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discountValue);
+      }
+    }
+    const taxAmount = invoiceData.applyVat ? subTotal * invoiceData.taxRate : 0;
+    const totalAmount = Math.max(0, subTotal - totalDiscount + taxAmount);
+
+    setInvoiceData(prev => ({
+      ...prev,
+      totalDiscountType: discountType,
+      totalDiscountValue: discountValue,
+      discount: totalDiscount,
+      discountPercentage: discountType === 'percentage' ? discountValue : (subTotal > 0 ? (totalDiscount / subTotal) * 100 : 0),
+      vatAmount: taxAmount,
+      totalAmount,
     }));
     setIsDirty(true);
   };
@@ -547,25 +605,13 @@ const Invoice: React.FC = () => {
     setInvoiceData(prev => {
       const updated = { ...prev, [field]: value };
 
-      if (field === 'discountPercentage') {
-        const discountAmount = prev.subTotal * (Number(value) / 100);
-        const taxAmount = prev.applyVat ? prev.subTotal * prev.taxRate : 0;
-        const totalAmount = prev.subTotal + taxAmount - discountAmount;
-        return {
-          ...updated,
-          discount: discountAmount,
-          totalAmount: totalAmount > 0 ? totalAmount : 0,
-          vatAmount: taxAmount
-        };
-      }
-
       if (field === 'applyVat') {
         const taxAmount = value ? prev.subTotal * prev.taxRate : 0;
-        const totalAmount = prev.subTotal + taxAmount - prev.discount;
+        const totalAmount = Math.max(0, prev.subTotal - prev.discount + taxAmount);
         return {
           ...updated,
           vatAmount: taxAmount,
-          totalAmount: totalAmount > 0 ? totalAmount : 0
+          totalAmount
         };
       }
 
@@ -1299,6 +1345,7 @@ const Invoice: React.FC = () => {
                       onAddItem={handleAddItem}
                       onRemoveItem={handleRemoveItem}
                       onUpdateItem={handleUpdateItem}
+                      onTotalDiscountChange={handleTotalDiscountChange}
                       inventoryItems={inventoryItems}
                       onPaymentStatusChange={handlePaymentStatusChange}
                       onPaymentComplete={handlePaymentComplete}

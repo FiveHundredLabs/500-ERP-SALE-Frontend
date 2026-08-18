@@ -69,6 +69,8 @@ export interface InvoiceData {
   subTotal: number;
   discount: number;
   discountPercentage: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
   totalAmount: number;
   paymentStatus: PaymentStatusType;
   paymentMethod: PaymentMethodType;

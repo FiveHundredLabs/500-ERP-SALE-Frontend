@@ -22,6 +22,7 @@ interface InvoiceFormProps {
   onAddItem: (item: Omit<InvoiceItem, 'id' | 'total'>) => void;
   onRemoveItem: (id: string) => void;
   onUpdateItem: (id: string, updates: Partial<InvoiceItem>) => void;
+  onTotalDiscountChange?: (discountType: 'percentage' | 'amount', discountValue: number) => void;
   inventoryItems: InventoryItem[];
   onPaymentStatusChange?: (status: PaymentStatusType, invoice: InvoiceData) => void;
   onPaymentComplete?: () => Promise<void>;
@@ -35,6 +36,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   onAddItem,
   onRemoveItem,
   onUpdateItem,
+  onTotalDiscountChange,
   inventoryItems,
   onPaymentComplete,
   isProcessingPayment = false,
@@ -81,12 +83,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     discountValue: '0',
   });
 
-  const [creditPeriod, setCreditPeriod] = useState<string>('custom');
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
   const handleOrderImport = useCallback((po: PurchaseOrder) => {
-    // Map PO items to invoice line items
     po.items.forEach(p => {
       const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
         item: p.id || p.sku,
@@ -97,34 +97,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       onAddItem(lineItem);
     });
 
-    // Store imported PO reference
     setImportedOrderId(po.poNumber);
     onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
   }, [onFieldChange, onAddItem]);
-
-  // When credit period preset is selected, auto-calculate dueDate from issueDate
-  const handleCreditPeriodChange = (period: string) => {
-    setCreditPeriod(period);
-    if (period !== 'custom' && invoiceData.issueDate) {
-      const days = parseInt(period);
-      const issue = new Date(invoiceData.issueDate);
-      issue.setDate(issue.getDate() + days);
-      const due = issue.toISOString().split('T')[0];
-      onFieldChange('dueDate', due);
-    }
-  };
-
-  // When issueDate changes, recalculate dueDate if a preset is active
-  const handleIssueDateChange = (value: string) => {
-    onFieldChange('issueDate', value);
-    if (creditPeriod !== 'custom' && value) {
-      const days = parseInt(creditPeriod);
-      const issue = new Date(value);
-      issue.setDate(issue.getDate() + days);
-      const due = issue.toISOString().split('T')[0];
-      onFieldChange('dueDate', due);
-    }
-  };
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
@@ -176,14 +151,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }));
   }, []);
 
-  // When payment method changes, show or reset credit period
+  // When payment method changes: If Credit -> Pending, else -> Completed
   const handlePaymentMethodChange = (method: string) => {
     onFieldChange('paymentMethod', method);
     if (method === PaymentMethod.CREDIT || method === 'Credit') {
-      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
-      handleCreditPeriodChange(periodToUse);
+      onFieldChange('paymentStatus', PaymentStatus.PENDING);
     } else {
-      setCreditPeriod('custom');
+      onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
     }
   };
 
@@ -197,19 +171,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     const terms = (customer as any).paymentTerms || '';
     if (terms && !terms.toLowerCase().includes('cash')) {
       onFieldChange('paymentMethod', PaymentMethod.CREDIT);
-      if (terms.includes('15')) {
-        handleCreditPeriodChange('15');
-      } else if (terms.includes('45')) {
-        handleCreditPeriodChange('45');
-      } else if (terms.includes('60')) {
-        handleCreditPeriodChange('60');
-      } else if (terms.includes('7')) {
-        handleCreditPeriodChange('7');
-      } else {
-        handleCreditPeriodChange('30');
-      }
+      onFieldChange('paymentStatus', PaymentStatus.PENDING);
+    } else {
+      onFieldChange('paymentMethod', PaymentMethod.CASH);
+      onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
     }
-  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, invoiceData.issueDate]);
+  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -243,7 +210,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     const existingItem = invoiceData.items.find(inv => inv.item === item);
 
     if (existingItem) {
-      // Update existing: recalculate total with new qty+discount
       const updatedQty = existingItem.quantity + quantity;
       const newTotal = updatedQty * unitPrice - discountAmount;
       onUpdateItem(existingItem.id, {
@@ -273,12 +239,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
 
     handleClearItemSelection();
-  }, [newItem, invoiceData.items, onAddItem, onUpdateItem, handleClearItemSelection]);
+  }, [invoiceData.items, onAddItem, onUpdateItem, handleClearItemSelection]);
 
   const handleUpdateItemQuantity = useCallback((id: string, newQuantity: number) => {
     const item = invoiceData.items.find(item => item.id === id);
     if (!item) return;
-    
     onUpdateItem(id, { quantity: newQuantity });
   }, [invoiceData.items, onUpdateItem]);
 
@@ -326,7 +291,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handlePaymentModalClose = () => {
     setShowPaymentModal(false);
-    
     if (!isProcessingPayment && invoiceData.paymentStatus === PaymentStatus.COMPLETED) {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
     }
@@ -334,7 +298,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handlePaymentCompleteInternal = async () => {
     setShowPaymentModal(false);
-    
     if (onPaymentComplete) {
       await onPaymentComplete();
     }
@@ -385,7 +348,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <CustomerFormModal
           isOpen={true}
           mode={customerModalMode}
-          initialData={customerModalMode === 'edit' ? selectedCustomer || undefined : undefined}
+          customer={customerModalMode === 'edit' ? selectedCustomer || undefined : undefined}
           prefillData={customerModalMode === 'create' ? getCustomerPrefillData() : undefined}
           onClose={() => setCustomerModalMode(null)}
           onSubmit={handleCustomerFormSubmit}
@@ -421,7 +384,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         isProcessing={isProcessingPayment}
       />
 
-      {/* PO Picker Modal */}
+      {/* POPickerModal */}
       <POPickerModal
         isOpen={showOrderPicker}
         onClose={() => setShowOrderPicker(false)}
@@ -464,81 +427,32 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         />
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Payment Method*
-            </label>
-            <select
-              value={invoiceData.paymentMethod}
-              onChange={(e) => handlePaymentMethodChange(e.target.value)}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              {Object.values(PaymentMethod).map(method => (
-                <option key={method} value={method}>{method}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Issue Date / Credit Period / Due Date */}
-          <div className={`grid grid-cols-1 ${invoiceData.paymentMethod === PaymentMethod.CREDIT ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Issue Date*
+                Payment Method*
+              </label>
+              <select
+                value={invoiceData.paymentMethod}
+                onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                required
+              >
+                {Object.values(PaymentMethod).map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Billing Date*
               </label>
               <input
                 type="date"
                 value={invoiceData.issueDate}
-                onChange={(e) => handleIssueDateChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-
-            {/* Credit Period Selector - Appears ONLY when Payment Method is Credit */}
-            {invoiceData.paymentMethod === PaymentMethod.CREDIT && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Credit Period
-                </label>
-                <div className="flex flex-col gap-1.5">
-                  <select
-                    value={creditPeriod}
-                    onChange={(e) => handleCreditPeriodChange(e.target.value)}
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="custom">Custom (manual)</option>
-                    <option value="0">Immediate (0 days)</option>
-                    <option value="7">7 Days</option>
-                    <option value="14">14 Days</option>
-                    <option value="15">15 Days</option>
-                    <option value="30">30 Days</option>
-                    <option value="45">45 Days</option>
-                    <option value="60">60 Days</option>
-                    <option value="90">90 Days</option>
-                  </select>
-                  {creditPeriod !== 'custom' && (
-                    <p className="text-[11px] text-blue-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                      Due date auto-calculated
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Due Date*
-              </label>
-              <input
-                type="date"
-                value={invoiceData.dueDate}
-                onChange={(e) => onFieldChange('dueDate', e.target.value)}
-                readOnly={invoiceData.paymentMethod === PaymentMethod.CREDIT && creditPeriod !== 'custom'}
-                className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  invoiceData.paymentMethod === PaymentMethod.CREDIT && creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                onChange={(e) => onFieldChange('issueDate', e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 required
               />
             </div>
@@ -553,23 +467,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 type="date"
                 value={invoiceData.bankDepositDate || ''}
                 onChange={(e) => onFieldChange('bankDepositDate', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Notes
-            </label>
-            <textarea
-              value={invoiceData.notes || ''}
-              onChange={(e) => onFieldChange('notes', e.target.value)}
-              placeholder="Additional notes..."
-              rows={3}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
         </div>
       </div>
 
@@ -591,7 +492,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
       {invoiceData.items.length > 0 && (
         <div className="bg-[#1e293b] rounded-lg border border-[#334155]">
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <InvoiceItemsList
               items={invoiceData.items}
               inventoryItems={inventoryItems}
@@ -602,11 +503,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
             <InvoiceSummary
               subTotal={subTotal}
+              totalDiscountType={invoiceData.totalDiscountType}
+              totalDiscountValue={invoiceData.totalDiscountValue}
               discountPercentage={invoiceData.discountPercentage}
               discountAmount={discountAmount}
               taxAmount={taxAmount}
               totalAmount={totalAmount}
               applyVat={invoiceData.applyVat}
+              onTotalDiscountChange={onTotalDiscountChange}
             />
           </div>
         </div>
