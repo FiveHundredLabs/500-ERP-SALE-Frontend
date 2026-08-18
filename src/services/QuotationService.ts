@@ -8,6 +8,7 @@ import type { InventoryItem } from "../types/inventory";
 import { mockQuotationsList } from "../data/mockQuotations";
 import { mockCustomers } from "../data/mockCustomers";
 import { mockInventoryItems } from "../data/mockInventory";
+import { extractCityFromAddress } from "../types/customers";
 
 export interface NextQuotationIdResponse {
   nextQuotationId: string;
@@ -25,21 +26,23 @@ export const quotationService = {
 
   // Get all customers
   async getAllCustomers(): Promise<QuotationCustomer[]> {
-    return mockCustomers.map((c, idx) => ({
+    return mockCustomers.map((c) => ({
       _id: c.id,
-      fullName: c.businessName || c.contactPerson,
-      email: c.email || '',
+      shopName: c.shopName || c.businessName,
+      fullName: c.shopName || c.businessName || 'Customer',
+      contactPerson: c.contactPerson || '',
+      email: '',
       phone: c.phone || '+94705787818',
       phone2: c.phone2 || '',
       phone3: c.phone3 || '',
-      vatNumber: `LKR-${(100000000 + (idx + 1) * 98765).toString().substring(0, 9)}-VAT`,
+      vatNumber: '',
       customerCode: c.customerId,
-      creditPeriod: c.creditPeriod || (c.paymentTerms?.includes('60') ? 60 : c.paymentTerms?.includes('45') ? 45 : c.paymentTerms?.includes('15') ? 15 : c.paymentTerms?.includes('90') ? 90 : 30),
-      paymentTerms: c.paymentTerms || 'Net 30',
-      creditLimit: c.creditLimit || 500000,
+      creditPeriod: 30,
+      paymentTerms: 'Net 30',
+      creditLimit: c.creditLimit || 1000000,
       address: {
         street: c.address,
-        city: c.city,
+        city: c.city || extractCityFromAddress(c.address),
         country: 'Sri Lanka',
         zip: '00100'
       }

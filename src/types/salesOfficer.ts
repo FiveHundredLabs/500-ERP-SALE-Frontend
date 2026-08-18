@@ -1,19 +1,22 @@
 export interface SalesOfficer {
   id: string;
-  officerId: string;         // e.g. "SO-001"
   fullName: string;
   contactNumber: string;     // Sri Lankan mobile (WhatsApp enabled)
   joiningDate: string;       // YYYY-MM-DD
   username: string;
   password?: string;
-  email: string;
   status: 'Active' | 'Inactive';
   designation?: string;
-  assignedTerritory?: string;
-  commissionRate?: number;   // %
+  assignedCustomerIds?: string[]; // IDs of assigned customers
+  assignedCustomers?: string[];    // Shop/Business names of assigned customers
   avatar?: string;
   createdAt: string;
   updatedAt: string;
+  // Optional legacy fields
+  officerId?: string;
+  email?: string;
+  assignedTerritory?: string;
+  commissionRate?: number;
 }
 
 export interface SalesOfficerPerformanceSummary {

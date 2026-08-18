@@ -6,24 +6,16 @@ import {
   Search,
   Calendar,
   DollarSign,
-  TrendingUp,
   Clock,
   ShieldAlert,
   CheckCircle,
-  FileText,
-  Phone,
   Eye,
-  Download,
   MessageCircle,
   Edit2,
   Trash2,
-  Filter,
   Users,
-  ChevronRight,
   MapPin,
   RefreshCw,
-  ShoppingBag,
-  ExternalLink,
 } from "lucide-react";
 import type { SalesOfficer, SalesOfficerFilterPeriod } from "../types/salesOfficer";
 import type { InvoiceResponse } from "../types/invoice";
@@ -32,7 +24,7 @@ import { salesOfficerService } from "../services/SalesOfficerService";
 import { invoiceService } from "../services/InvoiceService";
 import { mockOrders } from "../data/mockOrders";
 import SalesOfficerModal from "../components/salesOfficers/SalesOfficerModal";
-import InvoiceViewModal from "../components/InvoiceViewModal";
+import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
 import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
 import CustomConfirm from "../components/CustomConfirm";
@@ -315,7 +307,7 @@ export const SalesOfficers: React.FC = () => {
             confirmConfig.onConfirm();
             setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
           }}
-          onClose={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+          onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
         />
 
         {/* Top Header Bar */}
@@ -503,15 +495,17 @@ export const SalesOfficers: React.FC = () => {
                             <h4 className="text-xs font-bold text-white truncate max-w-[120px]">
                               {officer.fullName}
                             </h4>
-                            <span className="text-[10px] text-blue-400 font-mono font-semibold">
-                              {officer.officerId}
+                            <span className="text-[10px] text-emerald-400 font-mono font-medium">
+                              {officer.contactNumber}
                             </span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-gray-400 mt-2">
-                        <span className="truncate max-w-[110px] text-[10px]">{officer.assignedTerritory || "Islandwide"}</span>
+                        <span className="truncate max-w-[110px] text-[10px] text-purple-300">
+                          {officer.assignedCustomerIds?.length || 0} Customers
+                        </span>
                         <span className="text-emerald-400 font-mono font-bold">{formatLKR(officerSales)}</span>
                       </div>
                     </button>
@@ -712,12 +706,17 @@ export const SalesOfficers: React.FC = () => {
                               <p className="font-semibold text-white truncate max-w-[180px]">
                                 {inv.customer?.fullName || "Walk-in Customer"}
                               </p>
-                              {inv.customer?.address?.city && (
-                                <p className="text-[11px] text-gray-400 flex items-center gap-1">
-                                  <MapPin size={10} />
-                                  {inv.customer.address.city}
-                                </p>
-                              )}
+                              {(() => {
+                                const city = typeof inv.customer?.address === 'object' 
+                                  ? inv.customer?.address?.city 
+                                  : (inv.customer as any)?.city;
+                                return city ? (
+                                  <p className="text-[11px] text-gray-400 flex items-center gap-1">
+                                    <MapPin size={10} />
+                                    {city}
+                                  </p>
+                                ) : null;
+                              })()}
                             </div>
                           </td>
                           <td className="p-3.5">
@@ -811,7 +810,28 @@ export const SalesOfficers: React.FC = () => {
             setShowInvoiceView(false);
             setSelectedInvoice(null);
           }}
-          invoice={selectedInvoice}
+          invoiceData={{
+            ...selectedInvoice,
+            customer: selectedInvoice.customer?._id || '',
+            customerDetails: selectedInvoice.customer,
+            items: selectedInvoice.items.map(item => ({
+              id: item._id || Math.random().toString(),
+              item: typeof item.item === 'object' ? item.item?._id : item.item,
+              itemName: typeof item.item === 'object' ? item.item?.product_name || item.item?.itemName : 'Product',
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              total: item.total,
+            })),
+            discountPercentage: selectedInvoice.discount > 0 && selectedInvoice.subTotal > 0
+              ? (selectedInvoice.discount / selectedInvoice.subTotal) * 100
+              : 0,
+            applyVat: selectedInvoice.applyVat || false,
+            vatAmount: selectedInvoice.vatAmount || 0,
+            taxRate: selectedInvoice.taxRate || 0,
+            salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null
+              ? selectedInvoice.salesman
+              : { _id: 'so-001', name: typeof selectedInvoice.salesman === 'string' ? selectedInvoice.salesman : 'Kasun Perera' },
+          }}
         />
       )}
     </div>

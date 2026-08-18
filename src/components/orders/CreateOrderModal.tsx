@@ -52,9 +52,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   // Quick Add Product state
   const [showAddProductModal, setShowAddProductModal] = useState(false);
-  const [showInvoicePreviewModal, setShowInvoicePreviewModal] = useState(false);
-  const [createdInvoiceData, setCreatedInvoiceData] = useState<InvoiceResponse | null>(null);
-
   const [showPOModal, setShowPOModal] = useState(false);
   const [quickProduct, setQuickProduct] = useState({
     name: '',
@@ -95,15 +92,17 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     const activeCusts = mockCustomers.filter(c => c.status === 'Active');
     const q = customerSearch.trim().toLowerCase();
     if (!q) {
-      return [...activeCusts].sort((a, b) => a.businessName.localeCompare(b.businessName));
+      return [...activeCusts].sort((a, b) => (a.shopName || a.businessName || '').localeCompare(b.shopName || b.businessName || ''));
     }
-    const matching = activeCusts.filter(c => c.businessName.toLowerCase().includes(q));
+    const matching = activeCusts.filter(c => (c.shopName || c.businessName || '').toLowerCase().includes(q));
     return matching.sort((a, b) => {
-      const aStarts = a.businessName.toLowerCase().startsWith(q);
-      const bStarts = b.businessName.toLowerCase().startsWith(q);
+      const aName = a.shopName || a.businessName || '';
+      const bName = b.shopName || b.businessName || '';
+      const aStarts = aName.toLowerCase().startsWith(q);
+      const bStarts = bName.toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return a.businessName.localeCompare(b.businessName);
+      return aName.localeCompare(bName);
     });
   }, [customerSearch]);
 
@@ -276,11 +275,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       updatedAt: now,
       salesman: selectedSalesman || null,
       customerId: selectedCustomer!.customerId,
-      customerName: selectedCustomer!.businessName,
-      contactPerson: selectedCustomer!.contactPerson,
+      customerName: selectedCustomer!.shopName || selectedCustomer!.businessName || 'Customer',
+      contactPerson: selectedCustomer!.contactPerson || '',
       contactPhone: selectedCustomer!.phone,
-      customerAddress: selectedCustomer!.address,
-      customerCity: selectedCustomer!.city,
+      customerAddress: selectedCustomer!.address || '',
+      customerCity: selectedCustomer!.city || '',
       products: orderProducts,
       numberOfProducts: orderProducts.length,
       subTotal: totals.subTotal,
@@ -330,9 +329,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       customer: {
         _id: `c-${Date.now()}`,
         fullName: createdOrder.customerName,
-        email: 'customer@business.lk',
         phone: createdOrder.contactPhone || '011-0000000',
-        vatNumber: 'VAT-PENDING',
         customerCode: createdOrder.customerId || 'CUST-000',
         address: {
           street: createdOrder.customerAddress || 'N/A',

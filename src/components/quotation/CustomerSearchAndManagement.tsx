@@ -124,14 +124,16 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
                     className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150"
                     onClick={() => onCustomerSelect(customer)}
                   >
-                    <div className="font-medium text-white">{customer.fullName || 'Unnamed Customer'}</div>
+                    <div className="font-medium text-white">{customer.shopName || customer.fullName || 'Unnamed Customer'}</div>
                     <div className="text-sm text-gray-400 flex justify-between mt-1">
                       <span>Phone: {customer.phone || 'N/A'}</span>
-                      <span className="text-blue-400">{customer.email || 'No email'}</span>
+                      <span className="text-cyan-400 font-mono text-xs">{customer.customerCode || ''}</span>
                     </div>
-                    {customer.address && (customer.address.street || customer.address.city) && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Address: {customer.address.street} {customer.address.city} {customer.address.country}
+                    {customer.address && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        Address: {typeof customer.address === 'string' 
+                          ? customer.address 
+                          : `${customer.address.street || ''} ${customer.address.city || ''}`}
                       </div>
                     )}
                     {customer.vehicle_number && (

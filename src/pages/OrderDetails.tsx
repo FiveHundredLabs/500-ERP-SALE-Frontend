@@ -47,8 +47,6 @@ const OrderDetails: React.FC = () => {
     fetchOrder();
   }, [id]);
 
-  const [confirmPOModal, setConfirmPOModal] = useState(false);
-
   if (loading) {
     return (
       <div className="flex h-screen bg-[#0f172a] text-white items-center justify-center">
@@ -118,7 +116,7 @@ const OrderDetails: React.FC = () => {
     <AppLayout
       headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
       headerTitle={`Order ${order.orderId}`}
-      headerSubtitle={`Created on ${order.orderDate} by ${order.salesman.name}`}
+      headerSubtitle={`Created on ${order.orderDate} by ${typeof order.salesman === 'object' && order.salesman ? order.salesman.name : (order.salesman || 'Sales Representative')}`}
     >
       <PageHeader
         title={`Order: ${order.orderId}`}
@@ -252,19 +250,19 @@ const OrderDetails: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Name:</span>
-                  <span className="font-semibold text-gray-200">{order.salesman.name}</span>
+                  <span className="font-semibold text-gray-200">{order.salesman?.name || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Employee ID:</span>
-                  <span className="font-mono text-gray-300">{order.salesman.employeeId}</span>
+                  <span className="font-mono text-gray-300">{order.salesman?.employeeId || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Assigned Territory:</span>
-                  <span className="text-gray-300">{order.salesman.area}</span>
+                  <span className="text-gray-300">{order.salesman?.area || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Contact Phone:</span>
-                  <span className="text-gray-300">{order.salesman.phone}</span>
+                  <span className="text-gray-300">{order.salesman?.phone || '—'}</span>
                 </div>
               </div>
             </div>

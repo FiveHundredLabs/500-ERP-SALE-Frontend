@@ -3,22 +3,23 @@ import { quotationService } from '../services/QuotationService';
 
 export interface Customer {
   _id: string;
+  shopName?: string;
   fullName: string;
-  email: string;
+  contactPerson?: string;
   phone: string;              // WhatsApp (Primary)
   phone2?: string;            // Secondary
   phone3?: string;            // Alternative
-  vatNumber: string;
-  address?: {
+  address?: string | {
     street?: string;
     city?: string;
     country?: string;
     zip?: string;
   };
+  city?: string;
   customerCode?: string;
-  creditPeriod?: number;      // Default credit period in days
-  paymentTerms?: string;      // e.g. "Net 30", "Net 60", "Cash"
   creditLimit?: number;
+  salesRep?: { id: string; name: string } | string;
+  salesRepName?: string;
   vehicle_number?: string;
   vehicle_model?: string;
   year_of_manufacture?: number;
@@ -39,7 +40,7 @@ export const useCustomerSearch = () => {
         setIsLoading(true);
         setError(null);
         const customers = await quotationService.getAllCustomers();
-        setAllCustomers(customers);
+        setAllCustomers(customers as Customer[]);
       } catch (err) {
         console.error('Error loading customers:', err);
         setError('Failed to load customers');
@@ -54,24 +55,28 @@ export const useCustomerSearch = () => {
   // Filter customers based on search term (Prefix / first-letter matches first, then alphabetical)
   useEffect(() => {
     if (!searchTerm.trim()) {
-      const sorted = [...allCustomers].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+      const sorted = [...allCustomers].sort((a, b) => (a.fullName || a.shopName || '').localeCompare(b.fullName || b.shopName || ''));
       setFilteredCustomers(sorted);
       return;
     }
 
     const searchTermLower = searchTerm.toLowerCase().trim();
     const matching = allCustomers.filter(customer => {
-      const matchesName = customer.fullName?.toLowerCase().includes(searchTermLower);
-      const matchesCode = customer.customerCode?.toLowerCase().includes(searchTermLower);
-      return matchesName || matchesCode;
+      const name = (customer.shopName || customer.fullName || '').toLowerCase();
+      const contact = (customer.contactPerson || '').toLowerCase();
+      const code = (customer.customerCode || '').toLowerCase();
+      const phone = (customer.phone || '').toLowerCase();
+      return name.includes(searchTermLower) || contact.includes(searchTermLower) || code.includes(searchTermLower) || phone.includes(searchTermLower);
     });
 
     const sorted = matching.sort((a, b) => {
-      const aStarts = a.fullName?.toLowerCase().startsWith(searchTermLower) || false;
-      const bStarts = b.fullName?.toLowerCase().startsWith(searchTermLower) || false;
+      const aName = (a.shopName || a.fullName || '').toLowerCase();
+      const bName = (b.shopName || b.fullName || '').toLowerCase();
+      const aStarts = aName.startsWith(searchTermLower);
+      const bStarts = bName.startsWith(searchTermLower);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return (a.fullName || '').localeCompare(b.fullName || '');
+      return aName.localeCompare(bName);
     });
 
     setFilteredCustomers(sorted);
@@ -80,7 +85,7 @@ export const useCustomerSearch = () => {
   const refreshCustomers = useCallback(async () => {
     try {
       const customers = await quotationService.getAllCustomers();
-      setAllCustomers(customers);
+      setAllCustomers(customers as Customer[]);
     } catch (err) {
       console.error('Error refreshing customers:', err);
     }
@@ -88,7 +93,7 @@ export const useCustomerSearch = () => {
 
   const createCustomer = useCallback(async (customerData: Omit<Customer, '_id'>) => {
     try {
-      const createdCustomer = await quotationService.createCustomer(customerData);
+      const createdCustomer = await quotationService.createCustomer(customerData as any);
       await refreshCustomers();
       return createdCustomer;
     } catch (err) {

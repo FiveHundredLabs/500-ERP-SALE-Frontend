@@ -167,7 +167,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     setCustomerModalMode(null);
 
     // Auto-set payment method to Credit and credit period to customer's default period
-    const defaultPeriod = customer.creditPeriod ?? 30;
+    const defaultPeriod = (customer as any).creditPeriod ?? 30;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     handleCreditPeriodChange(String(defaultPeriod));
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange]);

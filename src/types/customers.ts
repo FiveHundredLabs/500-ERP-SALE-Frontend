@@ -1,15 +1,13 @@
-// ============= Customer Type =============
+// ============= Customer Helper =============
 
-export const CustomerType = {
-  HARDWARE_SHOP: 'Hardware Shop',
-  RETAILER: 'Retailer',
-  CONTRACTOR: 'Contractor',
-  DISTRIBUTOR: 'Distributor',
-  GOVERNMENT: 'Government',
-  OTHER: 'Other',
-} as const;
-
-export type CustomerTypeValue = typeof CustomerType[keyof typeof CustomerType];
+export function extractCityFromAddress(address: string): string {
+  if (!address) return '';
+  const parts = address.split(',');
+  if (parts.length > 1) {
+    return parts[parts.length - 1].trim();
+  }
+  return address.trim();
+}
 
 // ============= Customer Status =============
 
@@ -25,27 +23,31 @@ export type CustomerStatusValue = typeof CustomerStatus[keyof typeof CustomerSta
 export interface Customer {
   id: string;
   customerId: string;         // CUST-XXXXX
-  businessName: string;       // Shop / Company name
-  contactPerson: string;
+  shopName: string;           // Shop / Business Name (Required)
+  businessName?: string;      // Backwards-compatible alias for shopName
+  contactPerson?: string;     // Contact Person (Optional)
   phone: string;              // Primary / WhatsApp number (Required)
   phone2?: string;            // Second phone number (Optional)
   phone3?: string;            // Third phone number (Optional)
-  email?: string;
-  address: string;
-  city: string;
+  address: string;            // Address (Required, e.g. "Main Street, Colombo")
+  city?: string;              // Internally extracted from address
   district?: string;
 
-  customerType: CustomerTypeValue;
   status: CustomerStatusValue;
 
-  creditLimit: number;
-  creditPeriod?: number;      // Default credit period in days (e.g. 30)
-  paymentTerms: string;       // e.g., "Net 30", "Cash on Delivery"
+  creditLimit: number;        // Credit Limit in LKR
+  salesRep?: {
+    id: string;
+    name: string;
+  } | string;                 // Assigned Sales Representative
+  salesRepName?: string;
 
-  // Statistics
-  totalOrders: number;
-  totalSales: number;
+  // Financial statistics
+  totalInvoiced?: number;
+  totalPaid?: number;
+  totalSales?: number;
   outstandingBalance: number;
+  totalOrders?: number;
 
   createdAt: string;
   updatedAt: string;
@@ -54,20 +56,17 @@ export interface Customer {
 }
 
 export interface CustomerCreateDto {
-  businessName: string;
-  contactPerson: string;
-  phone: string;              // Primary / WhatsApp number (Required)
-  phone2?: string;            // Second phone number (Optional)
-  phone3?: string;            // Third phone number (Optional)
-  email?: string;
-  address: string;
-  city: string;
-  district?: string;
-  customerType: CustomerTypeValue;
-  status: CustomerStatusValue;
+  shopName: string;           // Required
+  businessName?: string;      // Compatibility alias
+  contactPerson?: string;     // Optional
+  phone: string;              // Primary / WhatsApp (Required)
+  phone2?: string;            // Optional
+  phone3?: string;            // Optional
+  address: string;            // Required
   creditLimit: number;
-  creditPeriod?: number;
-  paymentTerms: string;
+  salesRep?: string;          // Sales representative ID or name
+  salesRepName?: string;
+  status?: CustomerStatusValue;
   notes?: string;
 }
 

@@ -350,7 +350,7 @@ const DashboardOverview: React.FC = () => {
                   >
                     <td className="p-3 text-sm font-mono text-blue-400 font-bold">{ord.orderId}</td>
                     <td className="p-3 text-sm font-semibold text-gray-200 truncate max-w-[140px]">{ord.customerName}</td>
-                    <td className="p-3 text-xs text-gray-400">{ord.salesman.name}</td>
+                    <td className="p-3 text-xs text-gray-400">{ord.salesman?.name || '—'}</td>
                     <td className="p-3 text-sm font-bold text-white text-right font-mono">{formatCurrency(ord.grandTotal)}</td>
                     <td className="p-3 text-sm"><StatusBadge status={ord.status} /></td>
                   </tr>

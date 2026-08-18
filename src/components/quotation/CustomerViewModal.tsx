@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Edit2, MessageCircle, CreditCard, Calendar, Building, Car } from 'lucide-react';
+import { X, MessageCircle, CreditCard, Building, Car, UserCheck, MapPin } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 import type { Customer } from '../../hooks/useCustomerSearch';
 
@@ -18,6 +18,8 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const salesRepName = customer.salesRepName || (typeof customer.salesRep === 'object' ? customer.salesRep.name : customer.salesRep);
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
       <div className="bg-[#0f172a] border border-[#334155] rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
@@ -31,45 +33,54 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
               <p className="text-[11px] text-gray-400">{customer.customerCode || 'Registered Customer'}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white hover:bg-[#1e293b] rounded-lg transition"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onEdit}
+              className="p-1.5 text-xs text-blue-400 hover:text-white hover:bg-blue-600/20 rounded-lg transition border border-blue-500/30 px-2.5 py-1 flex items-center gap-1 font-medium"
+            >
+              Edit
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 text-gray-400 hover:text-white hover:bg-[#1e293b] rounded-lg transition"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         <div className="space-y-3.5 text-xs">
           {/* Main Info */}
           <div className="grid grid-cols-2 gap-3 bg-[#1e293b]/70 p-3.5 rounded-xl border border-[#334155]">
             <div>
-              <div className="text-gray-400 font-medium text-[11px]">Customer / Business Name</div>
-              <div className="text-white font-bold text-sm mt-0.5">{customer.fullName}</div>
+              <div className="text-gray-400 font-medium text-[11px]">Shop / Business Name</div>
+              <div className="text-white font-bold text-sm mt-0.5">{customer.shopName || customer.fullName}</div>
             </div>
             <div>
-              <div className="text-gray-400 font-medium text-[11px]">VAT / Tax ID</div>
-              <div className="text-cyan-400 font-mono font-bold mt-0.5">{customer.vatNumber || 'N/A'}</div>
+              <div className="text-gray-400 font-medium text-[11px]">Contact Person</div>
+              <div className="text-slate-200 font-medium mt-0.5">{customer.contactPerson || '—'}</div>
             </div>
           </div>
 
-          {/* Credit Terms (User Requirement) */}
+          {/* Credit Limit & Sales Rep */}
           <div className="p-3.5 rounded-xl bg-gradient-to-r from-purple-950/40 to-blue-950/40 border border-purple-500/30 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
                 <CreditCard size={16} />
               </div>
               <div>
-                <span className="text-[11px] text-purple-300 font-medium block">Default Credit Period</span>
+                <span className="text-[11px] text-purple-300 font-medium block">Credit Limit</span>
                 <span className="text-sm font-bold text-white font-mono">
-                  {customer.creditPeriod ?? 30} Days
+                  LKR {Math.round(customer.creditLimit || 0).toLocaleString()}/=
                 </span>
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[11px] text-gray-400 font-medium block">Payment Terms</span>
-              <span className="text-xs font-semibold text-purple-300">
-                {customer.paymentTerms || `Net ${customer.creditPeriod ?? 30}`}
+              <span className="text-[11px] text-gray-400 font-medium block">Sales Representative</span>
+              <span className="text-xs font-semibold text-purple-300 flex items-center gap-1 justify-end">
+                <UserCheck size={12} />
+                {salesRepName || 'Unassigned'}
               </span>
             </div>
           </div>
@@ -106,24 +117,25 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
               </div>
             )}
           </div>
-
-          {customer.email && (
-            <div className="bg-[#1e293b]/50 p-2.5 rounded-lg border border-[#334155]">
-              <div className="text-gray-400 font-medium text-[11px]">Email Address</div>
-              <div className="text-gray-200 font-medium mt-0.5">{customer.email}</div>
-            </div>
-          )}
           
           {customer.address && (
             <div className="bg-[#1e293b]/50 p-2.5 rounded-lg border border-[#334155]">
-              <div className="text-gray-400 font-medium text-[11px] mb-1">Billing & Delivery Address</div>
+              <div className="text-gray-400 font-medium text-[11px] mb-1 flex items-center gap-1">
+                <MapPin size={11} className="text-slate-400" /> Address
+              </div>
               <div className="text-gray-300">
-                {customer.address.street && <div>{customer.address.street}</div>}
-                <div>
-                  {customer.address.city && `${customer.address.city}, `}
-                  {customer.address.country && `${customer.address.country} `}
-                  {customer.address.zip && `(${customer.address.zip})`}
-                </div>
+                {typeof customer.address === 'string' ? (
+                  <div>{customer.address}</div>
+                ) : (
+                  <>
+                    {customer.address.street && <div>{customer.address.street}</div>}
+                    <div>
+                      {customer.address.city && `${customer.address.city}, `}
+                      {customer.address.country && `${customer.address.country} `}
+                      {customer.address.zip && `(${customer.address.zip})`}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -141,25 +153,6 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
               </div>
             </div>
           )}
-          
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-[#334155]">
-            <button
-              onClick={onClose}
-              className="px-3.5 py-1.5 text-xs text-gray-300 hover:text-white transition"
-            >
-              Close
-            </button>
-            <button
-              onClick={() => {
-                onClose();
-                onEdit();
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-blue-600/30"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-              Edit Customer
-            </button>
-          </div>
         </div>
       </div>
     </div>

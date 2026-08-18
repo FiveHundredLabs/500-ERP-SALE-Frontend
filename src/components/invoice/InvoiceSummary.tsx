@@ -16,7 +16,6 @@ export const InvoiceSummary: React.FC<InvoiceSummaryProps> = ({
   subTotal,
   totalDiscountType = 'percentage',
   totalDiscountValue = 0,
-  discountPercentage,
   discountAmount,
   taxAmount,
   totalAmount,

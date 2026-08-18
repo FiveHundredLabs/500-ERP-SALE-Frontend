@@ -23,11 +23,13 @@ import {
   MessageCircle,
   RotateCcw,
   UserCheck,
+  MoreVertical
 } from "lucide-react";
 import { mockSystemUsers } from "../data/mockSystemUsers";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
 import PaymentModal from "../components/PaymentModal";
+import PaymentBreakdownTooltip from "../components/invoice/PaymentBreakdownTooltip";
 import type {
   InvoiceData,
   InvoiceItem,
@@ -36,7 +38,7 @@ import type {
   InvoiceResponse
 } from "../types/invoice";
 import type { InventoryItem as InvoiceInventoryItem } from "../types/inventory";
-import { PaymentStatus, PaymentMethod, type PaymentMethodType } from "../types/invoice";
+import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus } from "../types/invoice";
 import { invoiceService } from "../services/InvoiceService";
 import { financeService } from "../services/FinanceService";
 import type { FinancePaymentData } from "../types/finance";
@@ -99,6 +101,18 @@ const Invoice: React.FC = () => {
 
   // state for copy confirmation
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
+  const [activeInvoiceMenuId, setActiveInvoiceMenuId] = useState<string | null>(null);
+  const invoiceMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(e.target as Node)) {
+        setActiveInvoiceMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -1053,15 +1067,6 @@ const Invoice: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors: Record<string, { cls: string; icon?: React.ReactNode }> = {
-      'Pending': { cls: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', icon: <Clock className="w-3 h-3 mr-1" /> },
-      'Completed': { cls: 'bg-green-500/10 text-green-400 border-green-500/20', icon: <CheckCircle className="w-3 h-3 mr-1" /> },
-      'Rejected': { cls: 'bg-red-500/10 text-red-400 border-red-500/20', icon: <XCircle className="w-3 h-3 mr-1" /> },
-    };
-    return colors[status] || colors['Pending'];
-  };
-
   return (
     <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
       <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} />
@@ -1123,7 +1128,15 @@ const Invoice: React.FC = () => {
             updated_at: invoiceData.updated_at || ''
           }}
           paymentDetails={paymentDetails}
-          onPaymentDetailsChange={setPaymentDetails}
+          onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
+            ...prev,
+            ...details,
+            bankName: details.bankName || '',
+            accountNumber: details.accountNumber || '',
+            transactionRef: details.transactionRef || '',
+            amount: details.amount || '',
+            transactionDate: details.transactionDate || prev.transactionDate,
+          }))}
           onSubmit={handlePaymentSubmit}
           isProcessing={isProcessingPayment}
         />
@@ -1275,89 +1288,175 @@ const Invoice: React.FC = () => {
                               <th className="p-3">Invoice ID</th>
                               <th className="p-3">Customer</th>
                               <th className="p-3">Sales Officer</th>
-                              <th className="p-3">Total Amount</th>
-                              <th className="p-3">Payment</th>
+                              <th className="p-3 text-right">Invoice Total</th>
+                              <th className="p-3 text-right">Remaining</th>
+                              <th className="p-3 text-center">Status</th>
                               <th className="p-3">Date</th>
-                              <th className="p-3 text-right">Actions</th>
+                              <th className="p-3 text-right w-12"></th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#334155] text-sm">
                             {currentInvoices.map((inv) => {
-                              const badge = getStatusBadge(inv.paymentStatus || 'Pending');
+                              const calc = getInvoiceCalculatedStatus(inv);
+                              const isMenuOpen = activeInvoiceMenuId === (inv._id || inv.invoiceId);
                               const salesmanName = getSalesmanDisplay(inv);
+
                               return (
                                 <tr key={inv._id || inv.invoiceId} className="hover:bg-[#0f172a]/50 transition">
-                                  <td className="p-3 font-mono font-medium text-blue-400">
+                                  <td className="p-3 font-mono font-bold text-blue-400 text-xs">
                                     {inv.invoiceId}
                                   </td>
-                                  <td className="p-3 font-medium text-white">
+                                  <td className="p-3 font-medium text-white text-xs">
                                     {getCustomerDisplay(inv)}
                                   </td>
                                   <td className="p-3">
                                     {salesmanName ? (
-                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium">
-                                        <UserCheck size={12} className="text-purple-400 shrink-0" />
-                                        <span>{salesmanName}</span>
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium truncate max-w-[130px]">
+                                        <UserCheck size={11} className="text-purple-400 shrink-0" />
+                                        <span className="truncate">{salesmanName}</span>
                                       </span>
                                     ) : (
                                       <span className="text-gray-500 text-xs font-mono">—</span>
                                     )}
                                   </td>
-                                  <td className="p-3 font-mono text-emerald-400 font-bold">
-                                    {Math.round(inv.totalAmount || 0).toLocaleString()}/=
+                                  <td className="p-3 text-right">
+                                    <PaymentBreakdownTooltip
+                                      totalAmount={inv.totalAmount || 0}
+                                      paidAmount={calc.paidAmount}
+                                      remainingAmount={calc.remainingAmount}
+                                      statusText={calc.status}
+                                    >
+                                      <span className="font-mono text-emerald-400 font-bold text-xs cursor-help underline decoration-emerald-500/30 underline-offset-2">
+                                        {Math.round(inv.totalAmount || 0).toLocaleString()}/=
+                                      </span>
+                                    </PaymentBreakdownTooltip>
                                   </td>
-                                  <td className="p-3">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.cls}`}>
-                                      {badge.icon}
-                                      {inv.paymentStatus || 'Pending'}
-                                    </span>
+                                  <td className="p-3 text-right">
+                                    <PaymentBreakdownTooltip
+                                      totalAmount={inv.totalAmount || 0}
+                                      paidAmount={calc.paidAmount}
+                                      remainingAmount={calc.remainingAmount}
+                                      statusText={calc.status}
+                                    >
+                                      <span className={`font-mono font-bold text-xs cursor-help ${calc.remainingAmount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
+                                        {Math.round(calc.remainingAmount).toLocaleString()}/=
+                                      </span>
+                                    </PaymentBreakdownTooltip>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <PaymentBreakdownTooltip
+                                      totalAmount={inv.totalAmount || 0}
+                                      paidAmount={calc.paidAmount}
+                                      remainingAmount={calc.remainingAmount}
+                                      statusText={calc.status}
+                                    >
+                                      {calc.status === 'Paid' && (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                          <CheckCircle className="w-3 h-3" /> Paid
+                                        </span>
+                                      )}
+                                      {calc.status === 'Partially Paid' && (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                          <Clock className="w-3 h-3" /> Partially Paid
+                                        </span>
+                                      )}
+                                      {calc.status === 'Overdue' && (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
+                                          <XCircle className="w-3 h-3" /> Overdue
+                                        </span>
+                                      )}
+                                      {calc.status === 'Due Soon' && (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                          <Clock className="w-3 h-3" /> Due Soon
+                                        </span>
+                                      )}
+                                      {calc.status === 'Outstanding' && (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                                          Outstanding
+                                        </span>
+                                      )}
+                                    </PaymentBreakdownTooltip>
                                   </td>
                                   <td className="p-3 text-gray-400 text-xs font-mono">
                                     {formatDate(inv.issueDate)}
                                   </td>
-                                  <td className="p-3 text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
+                                  <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="relative flex justify-end">
                                       <button
-                                        onClick={() => {
-                                          handleLoadInvoice(inv);
-                                          setShowPreviewModal(true);
-                                        }}
-                                        className="p-1.5 hover:bg-emerald-500/20 rounded-lg text-emerald-400 hover:text-emerald-300 transition"
-                                        title="Preview & Share on WhatsApp"
+                                        onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv._id || inv.invoiceId))}
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                                        title="Actions"
                                       >
-                                        <MessageCircle className="w-4 h-4" />
+                                        <MoreVertical size={16} />
                                       </button>
-                                      <button
-                                        onClick={() => {
-                                          handleLoadInvoice(inv);
-                                          setShowPreviewModal(true);
-                                        }}
-                                        className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"
-                                        title="View Preview PDF"
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleLoadInvoice(inv)}
-                                        className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"
-                                        title="Edit invoice"
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleCopyInvoiceLink(inv._id || '', inv.invoiceId)}
-                                        className="p-1.5 hover:bg-[#334155] rounded-lg text-gray-400 hover:text-white transition"
-                                        title="Copy link"
-                                      >
-                                        {copiedInvoiceId === inv._id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteInvoice(inv._id || '', inv.invoiceId)}
-                                        className="p-1.5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-400 transition"
-                                        title="Delete invoice"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
+
+                                      {isMenuOpen && (
+                                        <div 
+                                          ref={invoiceMenuRef}
+                                          className="absolute right-0 top-8 z-50 w-48 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
+                                        >
+                                          <div className="p-1">
+                                            <button
+                                              onClick={() => {
+                                                setActiveInvoiceMenuId(null);
+                                                handleLoadInvoice(inv);
+                                                setShowPreviewModal(true);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
+                                            >
+                                              <Eye size={13} className="text-blue-400" />
+                                              <span>Preview & PDF</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveInvoiceMenuId(null);
+                                                handleLoadInvoice(inv);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
+                                            >
+                                              <Edit size={13} className="text-purple-400" />
+                                              <span>Edit Invoice</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveInvoiceMenuId(null);
+                                                handleLoadInvoice(inv);
+                                                setShowPreviewModal(true);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left"
+                                            >
+                                              <MessageCircle size={13} className="text-emerald-400" />
+                                              <span>Share on WhatsApp</span>
+                                            </button>
+                                          </div>
+
+                                          <div className="p-1">
+                                            <button
+                                              onClick={() => {
+                                                setActiveInvoiceMenuId(null);
+                                                handleCopyInvoiceLink(inv._id || '', inv.invoiceId);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-left"
+                                            >
+                                              {copiedInvoiceId === inv._id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                                              <span>Copy Link</span>
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveInvoiceMenuId(null);
+                                                handleDeleteInvoice(inv._id || '', inv.invoiceId);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
+                                            >
+                                              <Trash2 size={13} className="text-red-400" />
+                                              <span>Delete Invoice</span>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>

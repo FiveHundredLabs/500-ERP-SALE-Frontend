@@ -385,7 +385,7 @@ const Finance: React.FC = () => {
         suggestions.push({
           id: `cust-${inv.customer._id || inv.customer.fullName}`,
           title: inv.customer.fullName,
-          subtitle: `${inv.customer.phone ? `${inv.customer.phone} · ` : ''}${inv.customer.email || ''}`,
+          subtitle: `${inv.customer.phone ? `${inv.customer.phone} · ` : ''}${(inv.customer as any).shopName || (inv.customer as any).address || ''}`,
           category: 'Customer',
           value: inv.customer.fullName,
         });
@@ -546,7 +546,15 @@ const Finance: React.FC = () => {
         onClose={() => setShowPaymentModal(false)}
         selectedInvoice={selectedInvoice}
         paymentDetails={paymentDetails}
-        onPaymentDetailsChange={setPaymentDetails}
+        onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
+          ...prev,
+          ...details,
+          bankName: details.bankName || '',
+          accountNumber: details.accountNumber || '',
+          transactionRef: details.transactionRef || '',
+          amount: details.amount || '',
+          transactionDate: details.transactionDate || prev.transactionDate,
+        }))}
         onSubmit={handlePaymentSubmit}
         isProcessing={isProcessingPayment}
       />

@@ -32,6 +32,37 @@ export class SalesOfficerService {
     return all.find(so => so.id === id || so.officerId === id);
   }
 
+  private syncCustomerAssignments(officerName: string, assignedIds: string[]): void {
+    try {
+      const custRaw = localStorage.getItem("erp_customers");
+      if (!custRaw) return;
+      const customers = JSON.parse(custRaw);
+      if (!Array.isArray(customers)) return;
+
+      const updated = customers.map((c: any) => {
+        const cId = c.id || c._id;
+        if (assignedIds.includes(cId)) {
+          return {
+            ...c,
+            salesRep: officerName,
+            salesRepName: officerName,
+          };
+        } else if (c.salesRep === officerName || c.salesRepName === officerName) {
+          return {
+            ...c,
+            salesRep: undefined,
+            salesRepName: undefined,
+          };
+        }
+        return c;
+      });
+
+      localStorage.setItem("erp_customers", JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  }
+
   async create(data: Omit<SalesOfficer, 'id' | 'createdAt' | 'updatedAt'>): Promise<SalesOfficer> {
     const all = this.getStored();
     const newOfficer: SalesOfficer = {
@@ -42,6 +73,11 @@ export class SalesOfficerService {
     };
     all.unshift(newOfficer);
     this.saveStored(all);
+
+    if (data.assignedCustomerIds && data.assignedCustomerIds.length > 0) {
+      this.syncCustomerAssignments(data.fullName, data.assignedCustomerIds);
+    }
+
     return newOfficer;
   }
 
@@ -58,6 +94,11 @@ export class SalesOfficerService {
     };
     all[index] = updated;
     this.saveStored(all);
+
+    if (data.assignedCustomerIds !== undefined) {
+      this.syncCustomerAssignments(updated.fullName, data.assignedCustomerIds);
+    }
+
     return updated;
   }
 
@@ -123,7 +164,7 @@ export class SalesOfficerService {
   ): SalesOfficerPerformanceSummary {
     const isAll = officer === 'ALL';
     const officerName = isAll ? 'Entire Sales Team' : officer.fullName;
-    const officerCode = isAll ? 'ALL' : officer.officerId;
+    const officerCode = isAll ? 'ALL' : (officer.officerId || officer.id);
     const territory = isAll ? 'Island-wide Network' : (officer.assignedTerritory || 'General Area');
     const status = isAll ? 'Active' : officer.status;
 

@@ -4,11 +4,15 @@ import { Modal, Button, FormField, FormInput, FormSelect } from './common';
 import type { InvoiceResponse } from '../types/invoice';
 import { financeService } from '../services/FinanceService';
 
-interface PaymentDetails {
+export interface PaymentDetails {
   method: 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque' | 'Credit';
-  bankName: string;
-  accountNumber: string;
-  transactionRef: string;
+  bankName?: string;
+  accountNumber?: string;
+  transactionRef?: string;
+  refNumber?: string;
+  cardLast4?: string;
+  chequeNumber?: string;
+  chequeDate?: string;
   amount: string;
   transactionDate: string;
 }
@@ -67,16 +71,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
     }
 
-    if (paymentDetails.method !== 'Cash' && !paymentDetails.transactionRef.trim()) {
-      newErrors.transactionRef = 'Transaction reference is required';
-    }
-
-    if (['Bank Transfer', 'Bank Deposit', 'Cheque'].includes(paymentDetails.method)) {
-      if (!paymentDetails.bankName.trim()) {
+    // Cheque-specific validations
+    if (paymentDetails.method === 'Cheque') {
+      if (!paymentDetails.bankName?.trim()) {
         newErrors.bankName = 'Bank name is required';
       }
-      if (!paymentDetails.accountNumber.trim()) {
-        newErrors.accountNumber = 'Account number is required';
+      if (!paymentDetails.chequeNumber?.trim() && !paymentDetails.transactionRef?.trim()) {
+        newErrors.chequeNumber = 'Cheque number is required';
+      }
+      if (!paymentDetails.chequeDate?.trim()) {
+        newErrors.chequeDate = 'Cheque date is required';
       }
     }
 
@@ -85,12 +89,29 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   }, [paymentDetails, selectedInvoice]);
 
   const handleMethodChange = (method: any) => {
-    const updated: PaymentDetails = { ...paymentDetails, method };
+    const updated: PaymentDetails = {
+      ...paymentDetails,
+      method,
+    };
+
     if (method === 'Cash') {
       updated.bankName = 'N/A';
       updated.accountNumber = 'N/A';
       updated.transactionRef = 'CASH-' + Date.now();
+    } else if (method === 'Bank Transfer' || method === 'Bank Deposit') {
+      updated.bankName = '';
+      updated.accountNumber = '';
+      updated.transactionRef = updated.refNumber || '';
+    } else if (method === 'Card') {
+      updated.bankName = '';
+      updated.accountNumber = '';
+      updated.transactionRef = updated.cardLast4 ? `Card **** ${updated.cardLast4}` : '';
+    } else if (method === 'Cheque') {
+      if (!updated.chequeDate) {
+        updated.chequeDate = paymentDetails.transactionDate || new Date().toISOString().split('T')[0];
+      }
     }
+
     onPaymentDetailsChange(updated);
     setErrors({});
   };
@@ -155,7 +176,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 { value: 'Bank Transfer', label: 'Bank Transfer' },
                 { value: 'Bank Deposit', label: 'Bank Deposit' },
                 { value: 'Cash', label: 'Cash' },
-                { value: 'Card', label: 'Credit/Debit Card' },
+                { value: 'Card', label: 'Credit / Debit Card' },
                 { value: 'Cheque', label: 'Cheque' },
               ]}
               value={paymentDetails.method}
@@ -163,54 +184,101 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             />
           </FormField>
 
-          {/* Bank Details - Conditional */}
-          {['Bank Transfer', 'Bank Deposit', 'Cheque'].includes(paymentDetails.method) && (
-            <>
+          {/* Bank Transfer / Bank Deposit -> Ref Number (Optional) */}
+          {(paymentDetails.method === 'Bank Transfer' || paymentDetails.method === 'Bank Deposit') && (
+            <FormField
+              label="Reference Number (Optional)"
+              hint="Optional bank transfer / deposit reference number"
+            >
+              <FormInput
+                placeholder="e.g. REF-102938"
+                value={paymentDetails.refNumber || paymentDetails.transactionRef || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onPaymentDetailsChange({
+                    ...paymentDetails,
+                    refNumber: val,
+                    transactionRef: val,
+                  });
+                }}
+              />
+            </FormField>
+          )}
+
+          {/* Credit / Debit Card -> Last 4 Digits (Optional) */}
+          {paymentDetails.method === 'Card' && (
+            <FormField
+              label="Card Last 4 Digits (Optional)"
+              hint="Optional last 4 digits of the payment card"
+            >
+              <FormInput
+                placeholder="e.g. 4321"
+                maxLength={4}
+                value={paymentDetails.cardLast4 || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  onPaymentDetailsChange({
+                    ...paymentDetails,
+                    cardLast4: val,
+                    transactionRef: val ? `Card **** ${val}` : '',
+                  });
+                }}
+              />
+            </FormField>
+          )}
+
+          {/* Cheque -> Bank Name, Cheque Date, Cheque Number */}
+          {paymentDetails.method === 'Cheque' && (
+            <div className="space-y-4 bg-[#0f172a]/50 p-3.5 rounded-xl border border-[#334155]">
               <FormField
                 label="Bank Name"
                 required
                 error={errors.bankName}
-                hint="Name of the bank"
+                hint="Bank where the cheque is drawn"
               >
                 <FormInput
-                  placeholder="Enter bank name"
-                  value={paymentDetails.bankName}
+                  placeholder="e.g. Commercial Bank, Sampath Bank, BOC"
+                  value={paymentDetails.bankName || ''}
                   onChange={(e) => onPaymentDetailsChange({ ...paymentDetails, bankName: e.target.value })}
                   error={!!errors.bankName}
                 />
               </FormField>
 
               <FormField
-                label="Account Number"
+                label="Cheque Date"
                 required
-                error={errors.accountNumber}
-                hint="Bank account number"
+                error={errors.chequeDate}
+                hint="Date written on the cheque"
               >
                 <FormInput
-                  placeholder="Enter account number"
-                  value={paymentDetails.accountNumber}
-                  onChange={(e) => onPaymentDetailsChange({ ...paymentDetails, accountNumber: e.target.value })}
-                  error={!!errors.accountNumber}
+                  type="date"
+                  value={paymentDetails.chequeDate || paymentDetails.transactionDate || ''}
+                  onChange={(e) => onPaymentDetailsChange({ ...paymentDetails, chequeDate: e.target.value })}
+                  error={!!errors.chequeDate}
                 />
               </FormField>
-            </>
-          )}
 
-          {/* Transaction Reference */}
-          {paymentDetails.method !== 'Cash' && (
-            <FormField
-              label="Transaction Reference"
-              required
-              error={errors.transactionRef}
-              hint={paymentDetails.method === 'Card' ? 'Card transaction ID' : 'Reference/Cheque number'}
-            >
-              <FormInput
-                placeholder={paymentDetails.method === 'Card' ? 'Enter card transaction ID' : 'Enter reference number'}
-                value={paymentDetails.transactionRef}
-                onChange={(e) => onPaymentDetailsChange({ ...paymentDetails, transactionRef: e.target.value })}
-                error={!!errors.transactionRef}
-              />
-            </FormField>
+              <FormField
+                label="Cheque Number"
+                required
+                error={errors.chequeNumber}
+                hint="Cheque serial / leaf number"
+              >
+                <FormInput
+                  placeholder="e.g. CHQ-654321"
+                  value={paymentDetails.chequeNumber || paymentDetails.transactionRef || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onPaymentDetailsChange({
+                      ...paymentDetails,
+                      chequeNumber: val,
+                      transactionRef: val,
+                    });
+                  }}
+                  error={!!errors.chequeNumber}
+                />
+              </FormField>
+            </div>
           )}
 
           {/* Transaction Date */}

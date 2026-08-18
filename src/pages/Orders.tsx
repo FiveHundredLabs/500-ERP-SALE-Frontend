@@ -109,7 +109,7 @@ const Orders: React.FC = () => {
     return [...filteredOrders].sort((a, b) => {
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
-      if (sortColumn === 'salesman') { valA = a.salesman.name; valB = b.salesman.name; }
+      if (sortColumn === 'salesman') { valA = a.salesman?.name || ''; valB = b.salesman?.name || ''; }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;

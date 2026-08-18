@@ -7,15 +7,17 @@ const d = (offset: number) => {
 };
 
 export const mockInvoicesList: InvoiceResponse[] = [
-  // 1. Kasun Perera (SO-001)
+  // 1. Kasun Perera (SO-001) - Kandy Construction Supplies (c-001) - Paid
   {
     _id: "inv-001",
     invoiceId: "INV-2026-001",
     customer: {
-      _id: "c-001", fullName: "Kandy Construction Supplies", email: "pradeep@kandycon.lk",
+      _id: "c-001", shopName: "Kandy Construction Supplies", fullName: "Kandy Construction Supplies",
+      contactPerson: "Pradeep Wickramasinghe",
       phone: "+94705787818", phone2: "081-234-5678", phone3: "070-456-7890",
-      vatNumber: "KAD-7800-001", customerCode: "CUST-00104",
-      address: { street: "23, Peradeniya Road", city: "Kandy", country: "Sri Lanka", zip: "20000" },
+      customerCode: "CUST-00104",
+      address: "23, Peradeniya Road, Kandy", city: "Kandy",
+      creditLimit: 1500000,
     },
     salesman: { _id: "so-001", name: "Kasun Perera" },
     salesmanName: "Kasun Perera",
@@ -24,20 +26,162 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-001b", item: "inv-009", quantity: 100, unitPrice: 1950, total: 195000 },
     ],
     subTotal: 785000, discount: 39250, totalAmount: 745750,
+    paidAmount: 745750, remainingAmount: 0,
+    payments: [
+      {
+        transactionId: "TXN-2026-001",
+        amount: 745750,
+        date: d(-5),
+        paymentMethod: "Bank Transfer",
+        reference: "BOC-TR-99882",
+        bankName: "Bank of Ceylon",
+      }
+    ],
     paymentStatus: "Completed", paymentMethod: "Bank Transfer",
     issueDate: d(-35), dueDate: d(-5),
     vehicleNumber: "CP-KDY-2234",
-    notes: "Delivery to Kandy site confirmed.",
+    notes: "Delivery to Kandy site confirmed. Settled in full.",
     created_at: d(-35), updated_at: d(-5),
   },
+
+  // 2. Lanka Hardware Traders (c-003) - SCENARIO INVOICES 1 to 5 (5 x 10,000 = 50,000 Total)
+  {
+    _id: "inv-101",
+    invoiceId: "INV-2026-101",
+    customer: {
+      _id: "c-003", shopName: "Lanka Hardware Traders", fullName: "Lanka Hardware Traders",
+      contactPerson: "Dinesh Perera",
+      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
+      customerCode: "CUST-00101",
+      address: "45, Main Street, Pettah, Colombo", city: "Colombo",
+      creditLimit: 2500000,
+    },
+    salesman: { _id: "so-003", name: "Dinesh Fernando" },
+    salesmanName: "Dinesh Fernando",
+    items: [
+      { _id: "ii-101a", item: "inv-001", quantity: 4, unitPrice: 2500, total: 10000 },
+    ],
+    subTotal: 10000, discount: 0, totalAmount: 10000,
+    paidAmount: 0, remainingAmount: 10000,
+    payments: [],
+    paymentStatus: "Pending", paymentMethod: "Cheque",
+    issueDate: d(-25), dueDate: d(-10), // OVERDUE
+    vehicleNumber: "WP-COL-8821",
+    notes: "Invoice 1 — Overdue payment follow up.",
+    created_at: d(-25), updated_at: d(-25),
+  },
+  {
+    _id: "inv-102",
+    invoiceId: "INV-2026-102",
+    customer: {
+      _id: "c-003", shopName: "Lanka Hardware Traders", fullName: "Lanka Hardware Traders",
+      contactPerson: "Dinesh Perera",
+      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
+      customerCode: "CUST-00101",
+      address: "45, Main Street, Pettah, Colombo", city: "Colombo",
+      creditLimit: 2500000,
+    },
+    salesman: { _id: "so-003", name: "Dinesh Fernando" },
+    salesmanName: "Dinesh Fernando",
+    items: [
+      { _id: "ii-102a", item: "inv-002", quantity: 5, unitPrice: 2000, total: 10000 },
+    ],
+    subTotal: 10000, discount: 0, totalAmount: 10000,
+    paidAmount: 0, remainingAmount: 10000,
+    payments: [],
+    paymentStatus: "Pending", paymentMethod: "Cheque",
+    issueDate: d(-15), dueDate: d(2), // DUE SOON
+    vehicleNumber: "WP-COL-8821",
+    notes: "Invoice 2 — Due soon.",
+    created_at: d(-15), updated_at: d(-15),
+  },
+  {
+    _id: "inv-103",
+    invoiceId: "INV-2026-103",
+    customer: {
+      _id: "c-003", shopName: "Lanka Hardware Traders", fullName: "Lanka Hardware Traders",
+      contactPerson: "Dinesh Perera",
+      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
+      customerCode: "CUST-00101",
+      address: "45, Main Street, Pettah, Colombo", city: "Colombo",
+      creditLimit: 2500000,
+    },
+    salesman: { _id: "so-003", name: "Dinesh Fernando" },
+    salesmanName: "Dinesh Fernando",
+    items: [
+      { _id: "ii-103a", item: "inv-003", quantity: 10, unitPrice: 1000, total: 10000 },
+    ],
+    subTotal: 10000, discount: 0, totalAmount: 10000,
+    paidAmount: 0, remainingAmount: 10000,
+    payments: [],
+    paymentStatus: "Pending", paymentMethod: "Cheque",
+    issueDate: d(-10), dueDate: d(5), // DUE SOON
+    vehicleNumber: "WP-COL-8821",
+    notes: "Invoice 3 — Close to becoming overdue.",
+    created_at: d(-10), updated_at: d(-10),
+  },
+  {
+    _id: "inv-104",
+    invoiceId: "INV-2026-104",
+    customer: {
+      _id: "c-003", shopName: "Lanka Hardware Traders", fullName: "Lanka Hardware Traders",
+      contactPerson: "Dinesh Perera",
+      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
+      customerCode: "CUST-00101",
+      address: "45, Main Street, Pettah, Colombo", city: "Colombo",
+      creditLimit: 2500000,
+    },
+    salesman: { _id: "so-003", name: "Dinesh Fernando" },
+    salesmanName: "Dinesh Fernando",
+    items: [
+      { _id: "ii-104a", item: "inv-004", quantity: 4, unitPrice: 2500, total: 10000 },
+    ],
+    subTotal: 10000, discount: 0, totalAmount: 10000,
+    paidAmount: 0, remainingAmount: 10000,
+    payments: [],
+    paymentStatus: "Pending", paymentMethod: "Cheque",
+    issueDate: d(-5), dueDate: d(15), // OUTSTANDING
+    vehicleNumber: "WP-COL-8821",
+    notes: "Invoice 4 — Regular trade credit.",
+    created_at: d(-5), updated_at: d(-5),
+  },
+  {
+    _id: "inv-105",
+    invoiceId: "INV-2026-105",
+    customer: {
+      _id: "c-003", shopName: "Lanka Hardware Traders", fullName: "Lanka Hardware Traders",
+      contactPerson: "Dinesh Perera",
+      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
+      customerCode: "CUST-00101",
+      address: "45, Main Street, Pettah, Colombo", city: "Colombo",
+      creditLimit: 2500000,
+    },
+    salesman: { _id: "so-003", name: "Dinesh Fernando" },
+    salesmanName: "Dinesh Fernando",
+    items: [
+      { _id: "ii-105a", item: "inv-005", quantity: 2, unitPrice: 5000, total: 10000 },
+    ],
+    subTotal: 10000, discount: 0, totalAmount: 10000,
+    paidAmount: 0, remainingAmount: 10000,
+    payments: [],
+    paymentStatus: "Pending", paymentMethod: "Cheque",
+    issueDate: d(-1), dueDate: d(20), // OUTSTANDING
+    vehicleNumber: "WP-COL-8821",
+    notes: "Invoice 5 — New stock shipment.",
+    created_at: d(-1), updated_at: d(-1),
+  },
+
+  // 3. Nirosha Hardware Mart (c-010)
   {
     _id: "inv-010",
     invoiceId: "INV-2026-010",
     customer: {
-      _id: "c-010", fullName: "Nirosha Hardware Mart", email: "nirosha@nirhw.lk",
+      _id: "c-010", shopName: "Nirosha Hardware Mart", fullName: "Nirosha Hardware Mart",
+      contactPerson: "Nirosha Bandara",
       phone: "+94705787818", phone2: "011-234-5678", phone3: "078-567-8901",
-      vatNumber: "COL-1120-011", customerCode: "CUST-00105",
-      address: { street: "145, Baseline Road", city: "Colombo 09", country: "Sri Lanka", zip: "00900" },
+      customerCode: "CUST-00105",
+      address: "145, Baseline Road, Colombo 09", city: "Colombo 09",
+      creditLimit: 1000000,
     },
     salesman: { _id: "so-001", name: "Kasun Perera" },
     salesmanName: "Kasun Perera",
@@ -46,6 +190,8 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-010b", item: "inv-006", quantity: 25, unitPrice: 680, total: 17000 },
     ],
     subTotal: 66000, discount: 3300, totalAmount: 62700,
+    paidAmount: 0, remainingAmount: 62700,
+    payments: [],
     paymentStatus: "Pending", paymentMethod: "Bank Deposit",
     issueDate: d(-2), dueDate: d(13),
     vehicleNumber: "WP-COL-2244",
@@ -53,15 +199,17 @@ export const mockInvoicesList: InvoiceResponse[] = [
     created_at: d(-2), updated_at: d(-2),
   },
 
-  // 2. Nuwan Silva (SO-002)
+  // 4. Saman Building Materials (c-002) - Paid
   {
     _id: "inv-002",
     invoiceId: "INV-2026-002",
     customer: {
-      _id: "c-002", fullName: "Saman Building Materials", email: "saman@samanbm.lk",
+      _id: "c-002", shopName: "Saman Building Materials", fullName: "Saman Building Materials",
+      contactPerson: "Saman Kumara",
       phone: "+94705787818", phone2: "011-456-7890", phone3: "077-987-6543",
-      vatNumber: "COL-5510-002", customerCode: "CUST-00107",
-      address: { street: "78, High Level Road", city: "Maharagama", country: "Sri Lanka", zip: "10280" },
+      customerCode: "CUST-00107",
+      address: "78, High Level Road, Maharagama", city: "Maharagama",
+      creditLimit: 800000,
     },
     salesman: { _id: "so-002", name: "Nuwan Silva" },
     salesmanName: "Nuwan Silva",
@@ -69,20 +217,35 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-002a", item: "inv-007", quantity: 40, unitPrice: 1950, total: 78000 },
     ],
     subTotal: 78000, discount: 3900, totalAmount: 74100,
+    paidAmount: 74100, remainingAmount: 0,
+    payments: [
+      {
+        transactionId: "TXN-2026-002",
+        amount: 74100,
+        date: d(-13),
+        paymentMethod: "Cheque",
+        reference: "CHQ-778812",
+        bankName: "Commercial Bank",
+      }
+    ],
     paymentStatus: "Completed", paymentMethod: "Cheque",
     issueDate: d(-28), dueDate: d(-13),
     vehicleNumber: "WP-MAH-4567",
     notes: "Cheque cleared on due date.",
     created_at: d(-28), updated_at: d(-13),
   },
+
+  // 5. Ravi Plumbing & Hardware (c-007) - Due Soon
   {
     _id: "inv-007",
     invoiceId: "INV-2026-007",
     customer: {
-      _id: "c-007", fullName: "Ravi Plumbing & Hardware", email: "ravi@raviplumb.lk",
+      _id: "c-007", shopName: "Ravi Plumbing & Hardware", fullName: "Ravi Plumbing & Hardware",
+      contactPerson: "Ravi Gunaratne",
       phone: "+94705787818", phone2: "011-678-9012", phone3: "071-876-5432",
-      vatNumber: "COL-6630-007", customerCode: "CUST-00110",
-      address: { street: "89, Stanley Thilakaratne Mawatha", city: "Nugegoda", country: "Sri Lanka", zip: "10250" },
+      customerCode: "CUST-00110",
+      address: "89, Stanley Thilakaratne Mawatha, Nugegoda", city: "Nugegoda",
+      creditLimit: 1200000,
     },
     salesman: { _id: "so-002", name: "Nuwan Silva" },
     salesmanName: "Nuwan Silva",
@@ -92,6 +255,8 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-007c", item: "inv-002", quantity: 60, unitPrice: 1650, total: 99000 },
     ],
     subTotal: 279000, discount: 13950, totalAmount: 265050,
+    paidAmount: 0, remainingAmount: 265050,
+    payments: [],
     paymentStatus: "Pending", paymentMethod: "Cheque",
     issueDate: d(-8), dueDate: d(7),
     vehicleNumber: "WP-NUG-7765",
@@ -99,37 +264,17 @@ export const mockInvoicesList: InvoiceResponse[] = [
     created_at: d(-8), updated_at: d(-8),
   },
 
-  // 3. Dinesh Fernando (SO-003)
-  {
-    _id: "inv-003",
-    invoiceId: "INV-2026-003",
-    customer: {
-      _id: "c-003", fullName: "Lanka Hardware Traders", email: "info@lankahardware.lk",
-      phone: "+94705787818", phone2: "011-255-4321", phone3: "077-123-4567",
-      vatNumber: "COL-9920-003", customerCode: "CUST-00101",
-      address: { street: "45, Main Street, Pettah", city: "Colombo", country: "Sri Lanka", zip: "01100" },
-    },
-    salesman: { _id: "so-003", name: "Dinesh Fernando" },
-    salesmanName: "Dinesh Fernando",
-    items: [
-      { _id: "ii-003a", item: "inv-008", quantity: 15, unitPrice: 16500, total: 247500 },
-      { _id: "ii-003b", item: "inv-001", quantity: 50, unitPrice: 2450, total: 122500 },
-    ],
-    subTotal: 370000, discount: 18500, totalAmount: 351500,
-    paymentStatus: "Pending", paymentMethod: "Bank Transfer",
-    issueDate: d(-22), dueDate: d(8),
-    vehicleNumber: "WP-COL-8821",
-    notes: "Net 30 terms. Awaiting transfer.",
-    created_at: d(-22), updated_at: d(-22),
-  },
+  // 6. City Plumbing & Electrical (c-008) - Paid
   {
     _id: "inv-008",
     invoiceId: "INV-2026-008",
     customer: {
-      _id: "c-008", fullName: "City Plumbing & Electrical", email: "nalika@cityplumb.lk",
+      _id: "c-008", shopName: "City Plumbing & Electrical", fullName: "City Plumbing & Electrical",
+      contactPerson: "",
       phone: "+94705787818", phone2: "011-567-8901",
-      vatNumber: "COL-8840-008", customerCode: "CUST-00108",
-      address: { street: "34, Deans Road", city: "Colombo 10", country: "Sri Lanka", zip: "01000" },
+      customerCode: "CUST-00108",
+      address: "34, Deans Road, Colombo 10", city: "Colombo 10",
+      creditLimit: 600000,
     },
     salesman: { _id: "so-003", name: "Dinesh Fernando" },
     salesmanName: "Dinesh Fernando",
@@ -138,6 +283,16 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-008b", item: "inv-005", quantity: 25, unitPrice: 2600, total: 65000 },
     ],
     subTotal: 127000, discount: 6350, totalAmount: 120650,
+    paidAmount: 120650, remainingAmount: 0,
+    payments: [
+      {
+        transactionId: "TXN-2026-003",
+        amount: 120650,
+        date: d(-6),
+        paymentMethod: "Cash",
+        reference: "CASH-REC-102",
+      }
+    ],
     paymentStatus: "Completed", paymentMethod: "Cash",
     issueDate: d(-6), dueDate: d(-6),
     vehicleNumber: "WP-COL-9988",
@@ -145,15 +300,17 @@ export const mockInvoicesList: InvoiceResponse[] = [
     created_at: d(-6), updated_at: d(-6),
   },
 
-  // 4. Ruwan Jayasinghe (SO-004)
+  // 7. Jayantha Hardware & Paint (c-004) - Partially Paid (Total: 102,125 | Paid: 50,000 | Remaining: 52,125)
   {
     _id: "inv-004",
     invoiceId: "INV-2026-004",
     customer: {
-      _id: "c-004", fullName: "Jayantha Hardware & Paint", email: "jayantha@jayhw.lk",
+      _id: "c-004", shopName: "Jayantha Hardware & Paint", fullName: "Jayantha Hardware & Paint",
+      contactPerson: "Jayantha Alwis",
       phone: "+94705787818", phone2: "033-234-5678", phone3: "075-123-9876",
-      vatNumber: "GAM-3310-004", customerCode: "CUST-00109",
-      address: { street: "12, New Kandy Road", city: "Kadawatha", country: "Sri Lanka", zip: "11850" },
+      customerCode: "CUST-00109",
+      address: "12, New Kandy Road, Kadawatha", city: "Kadawatha",
+      creditLimit: 1000000,
     },
     salesman: { _id: "so-004", name: "Ruwan Jayasinghe" },
     salesmanName: "Ruwan Jayasinghe",
@@ -162,44 +319,35 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-004b", item: "inv-001", quantity: 30, unitPrice: 2450, total: 73500 },
     ],
     subTotal: 107500, discount: 5375, totalAmount: 102125,
-    paymentStatus: "Pending", paymentMethod: "Bank Deposit",
-    issueDate: d(-15), dueDate: d(0),
-    vehicleNumber: "WP-GAM-5512",
-    notes: "Due today — follow up with customer.",
-    created_at: d(-15), updated_at: d(-15),
-  },
-  {
-    _id: "inv-009",
-    invoiceId: "INV-2026-009",
-    customer: {
-      _id: "c-009", fullName: "Up Country Hardware", email: "priyantha@upcohw.lk",
-      phone: "+94705787818", phone2: "081-345-6789",
-      vatNumber: "NUW-8840-009", customerCode: "CUST-00106",
-      address: { street: "67, Clock Tower Road", city: "Nuwara Eliya", country: "Sri Lanka", zip: "22200" },
-    },
-    salesman: { _id: "so-004", name: "Ruwan Jayasinghe" },
-    salesmanName: "Ruwan Jayasinghe",
-    items: [
-      { _id: "ii-009a", item: "inv-007", quantity: 30, unitPrice: 1950, total: 58500 },
-      { _id: "ii-009b", item: "inv-006", quantity: 40, unitPrice: 680, total: 27200 },
+    paidAmount: 50000, remainingAmount: 52125,
+    payments: [
+      {
+        transactionId: "TXN-2026-004",
+        amount: 50000,
+        date: d(-7),
+        paymentMethod: "Bank Deposit",
+        reference: "DEP-HNB-5541",
+        bankName: "Hatton National Bank",
+      }
     ],
-    subTotal: 85700, discount: 4285, totalAmount: 81415,
-    paymentStatus: "Pending", paymentMethod: "Bank Transfer",
-    issueDate: d(-4), dueDate: d(11),
-    vehicleNumber: "CP-NUW-4421",
-    notes: "Net 15 credit terms.",
-    created_at: d(-4), updated_at: d(-4),
+    paymentStatus: "Partially Paid", paymentMethod: "Bank Deposit",
+    issueDate: d(-15), dueDate: d(0), // Due Today
+    vehicleNumber: "WP-GAM-5512",
+    notes: "Partially paid LKR 50,000. Balance LKR 52,125 due.",
+    created_at: d(-15), updated_at: d(-7),
   },
 
-  // 5. Sachith Kumara (SO-005)
+  // 8. Modern Build Solutions (c-005) - Overdue
   {
     _id: "inv-005",
     invoiceId: "INV-2026-005",
     customer: {
-      _id: "c-005", fullName: "Modern Build Solutions", email: "chamara@modernbuild.lk",
+      _id: "c-005", shopName: "Modern Build Solutions", fullName: "Modern Build Solutions",
+      contactPerson: "Chamara Weerasinghe",
       phone: "+94705787818", phone2: "033-456-7890", phone3: "071-345-6789",
-      vatNumber: "GAM-5560-010", customerCode: "CUST-00103",
-      address: { street: "45, Kandy Road", city: "Gampaha", country: "Sri Lanka", zip: "11000" },
+      customerCode: "CUST-00103",
+      address: "45, Kandy Road, Gampaha", city: "Gampaha",
+      creditLimit: 1500000,
     },
     salesman: { _id: "so-005", name: "Sachith Kumara" },
     salesmanName: "Sachith Kumara",
@@ -208,6 +356,8 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-005b", item: "inv-010", quantity: 100, unitPrice: 2950, total: 295000 },
     ],
     subTotal: 880000, discount: 44000, totalAmount: 836000,
+    paidAmount: 0, remainingAmount: 836000,
+    payments: [],
     paymentStatus: "Pending", paymentMethod: "Bank Transfer",
     issueDate: d(-45), dueDate: d(-15),
     vehicleNumber: "WP-GAM-1122",
@@ -215,15 +365,45 @@ export const mockInvoicesList: InvoiceResponse[] = [
     created_at: d(-45), updated_at: d(-45),
   },
 
-  // 6. Chaminda Bandara (SO-006)
+  // 9. Up Country Hardware (c-009)
+  {
+    _id: "inv-009",
+    invoiceId: "INV-2026-009",
+    customer: {
+      _id: "c-009", shopName: "Up Country Hardware", fullName: "Up Country Hardware",
+      contactPerson: "Priyantha Rathnayake",
+      phone: "+94705787818", phone2: "081-345-6789",
+      customerCode: "CUST-00106",
+      address: "67, Clock Tower Road, Nuwara Eliya", city: "Nuwara Eliya",
+      creditLimit: 900000,
+    },
+    salesman: { _id: "so-004", name: "Ruwan Jayasinghe" },
+    salesmanName: "Ruwan Jayasinghe",
+    items: [
+      { _id: "ii-009a", item: "inv-007", quantity: 30, unitPrice: 1950, total: 58500 },
+      { _id: "ii-009b", item: "inv-006", quantity: 40, unitPrice: 680, total: 27200 },
+    ],
+    subTotal: 85700, discount: 4285, totalAmount: 81415,
+    paidAmount: 0, remainingAmount: 81415,
+    payments: [],
+    paymentStatus: "Pending", paymentMethod: "Bank Transfer",
+    issueDate: d(-4), dueDate: d(11),
+    vehicleNumber: "CP-NUW-4421",
+    notes: "Net 15 credit terms.",
+    created_at: d(-4), updated_at: d(-4),
+  },
+
+  // 10. Galle Hardware Palace (c-006) - Paid
   {
     _id: "inv-006",
     invoiceId: "INV-2026-006",
     customer: {
-      _id: "c-006", fullName: "Galle Hardware Palace", email: "suresh@gallehw.lk",
+      _id: "c-006", shopName: "Galle Hardware Palace", fullName: "Galle Hardware Palace",
+      contactPerson: "Suresh Mendis",
       phone: "+94705787818", phone2: "091-234-5678", phone3: "076-234-5678",
-      vatNumber: "GAL-2210-008", customerCode: "CUST-00102",
-      address: { street: "23, Colombo Road", city: "Galle", country: "Sri Lanka", zip: "80000" },
+      customerCode: "CUST-00102",
+      address: "23, Colombo Road, Galle", city: "Galle",
+      creditLimit: 1200000,
     },
     salesman: { _id: "so-006", name: "Chaminda Bandara" },
     salesmanName: "Chaminda Bandara",
@@ -232,140 +412,20 @@ export const mockInvoicesList: InvoiceResponse[] = [
       { _id: "ii-006b", item: "inv-004", quantity: 30, unitPrice: 3100, total: 93000 },
     ],
     subTotal: 188000, discount: 9400, totalAmount: 178600,
+    paidAmount: 178600, remainingAmount: 0,
+    payments: [
+      {
+        transactionId: "TXN-2026-005",
+        amount: 178600,
+        date: d(-10),
+        paymentMethod: "Cash",
+        reference: "CASH-REC-105",
+      }
+    ],
     paymentStatus: "Completed", paymentMethod: "Cash",
     issueDate: d(-10), dueDate: d(0),
     vehicleNumber: "SP-GAL-3344",
     notes: "Cash payment collected on delivery.",
     created_at: d(-10), updated_at: d(-10),
-  },
-  {
-    _id: "inv-011",
-    invoiceId: "INV-2026-011",
-    customer: {
-      _id: "c-004", fullName: "Jayantha Hardware & Paint", email: "jayantha@jayhw.lk",
-      phone: "+94705787818", customerCode: "CUST-00109",
-      address: { street: "12, New Kandy Road", city: "Kadawatha", country: "Sri Lanka", zip: "11850" },
-    },
-    salesman: { _id: "so-006", name: "Chaminda Bandara" },
-    salesmanName: "Chaminda Bandara",
-    items: [
-      { _id: "ii-011a", item: "inv-002", quantity: 50, unitPrice: 1650, total: 82500 },
-    ],
-    subTotal: 82500, discount: 4125, totalAmount: 78375,
-    paymentStatus: "Pending", paymentMethod: "Credit",
-    issueDate: d(-3), dueDate: d(11),
-    vehicleNumber: "WP-KAD-9912",
-    notes: "Regular 14 days credit.",
-    created_at: d(-3), updated_at: d(-3),
-  },
-
-  // 7. Tharindu Wickramasinghe (SO-007)
-  {
-    _id: "inv-012",
-    invoiceId: "INV-2026-012",
-    customer: {
-      _id: "c-001", fullName: "Kandy Construction Supplies", email: "pradeep@kandycon.lk",
-      phone: "+94705787818", customerCode: "CUST-00104",
-      address: { street: "23, Peradeniya Road", city: "Kandy", country: "Sri Lanka", zip: "20000" },
-    },
-    salesman: { _id: "so-007", name: "Tharindu Wickramasinghe" },
-    salesmanName: "Tharindu Wickramasinghe",
-    items: [
-      { _id: "ii-012a", item: "inv-008", quantity: 20, unitPrice: 16500, total: 330000 },
-    ],
-    subTotal: 330000, discount: 16500, totalAmount: 313500,
-    paymentStatus: "Completed", paymentMethod: "Bank Transfer",
-    issueDate: d(-50), dueDate: d(-20),
-    vehicleNumber: "NC-ANU-5544",
-    notes: "Site foundation supplies.",
-    created_at: d(-50), updated_at: d(-20),
-  },
-  {
-    _id: "inv-013",
-    invoiceId: "INV-2026-013",
-    customer: {
-      _id: "c-003", fullName: "Lanka Hardware Traders", email: "info@lankahardware.lk",
-      phone: "+94705787818", customerCode: "CUST-00101",
-      address: { street: "45, Main Street, Pettah", city: "Colombo", country: "Sri Lanka", zip: "01100" },
-    },
-    salesman: { _id: "so-007", name: "Tharindu Wickramasinghe" },
-    salesmanName: "Tharindu Wickramasinghe",
-    items: [
-      { _id: "ii-013a", item: "inv-007", quantity: 60, unitPrice: 1950, total: 117000 },
-    ],
-    subTotal: 117000, discount: 5850, totalAmount: 111150,
-    paymentStatus: "Pending", paymentMethod: "Credit",
-    issueDate: d(-40), dueDate: d(-10),
-    vehicleNumber: "NC-ANU-8811",
-    notes: "⚠ OVERDUE: Followed up with accountant.",
-    created_at: d(-40), updated_at: d(-40),
-  },
-
-  // 8. Lahiru Senanayake (SO-008)
-  {
-    _id: "inv-014",
-    invoiceId: "INV-2026-014",
-    customer: {
-      _id: "c-005", fullName: "Modern Build Solutions", email: "chamara@modernbuild.lk",
-      phone: "+94705787818", customerCode: "CUST-00103",
-      address: { street: "45, Kandy Road", city: "Gampaha", country: "Sri Lanka", zip: "11000" },
-    },
-    salesman: { _id: "so-008", name: "Lahiru Senanayake" },
-    salesmanName: "Lahiru Senanayake",
-    items: [
-      { _id: "ii-014a", item: "inv-001", quantity: 40, unitPrice: 2450, total: 98000 },
-      { _id: "ii-014b", item: "inv-005", quantity: 30, unitPrice: 2600, total: 78000 },
-    ],
-    subTotal: 176000, discount: 8800, totalAmount: 167200,
-    paymentStatus: "Completed", paymentMethod: "Cheque",
-    issueDate: d(-18), dueDate: d(-3),
-    vehicleNumber: "SG-RAT-3321",
-    notes: "Cheque realized successfully.",
-    created_at: d(-18), updated_at: d(-3),
-  },
-
-  // 9. Roshan Abeykoon (SO-009)
-  {
-    _id: "inv-015",
-    invoiceId: "INV-2026-015",
-    customer: {
-      _id: "c-009", fullName: "Up Country Hardware", email: "priyantha@upcohw.lk",
-      phone: "+94705787818", customerCode: "CUST-00106",
-      address: { street: "67, Clock Tower Road", city: "Nuwara Eliya", country: "Sri Lanka", zip: "22200" },
-    },
-    salesman: { _id: "so-009", name: "Roshan Abeykoon" },
-    salesmanName: "Roshan Abeykoon",
-    items: [
-      { _id: "ii-015a", item: "inv-004", quantity: 45, unitPrice: 3100, total: 139500 },
-      { _id: "ii-015b", item: "inv-003", quantity: 50, unitPrice: 950, total: 47500 },
-    ],
-    subTotal: 187000, discount: 9350, totalAmount: 177650,
-    paymentStatus: "Pending", paymentMethod: "Credit",
-    issueDate: d(-5), dueDate: d(25),
-    vehicleNumber: "CP-BAD-4499",
-    notes: "Estate special order net 30.",
-    created_at: d(-5), updated_at: d(-5),
-  },
-
-  // 10. Manjula Dissanaike (SO-010)
-  {
-    _id: "inv-016",
-    invoiceId: "INV-2026-016",
-    customer: {
-      _id: "c-002", fullName: "Saman Building Materials", email: "saman@samanbm.lk",
-      phone: "+94705787818", customerCode: "CUST-00107",
-      address: { street: "78, High Level Road", city: "Maharagama", country: "Sri Lanka", zip: "10280" },
-    },
-    salesman: { _id: "so-010", name: "Manjula Dissanaike" },
-    salesmanName: "Manjula Dissanaike",
-    items: [
-      { _id: "ii-016a", item: "inv-010", quantity: 80, unitPrice: 2950, total: 236000 },
-    ],
-    subTotal: 236000, discount: 11800, totalAmount: 224200,
-    paymentStatus: "Completed", paymentMethod: "Cash",
-    issueDate: d(-1), dueDate: d(-1),
-    vehicleNumber: "WP-HOM-7788",
-    notes: "Cash on delivery - wholesale batch.",
-    created_at: d(-1), updated_at: d(-1),
   },
 ];

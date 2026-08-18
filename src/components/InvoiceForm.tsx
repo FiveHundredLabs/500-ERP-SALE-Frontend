@@ -207,7 +207,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     setCustomerModalMode(null);
 
     // Auto-set payment method to Credit and credit period to customer's default period
-    const defaultPeriod = customer.creditPeriod ?? 30;
+    const defaultPeriod = (customer as any).creditPeriod ?? 30;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     onFieldChange('paymentStatus', PaymentStatus.PENDING);
     handleCreditPeriodChange(String(defaultPeriod));
@@ -344,23 +344,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         _id: '',
         fullName: '',
         phone: '',
-        email: '',
-        vatNumber: '',
-        address: undefined,
         customerCode: '',
-        vehicle_number: '',
-        vehicle_model: '',
-        year_of_manufacture: undefined
       };
     }
     
     return {
       _id: customer._id,
-      fullName: customer.fullName,
+      shopName: customer.shopName || customer.fullName,
+      fullName: customer.shopName || customer.fullName,
+      contactPerson: customer.contactPerson,
       phone: customer.phone,
-      email: customer.email || '',
-      vatNumber: customer.vatNumber || '',
-      address: typeof customer.address === 'string' ? undefined : customer.address,
+      address: customer.address,
+      city: customer.city,
       customerCode: customer.customerCode || '',
       vehicle_number: customer.vehicle_number,
       vehicle_model: customer.vehicle_model,
@@ -383,7 +378,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <CustomerFormModal
           isOpen={true}
           mode={customerModalMode}
-          customer={customerModalMode === 'edit' ? selectedCustomer || undefined : undefined}
+          initialData={customerModalMode === 'edit' ? selectedCustomer || undefined : undefined}
           prefillData={customerModalMode === 'create' ? getCustomerPrefillData() : undefined}
           onClose={() => setCustomerModalMode(null)}
           onSubmit={handleCustomerFormSubmit}
@@ -414,7 +409,15 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           updated_at: invoiceData.updated_at || ''
         }}
         paymentDetails={paymentDetails}
-        onPaymentDetailsChange={setPaymentDetails}
+        onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
+          ...prev,
+          ...details,
+          bankName: details.bankName || '',
+          accountNumber: details.accountNumber || '',
+          transactionRef: details.transactionRef || '',
+          amount: details.amount || '',
+          transactionDate: details.transactionDate || prev.transactionDate,
+        }))}
         onSubmit={handlePaymentCompleteInternal}
         isProcessing={isProcessingPayment}
       />
