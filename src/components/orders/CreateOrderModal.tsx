@@ -12,6 +12,7 @@ import { mockInvoicesList } from '../../data/mockInvoices';
 import type { InvoiceResponse } from '../../types/invoice';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useToast } from '../erp/Toast';
+import CreatePOModal from './CreatePOModal';
 
 interface CreateOrderModalProps {
   isOpen: boolean;
@@ -51,6 +52,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   // Quick Add Product state
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showInvoicePreviewModal, setShowInvoicePreviewModal] = useState(false);
+  const [createdInvoiceData, setCreatedInvoiceData] = useState<InvoiceResponse | null>(null);
+
+  const [showPOModal, setShowPOModal] = useState(false);
   const [quickProduct, setQuickProduct] = useState({
     name: '',
     cost: '',
@@ -304,60 +309,13 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const handleConvertToPO = () => {
     if (!createdOrder) return;
-    const generatedPONumber = `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    setShowPOModal(true);
+  };
 
-    const poItems = createdOrder.products.map(p => {
-      const invItem = mockInventoryItems.find(item => item.product_name === p.productName);
-      const costPrice = invItem ? invItem.purchase_price : (p.unitPrice * 0.7);
-      const subtotal = p.quantity * costPrice;
-      return {
-        id: p.id || Math.random().toString(),
-        sku: p.sku || invItem?.product_code || 'N/A',
-        productName: p.productName,
-        category: p.category || invItem?.vehicle?.brand || 'General',
-        quantity: p.quantity,
-        unit: p.unit || 'PCS',
-        unitPrice: costPrice,
-        discount: 0,
-        tax: 0,
-        subtotal,
-        total: subtotal,
-      };
-    });
-
-    const poSubtotal = poItems.reduce((acc, item) => acc + item.total, 0);
-
-    const newPO: PurchaseOrder = {
-      id: Math.random().toString(36).substring(2, 9),
-      poNumber: generatedPONumber,
-      poDate: new Date().toISOString().split('T')[0],
-      expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      supplierId: 'SUP-00001',
-      supplierName: 'Petrotec Industries Ltd',
-      supplierContact: 'Shantha Wijesinghe',
-      supplierPhone: '011-567-8901',
-      supplierAddress: '78, Grandpass Road',
-      supplierCity: 'Colombo 14',
-      supplierEmail: 'orders@petrotec.lk',
-      customerName: createdOrder.customerName,
-      createdById: 'usr-001',
-      createdByName: 'Admin User',
-      items: poItems,
-      numberOfItems: poItems.length,
-      subTotal: poSubtotal,
-      totalDiscount: 0,
-      totalTax: 0,
-      shippingCharges: 2500,
-      grandTotal: poSubtotal + 2500,
-      status: 'Draft',
-      paymentStatus: 'Unpaid',
-      paymentTerms: 'Net 30',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
+  const handlePOSubmit = (newPO: PurchaseOrder) => {
     mockPurchaseOrders.unshift(newPO);
-    toast.success('Converted to PO', `Purchase Order ${generatedPONumber} created using product cost price.`);
+    setShowPOModal(false);
+    toast.success('Converted to PO', `Purchase Order ${newPO.poNumber} created using inventory product cost price.`);
     handleReset();
     onClose();
     navigate('/purchase-orders');
@@ -1183,6 +1141,27 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             </form>
           </div>
         </div>
+      )}
+
+      {/* Convert to PO Modal */}
+      {showPOModal && createdOrder && (
+        <CreatePOModal
+          isOpen={showPOModal}
+          onClose={() => setShowPOModal(false)}
+          onSubmit={handlePOSubmit}
+          initialData={{
+            referenceOrderId: createdOrder.orderId,
+            referenceOrderNum: createdOrder.orderId,
+            customerName: createdOrder.customerName,
+            notes: `Converted from Sales Order #${createdOrder.orderId}`,
+            items: createdOrder.products.map((p) => ({
+              sku: p.sku,
+              productName: p.productName,
+              quantity: p.quantity,
+              sellingPrice: p.unitPrice,
+            })),
+          }}
+        />
       )}
     </div>
   );

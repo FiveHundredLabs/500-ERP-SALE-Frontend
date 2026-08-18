@@ -45,6 +45,7 @@ import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 import { mockPurchaseOrders } from "../data/mockPurchaseOrders";
 import type { PurchaseOrder } from "../types/purchaseOrders";
+import CreatePOModal, { type POInitialData, type POConversionItem } from "../components/orders/CreatePOModal";
 
 const Quotation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -58,6 +59,9 @@ const Quotation: React.FC = () => {
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedRef = useRef<QuotationData | null>(null);
   const lastSavedAtRef = useRef<string | null>(null);
+
+  const [poModalInitialData, setPoModalInitialData] = useState<POInitialData | null>(null);
+  const [showPOModal, setShowPOModal] = useState(false);
 
   const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
   const [allQuotations, setAllQuotations] = useState<QuotationResponse[]>([]);
@@ -599,69 +603,36 @@ const Quotation: React.FC = () => {
   };
 
   const handleConvertQuotationToPO = (quotation: QuotationResponse | QuotationData) => {
-    setConfirmConfig({
-      isOpen: true,
-      title: 'Convert to Purchase Order',
-      message: `Convert quotation ${quotation.quotationId} to a Purchase Order? This will create a new draft PO with the quotation items.`,
-      confirmText: 'Convert to PO',
-      type: 'info',
-      onConfirm: () => {
-        const generatedPONumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const customerObj = 'customerDetails' in quotation ? quotation.customerDetails : undefined;
-        const customerName = customerObj
-          ? customerObj.fullName
-          : typeof quotation.customer === 'object'
-            ? (quotation.customer as any)?.fullName || (quotation.customer as any)?.name || 'Unknown'
-            : String(quotation.customer || 'Unknown');
+    const customerObj = 'customerDetails' in quotation ? quotation.customerDetails : undefined;
+    const customerName = customerObj
+      ? customerObj.fullName
+      : typeof quotation.customer === 'object'
+        ? (quotation.customer as any)?.fullName || (quotation.customer as any)?.name || 'Unknown'
+        : String(quotation.customer || 'Unknown');
 
-        const newPO: PurchaseOrder = {
-          id: Math.random().toString(36).substr(2, 9),
-          poNumber: generatedPONumber,
-          referenceOrderNum: quotation.quotationId,
-          supplierId: 'SUP-001',
-          supplierName: 'Pending Supplier',
-          supplierContact: '',
-          supplierPhone: '',
-          supplierAddress: '',
-          supplierCity: '',
-          customerName,
-          createdById: 'admin',
-          createdByName: 'Admin User',
-          poDate: new Date().toISOString().split('T')[0],
-          expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          items: quotation.items.map((it: any) => ({
-            id: it._id || it.id || Math.random().toString(36).substr(2, 9),
-            sku: it.item?.product_code || (typeof it.item === 'string' ? it.item : 'SKU-NA'),
-            productName: it.itemName || it.item?.product_name || 'Item',
-            category: 'General',
-            quantity: it.quantity,
-            unit: 'pcs',
-            unitPrice: it.unitPrice,
-            discount: 0,
-            tax: 0,
-            subtotal: it.quantity * it.unitPrice,
-            total: it.quantity * it.unitPrice,
-          })),
-          numberOfItems: quotation.items.length,
-          subTotal: quotation.subTotal,
-          totalDiscount: quotation.discount,
-          totalTax: 0,
-          shippingCharges: 0,
-          grandTotal: quotation.totalAmount,
-          status: 'Draft',
-          paymentStatus: 'Unpaid',
-          paymentTerms: 'Net 30',
-          notes: `Converted from Quotation ${quotation.quotationId}`,
-        };
+    const conversionItems: POConversionItem[] = (quotation.items || []).map((it: any) => ({
+      sku: it.item?.product_code || (typeof it.item === 'string' ? it.item : undefined),
+      productName: it.itemName || it.item?.product_name || 'Item',
+      quantity: it.quantity,
+      sellingPrice: it.unitPrice,
+    }));
 
-        mockPurchaseOrders.unshift(newPO);
-        setAlert({
-          type: 'success',
-          message: `Purchase Order ${generatedPONumber} created from Quotation ${quotation.quotationId}!`,
-        });
-      }
+    setPoModalInitialData({
+      referenceOrderNum: quotation.quotationId,
+      customerName,
+      notes: `Converted from Quotation #${quotation.quotationId}`,
+      items: conversionItems,
+    });
+    setShowPOModal(true);
+  };
+
+  const handlePOSubmit = (newPO: PurchaseOrder) => {
+    mockPurchaseOrders.unshift(newPO);
+    setShowPOModal(false);
+    setPoModalInitialData(null);
+    setAlert({
+      type: 'success',
+      message: `Purchase Order ${newPO.poNumber} created from Quotation!`,
     });
   };
 
@@ -1180,6 +1151,19 @@ const Quotation: React.FC = () => {
           onConvertToPO={(q) => handleConvertQuotationToPO(q)}
           onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
         />
+
+        {/* Convert to PO Modal */}
+        {showPOModal && (
+          <CreatePOModal
+            isOpen={showPOModal}
+            onClose={() => {
+              setShowPOModal(false);
+              setPoModalInitialData(null);
+            }}
+            onSubmit={handlePOSubmit}
+            initialData={poModalInitialData}
+          />
+        )}
       </div>
     </div>
   );

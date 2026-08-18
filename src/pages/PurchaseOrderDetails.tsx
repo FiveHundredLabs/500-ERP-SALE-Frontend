@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Printer,
   MessageCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 
@@ -171,15 +172,12 @@ const PurchaseOrderDetails: React.FC = () => {
             <table className="min-w-full border-collapse">
               <thead>
                 <tr className="bg-[#1e293b] text-gray-200 text-xs font-semibold border-b border-[#334155]">
-                  <th className="p-3 text-left min-w-[100px]">SKU Code</th>
-                  <th className="p-3 text-left min-w-[200px]">Product Description</th>
-                  <th className="p-3 text-left min-w-[110px]">Category</th>
+                  <th className="p-3 text-left w-8">#</th>
+                  <th className="p-3 text-left">Product Description</th>
+                  <th className="p-3 text-left min-w-[180px]">Remark</th>
                   <th className="p-3 text-right min-w-[60px]">Qty</th>
-                  <th className="p-3 text-left min-w-[60px]">Unit</th>
-                  <th className="p-3 text-right min-w-[110px]">Unit Price</th>
-                  <th className="p-3 text-right min-w-[80px]">Discount</th>
-                  <th className="p-3 text-right min-w-[110px]">Subtotal</th>
-                  <th className="p-3 text-right min-w-[110px]">Total</th>
+                  <th className="p-3 text-right min-w-[120px]">Unit Price</th>
+                  <th className="p-3 text-right min-w-[120px]">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,14 +186,22 @@ const PurchaseOrderDetails: React.FC = () => {
                     key={item.id}
                     className={`border-b border-[#334155]/60 ${idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'} hover:bg-[#1e293b] transition-colors`}
                   >
-                    <td className="p-3 text-xs font-mono text-purple-400 font-semibold">{item.sku}</td>
-                    <td className="p-3 text-sm font-semibold text-gray-200">{item.productName}</td>
-                    <td className="p-3 text-xs text-gray-400">{item.category}</td>
+                    <td className="p-3 text-xs text-gray-500 font-mono">{idx + 1}</td>
+                    <td className="p-3">
+                      <p className="text-sm font-semibold text-gray-200">{item.productName}</p>
+                    </td>
+                    <td className="p-3">
+                      {item.remark ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-amber-300/90 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 max-w-[220px]">
+                          <MessageSquare size={11} className="text-amber-400 shrink-0" />
+                          <span className="leading-snug">{item.remark}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-600">—</span>
+                      )}
+                    </td>
                     <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantity}</td>
-                    <td className="p-3 text-xs text-gray-400">{item.unit}</td>
                     <td className="p-3 text-right text-gray-300 text-sm font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="p-3 text-right text-amber-400 text-xs font-semibold">{item.discount}%</td>
-                    <td className="p-3 text-right text-gray-400 text-xs font-mono">{formatCurrency(item.subtotal)}</td>
                     <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.total)}</td>
                   </tr>
                 ))}
@@ -215,10 +221,20 @@ const PurchaseOrderDetails: React.FC = () => {
                 <span>Subtotal Amount:</span>
                 <span className="font-mono text-gray-200">{formatCurrency(po.subTotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-400">
-                <span>Total Discount:</span>
-                <span className="font-mono text-amber-400">- {formatCurrency(po.totalDiscount)}</span>
-              </div>
+              {po.totalDiscount > 0 && (
+                <div className="flex justify-between text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span>Total Discount</span>
+                    {po.discountType === 'percentage' && po.discountValue ? (
+                      <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-semibold">
+                        {po.discountValue}%
+                      </span>
+                    ) : null}
+                    :
+                  </span>
+                  <span className="font-mono text-amber-400">- {formatCurrency(po.totalDiscount)}</span>
+                </div>
+              )}
               <div className="pt-3 border-t border-[#334155] flex justify-between items-center">
                 <span className="font-bold text-gray-100">Grand Total:</span>
                 <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.grandTotal)}</span>
