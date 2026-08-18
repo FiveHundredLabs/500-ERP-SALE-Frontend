@@ -1,29 +1,29 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, StatusBadge, useToast, ConfirmDialog } from '../components/erp';
+import { PageHeader, useToast } from '../components/erp';
 import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
+import { mockOrders } from '../data/mockOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import {
   ShoppingCart,
   Truck,
-  Calendar,
   ArrowLeft,
-  CheckCircle,
   Printer,
-  Mail,
-  CreditCard,
+  MessageCircle,
+  MessageSquare,
+  FileText,
 } from 'lucide-react';
+import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 
 const PurchaseOrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { success, info } = useToast();
+  const { success } = useToast();
 
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [confirmApproveModal, setConfirmApproveModal] = useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -76,16 +76,13 @@ const PurchaseOrderDetails: React.FC = () => {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
-  const handleApprovePO = () => {
-    const updated: PurchaseOrder = {
-      ...po,
-      status: 'Approved',
-      approvedByName: 'Admin User',
-      approvedAt: new Date().toISOString(),
-    };
-    setPo(updated);
-    setConfirmApproveModal(false);
-    success('PO Approved Successfully!', `Purchase Order ${po.poNumber} has been approved.`);
+  // Returns salesman from original order if PO was converted from an order
+  const getSalesmanFromPO = (po: PurchaseOrder) => {
+    if (!po.referenceOrderId && !po.referenceOrderNum) return undefined;
+    const refId = po.referenceOrderId || po.referenceOrderNum;
+    const order = mockOrders.find(o => o.orderId === refId || o.id === refId);
+    if (order?.salesman) return { _id: order.salesman.id, name: order.salesman.name };
+    return undefined;
   };
 
   return (
@@ -107,7 +104,7 @@ const PurchaseOrderDetails: React.FC = () => {
         {/* Page Header */}
         <PageHeader
           title={`PURCHASE ORDER — ${po.poNumber}`}
-          description={`Created by ${po.createdByName} on ${po.poDate}`}
+          description={`Issued on ${po.poDate}`}
           breadcrumbs={[
             { label: 'Dashboard', path: '/dashboard' },
             { label: 'Purchase Orders', path: '/purchase-orders' },
@@ -123,128 +120,62 @@ const PurchaseOrderDetails: React.FC = () => {
               </button>
 
               <button
-                onClick={() => info('Email Sent', `Purchase Order ${po.poNumber} sent to ${po.supplierEmail || po.supplierName}`)}
-                className="px-3 py-2 border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+                onClick={() => {
+                  navigate('/invoice', { state: { convertFromPO: po, salesman: getSalesmanFromPO(po) } });
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-600/20"
+                title="Convert Purchase Order to Sales Invoice"
               >
-                <Mail size={14} /> Send to Supplier
+                <FileText size={15} /> Convert to Invoice
               </button>
 
-              {(po.status === 'Draft' || po.status === 'Pending Approval') && (
-                <button
-                  onClick={() => setConfirmApproveModal(true)}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
-                >
-                  <CheckCircle size={14} /> Approve PO
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  const message = generatePOWhatsAppMessage({
+                    poNumber: po.poNumber,
+                    supplierName: po.supplierName,
+                    totalAmount: po.grandTotal,
+                    poDate: po.poDate,
+                    itemsCount: po.items.length,
+                    shareUrl: `${window.location.origin}/purchase-orders/view/${po.id || po.poNumber}`,
+                  });
+                  const waUrl = getWhatsAppUrl(po.supplierPhone, message);
+                  window.open(waUrl, '_blank');
+                  success('WhatsApp Shared', `Opened chat for ${po.supplierName} (${po.supplierPhone})`);
+                }}
+                className="px-3 py-2 border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <MessageCircle size={14} /> Send via WhatsApp
+              </button>
             </div>
           }
         />
 
-        {/* Status Bar */}
-        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">PO Status:</span>
-            <StatusBadge status={po.status} />
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider ml-3">Payment:</span>
-            <StatusBadge status={po.paymentStatus} />
+        {/* Supplier Card */}
+        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg w-full">
+          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-indigo-400 font-semibold text-xs uppercase tracking-wider">
+            <Truck size={15} /> Supplier Information
           </div>
-
-          {po.referenceOrderNum && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-gray-400">Reference Order:</span>
-              <button
-                onClick={() => navigate('/orders')}
-                className="font-mono text-blue-400 hover:text-blue-300 hover:underline font-semibold transition-colors"
-              >
-                {po.referenceOrderNum}
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 text-xs">
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Company:</span>
+              <span className="font-semibold text-gray-200">{po.supplierName}</span>
             </div>
-          )}
-        </div>
-
-        {/* 3 Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Supplier Card */}
-          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-indigo-400 font-semibold text-xs uppercase tracking-wider">
-              <Truck size={15} /> Supplier Information
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Supplier ID:</span>
+              <span className="font-mono text-gray-300">{po.supplierId}</span>
             </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Company:</span>
-                <span className="font-semibold text-gray-200 text-right">{po.supplierName}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Supplier ID:</span>
-                <span className="font-mono text-gray-300">{po.supplierId}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Contact Person:</span>
-                <span className="text-gray-300 text-right">{po.supplierContact}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Phone:</span>
-                <span className="font-mono text-gray-300">{po.supplierPhone}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Address:</span>
-                <span className="text-gray-300 text-right truncate max-w-[180px]">{po.supplierAddress}, {po.supplierCity}</span>
-              </div>
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Contact Person:</span>
+              <span className="text-gray-300">{po.supplierContact}</span>
             </div>
-          </div>
-
-          {/* Dates & Delivery Card */}
-          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-cyan-400 font-semibold text-xs uppercase tracking-wider">
-              <Calendar size={15} /> Dates & Delivery
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Phone:</span>
+              <span className="font-mono text-gray-300">{po.supplierPhone}</span>
             </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">PO Issue Date:</span>
-                <span className="font-semibold text-gray-200">{po.poDate}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Expected Date:</span>
-                <span className="text-gray-300">{po.expectedDate}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Delivery Terms:</span>
-                <span className="text-gray-300 text-right">{po.deliveryTerms || 'Standard Warehouse Delivery'}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Created By:</span>
-                <span className="text-gray-300">{po.createdByName}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Approved By:</span>
-                <span className={po.approvedByName ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
-                  {po.approvedByName || 'Pending Approval'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Terms & Notes Card */}
-          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-purple-400 font-semibold text-xs uppercase tracking-wider">
-              <CreditCard size={15} /> Terms & Notes
-            </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Payment Terms:</span>
-                <span className="font-semibold text-gray-200">{po.paymentTerms}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Customer Ref:</span>
-                <span className="text-gray-300 text-right">{po.customerName || 'Central Warehouse'}</span>
-              </div>
-              {po.notes && (
-                <div className="pt-2 border-t border-[#334155] text-gray-400">
-                  <span className="text-gray-400 font-medium block mb-1">Notes:</span>
-                  <p className="text-[11px] leading-snug text-gray-300">{po.notes}</p>
-                </div>
-              )}
+            <div className="flex justify-between md:justify-start gap-4 md:col-span-2">
+              <span className="text-gray-400 min-w-[100px]">Address:</span>
+              <span className="text-gray-300">{po.supplierAddress}, {po.supplierCity}</span>
             </div>
           </div>
         </div>
@@ -262,15 +193,12 @@ const PurchaseOrderDetails: React.FC = () => {
             <table className="min-w-full border-collapse">
               <thead>
                 <tr className="bg-[#1e293b] text-gray-200 text-xs font-semibold border-b border-[#334155]">
-                  <th className="p-3 text-left min-w-[100px]">SKU Code</th>
-                  <th className="p-3 text-left min-w-[200px]">Product Description</th>
-                  <th className="p-3 text-left min-w-[110px]">Category</th>
+                  <th className="p-3 text-left w-8">#</th>
+                  <th className="p-3 text-left">Product Description</th>
+                  <th className="p-3 text-left min-w-[180px]">Remark</th>
                   <th className="p-3 text-right min-w-[60px]">Qty</th>
-                  <th className="p-3 text-left min-w-[60px]">Unit</th>
-                  <th className="p-3 text-right min-w-[110px]">Unit Price</th>
-                  <th className="p-3 text-right min-w-[80px]">Discount</th>
-                  <th className="p-3 text-right min-w-[110px]">Subtotal</th>
-                  <th className="p-3 text-right min-w-[110px]">Total</th>
+                  <th className="p-3 text-right min-w-[120px]">Unit Price</th>
+                  <th className="p-3 text-right min-w-[120px]">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -279,14 +207,22 @@ const PurchaseOrderDetails: React.FC = () => {
                     key={item.id}
                     className={`border-b border-[#334155]/60 ${idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'} hover:bg-[#1e293b] transition-colors`}
                   >
-                    <td className="p-3 text-xs font-mono text-purple-400 font-semibold">{item.sku}</td>
-                    <td className="p-3 text-sm font-semibold text-gray-200">{item.productName}</td>
-                    <td className="p-3 text-xs text-gray-400">{item.category}</td>
+                    <td className="p-3 text-xs text-gray-500 font-mono">{idx + 1}</td>
+                    <td className="p-3">
+                      <p className="text-sm font-semibold text-gray-200">{item.productName}</p>
+                    </td>
+                    <td className="p-3">
+                      {item.remark ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-amber-300/90 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 max-w-[220px]">
+                          <MessageSquare size={11} className="text-amber-400 shrink-0" />
+                          <span className="leading-snug">{item.remark}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-600">—</span>
+                      )}
+                    </td>
                     <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantity}</td>
-                    <td className="p-3 text-xs text-gray-400">{item.unit}</td>
                     <td className="p-3 text-right text-gray-300 text-sm font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="p-3 text-right text-amber-400 text-xs font-semibold">{item.discount}%</td>
-                    <td className="p-3 text-right text-gray-400 text-xs font-mono">{formatCurrency(item.subtotal)}</td>
                     <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.total)}</td>
                   </tr>
                 ))}
@@ -306,14 +242,20 @@ const PurchaseOrderDetails: React.FC = () => {
                 <span>Subtotal Amount:</span>
                 <span className="font-mono text-gray-200">{formatCurrency(po.subTotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-400">
-                <span>Total Discount:</span>
-                <span className="font-mono text-amber-400">- {formatCurrency(po.totalDiscount)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400">
-                <span>Shipping & Handling:</span>
-                <span className="font-mono text-gray-200">{formatCurrency(po.shippingCharges)}</span>
-              </div>
+              {po.totalDiscount > 0 && (
+                <div className="flex justify-between text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span>Total Discount</span>
+                    {po.discountType === 'percentage' && po.discountValue ? (
+                      <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-semibold">
+                        {po.discountValue}%
+                      </span>
+                    ) : null}
+                    :
+                  </span>
+                  <span className="font-mono text-amber-400">- {formatCurrency(po.totalDiscount)}</span>
+                </div>
+              )}
               <div className="pt-3 border-t border-[#334155] flex justify-between items-center">
                 <span className="font-bold text-gray-100">Grand Total:</span>
                 <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.grandTotal)}</span>
@@ -323,16 +265,6 @@ const PurchaseOrderDetails: React.FC = () => {
         </div>
       </div>
 
-      <ConfirmDialog
-        isOpen={confirmApproveModal}
-        title="Approve Purchase Order"
-        message={`Are you sure you want to approve Purchase Order ${po.poNumber} for ${po.supplierName}?`}
-        confirmText="Approve PO"
-        cancelText="Cancel"
-        type="info"
-        onConfirm={handleApprovePO}
-        onCancel={() => setConfirmApproveModal(false)}
-      />
     </AppLayout>
   );
 };

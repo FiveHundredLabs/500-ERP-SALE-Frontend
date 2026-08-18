@@ -7,8 +7,8 @@ export const useItemSearch = (inventoryItems: InventoryItem[]) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
-    if (searchTerm.trim().length < 2) {
-      setFilteredItems([]);
+    if (!searchTerm.trim()) {
+      setFilteredItems(inventoryItems);
       return;
     }
 

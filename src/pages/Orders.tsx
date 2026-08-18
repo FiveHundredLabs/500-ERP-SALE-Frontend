@@ -45,7 +45,7 @@ const Orders: React.FC = () => {
   }, []);
 
   const salesmenOptions = useMemo(() => {
-    const names = Array.from(new Set(orders.map((o) => o.salesman.name)));
+    const names = Array.from(new Set(orders.map((o) => o.salesman?.name).filter(Boolean))) as string[];
     return names.map((name) => ({ value: name, label: name }));
   }, [orders]);
 
@@ -65,18 +65,37 @@ const Orders: React.FC = () => {
     { value: 'Partial', label: 'Partial' },
   ];
 
+  // Dynamic suggestions for FilterBar instant dropdown (Customer Name only)
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenCustomers = new Set<string>();
+
+    orders.forEach(o => {
+      if (o.customerName && !seenCustomers.has(o.customerName)) {
+        seenCustomers.add(o.customerName);
+        suggestions.push({
+          id: `cust-${o.customerId || o.customerName}`,
+          title: o.customerName,
+          subtitle: `${o.contactPerson ? `${o.contactPerson} · ` : ''}${o.customerCity || o.contactPhone || ''}`,
+          category: 'Customer',
+          value: o.customerName,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     return orders.filter((ord) => {
+      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        searchQuery === '' ||
-        ord.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.salesman.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.contactPerson.toLowerCase().includes(searchQuery.toLowerCase());
+        q === '' ||
+        ord.customerName.toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === '' || ord.status === statusFilter;
       const matchesPayment = paymentFilter === '' || ord.paymentStatus === paymentFilter;
-      const matchesSalesman = salesmanFilter === '' || ord.salesman.name === salesmanFilter;
+      const matchesSalesman = salesmanFilter === '' || ord.salesman?.name === salesmanFilter;
 
       const ordDate = ord.orderDate;
       const matchesDateFrom = dateFrom === '' || ordDate >= dateFrom;
@@ -90,7 +109,7 @@ const Orders: React.FC = () => {
     return [...filteredOrders].sort((a, b) => {
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
-      if (sortColumn === 'salesman') { valA = a.salesman.name; valB = b.salesman.name; }
+      if (sortColumn === 'salesman') { valA = a.salesman?.name || ''; valB = b.salesman?.name || ''; }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
@@ -116,7 +135,7 @@ const Orders: React.FC = () => {
     const headers = ['Order ID', 'Order Date', 'Customer', 'Contact Phone', 'Salesman', 'Items', 'Total', 'Payment Status', 'Status'];
     const rows = sortedOrders.map((o) => [
       o.orderId, o.orderDate, `"${o.customerName}"`, o.contactPhone,
-      `"${o.salesman.name}"`, o.numberOfProducts, o.grandTotal, o.paymentStatus, o.status,
+      `"${o.salesman?.name || 'Unassigned'}"`, o.numberOfProducts, o.grandTotal, o.paymentStatus, o.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -132,12 +151,8 @@ const Orders: React.FC = () => {
     try {
       const created = await orderService.create(newOrder);
       setOrders(prev => [created, ...prev]);
-      setShowCreateModal(false);
-      success('Order Created', `Order ${created.orderId} has been created successfully.`);
     } catch {
       setOrders(prev => [newOrder, ...prev]);
-      setShowCreateModal(false);
-      success('Order Created', `Order ${newOrder.orderId} has been created.`);
     }
   };
 
@@ -178,8 +193,8 @@ const Orders: React.FC = () => {
       minWidth: '140px',
       render: (row) => (
         <div>
-          <p className="text-xs font-semibold text-gray-300">{row.salesman.name}</p>
-          <p className="text-[11px] text-gray-400">{row.salesman.area}</p>
+          <p className="text-xs font-semibold text-gray-300">{row.salesman?.name || '—'}</p>
+          {row.salesman?.area && <p className="text-[11px] text-gray-400">{row.salesman.area}</p>}
         </div>
       ),
     },
@@ -276,9 +291,10 @@ const Orders: React.FC = () => {
 
         <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
           <FilterBar
-            searchPlaceholder="Search order ID, customer, salesman..."
+            searchPlaceholder="Search customer name..."
             searchValue={searchQuery}
             onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            suggestions={searchSuggestions}
             dateFrom={dateFrom}
             dateTo={dateTo}
             onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}

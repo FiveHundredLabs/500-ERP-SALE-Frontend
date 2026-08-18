@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "../components/Sidebar";
 import FinanceTable from "../components/FinanceTable";
 import SearchFilterBar from "../components/SearchFilterBar";
@@ -17,9 +17,25 @@ import type { AlertType } from "../components/CustomAlert";
 import CustomConfirm from "../components/CustomConfirm";
 import InvoiceCanvas from "../components/InvoiceCanvas";
 import UserProfileDropdown from "../components/UserProfileDropdown";
+import ThemeToggle from "../components/ThemeToggle";
+import { mockSystemUsers } from "../data/mockSystemUsers";
 
 const Finance: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [filterConfig, setFilterConfig] = useState({
     searchQuery: "",
     selectedField: "All Fields",
@@ -50,7 +66,7 @@ const Finance: React.FC = () => {
   });
 
   const [paymentDetails, setPaymentDetails] = useState({
-    method: "Bank Transfer" as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque',
+    method: "Bank Transfer" as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque' | 'Credit',
     bankName: "",
     accountNumber: "",
     transactionRef: "",
@@ -335,16 +351,103 @@ const Finance: React.FC = () => {
     await proceedWithDownload();
   };
 
+  // Helper to extract salesman name from invoice
+  const getInvoiceSalesmanName = (inv: InvoiceResponse): string => {
+    if (typeof inv.salesman === 'object' && inv.salesman !== null) {
+      return inv.salesman.name || (inv.salesman as any).fullName || '';
+    }
+    if (inv.salesmanName) return inv.salesmanName;
+    if (typeof inv.salesman === 'string' && inv.salesman.trim()) {
+      const found = mockSystemUsers.find(u => u._id === inv.salesman || u.fullName === inv.salesman);
+      return found ? found.fullName : inv.salesman;
+    }
+    return '';
+  };
+
+  // Suggestions for instant search dropdown
+  const financeSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenCustomers = new Set<string>();
+    const seenSalesmen = new Set<string>();
+
+    invoices.forEach(inv => {
+      // 1. Invoices
+      suggestions.push({
+        id: `inv-${inv._id || inv.invoiceId}`,
+        title: inv.invoiceId,
+        subtitle: `${inv.customer?.fullName || 'Customer'} · LKR ${(inv.totalAmount || 0).toLocaleString()} · ${inv.paymentStatus}`,
+        category: 'Invoice ID',
+        value: inv.invoiceId,
+      });
+
+      // 2. Customers
+      if (inv.customer?.fullName && !seenCustomers.has(inv.customer.fullName)) {
+        seenCustomers.add(inv.customer.fullName);
+        suggestions.push({
+          id: `cust-${inv.customer._id || inv.customer.fullName}`,
+          title: inv.customer.fullName,
+          subtitle: `${inv.customer.phone ? `${inv.customer.phone} · ` : ''}${(inv.customer as any).shopName || (inv.customer as any).address || ''}`,
+          category: 'Customer',
+          value: inv.customer.fullName,
+        });
+      }
+
+      // 3. Sales Officers from Invoices
+      const sName = getInvoiceSalesmanName(inv);
+      if (sName && !seenSalesmen.has(sName)) {
+        seenSalesmen.add(sName);
+        suggestions.push({
+          id: `so-${sName}`,
+          title: sName,
+          subtitle: `Sales Officer · ${invoices.filter(i => getInvoiceSalesmanName(i) === sName).length} Invoices`,
+          category: 'Sales Officer',
+          value: sName,
+        });
+      }
+    });
+
+    // 4. Also include system users with salesman role
+    mockSystemUsers.filter(u => u.role === 'salesman').forEach(u => {
+      if (!seenSalesmen.has(u.fullName)) {
+        seenSalesmen.add(u.fullName);
+        suggestions.push({
+          id: `so-usr-${u._id}`,
+          title: u.fullName,
+          subtitle: `Sales Officer · ${u.email}`,
+          category: 'Sales Officer',
+          value: u.fullName,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [invoices]);
+
   // Filter invoices based on search and date range
   const filteredInvoices = invoices.filter(invoice => {
-    const query = filterConfig.searchQuery.toLowerCase();
-    const matchesSearch =
-      invoice.invoiceId.toLowerCase().includes(query) ||
-      invoice.customer?.fullName?.toLowerCase().includes(query) ||
-      (invoice.vehicleNumber && invoice.vehicleNumber.toLowerCase().includes(query)) ||
-      invoice.totalAmount.toString().includes(query);
+    const query = filterConfig.searchQuery.toLowerCase().trim();
+    const salesmanName = getInvoiceSalesmanName(invoice);
+    
+    if (query) {
+      if (filterConfig.selectedField === "Sales Officer") {
+        if (!salesmanName.toLowerCase().includes(query)) return false;
+      } else if (filterConfig.selectedField === "Invoice ID") {
+        if (!invoice.invoiceId.toLowerCase().includes(query)) return false;
+      } else if (filterConfig.selectedField === "Customer Name") {
+        if (!invoice.customer?.fullName?.toLowerCase().includes(query)) return false;
+      } else if (filterConfig.selectedField === "Status") {
+        if (!invoice.paymentStatus.toLowerCase().includes(query)) return false;
+      } else {
+        // "All Fields"
+        const matchesSearch =
+          invoice.invoiceId.toLowerCase().includes(query) ||
+          invoice.customer?.fullName?.toLowerCase().includes(query) ||
+          salesmanName.toLowerCase().includes(query) ||
+          invoice.totalAmount.toString().includes(query);
 
-    if (!matchesSearch) return false;
+        if (!matchesSearch) return false;
+      }
+    }
 
     // Date range filtering
     if (filterConfig.startDate || filterConfig.endDate) {
@@ -360,20 +463,6 @@ const Finance: React.FC = () => {
         const end = new Date(filterConfig.endDate);
         end.setHours(23, 59, 59, 999);
         if (invoiceDate > end) return false;
-      }
-    }
-
-    // Field filtering
-    if (filterConfig.selectedField !== "All Fields" && filterConfig.searchQuery.trim() !== "") {
-      switch (filterConfig.selectedField) {
-        case "Invoice ID":
-          return invoice.invoiceId.toLowerCase().includes(filterConfig.searchQuery.toLowerCase());
-        case "Customer Name":
-          return invoice.customer?.fullName?.toLowerCase().includes(filterConfig.searchQuery.toLowerCase());
-        case "Status":
-          return invoice.paymentStatus.toLowerCase().includes(filterConfig.searchQuery.toLowerCase());
-        default:
-          return true;
       }
     }
 
@@ -409,13 +498,16 @@ const Finance: React.FC = () => {
         />
 
         {/* Header */}
-        <div className="h-16 bg-[#1e293b]/80 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 sm:px-6 shadow-lg relative z-40">
+        <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 sm:px-6 shadow-lg relative z-40 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <DollarSign className="text-blue-400 w-6 h-6" />
-            <h1 className="text-lg sm:text-xl font-semibold text-gray-200">Finance</h1>
+            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <h1 className="text-[1.15rem] font-bold text-gray-100 leading-tight tracking-tight">Finance & Accounts</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <ThemeToggle />
             <UserProfileDropdown />
           </div>
         </div>
@@ -429,6 +521,7 @@ const Finance: React.FC = () => {
               onSearchChange={(query) => setFilterConfig({ ...filterConfig, searchQuery: query })}
               onFieldChange={(field) => setFilterConfig({ ...filterConfig, selectedField: field })}
               onDateRangeChange={(dates) => setFilterConfig({ ...filterConfig, ...dates })}
+              suggestions={financeSuggestions}
             />
           </div>
 
@@ -457,7 +550,15 @@ const Finance: React.FC = () => {
         onClose={() => setShowPaymentModal(false)}
         selectedInvoice={selectedInvoice}
         paymentDetails={paymentDetails}
-        onPaymentDetailsChange={setPaymentDetails}
+        onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
+          ...prev,
+          ...details,
+          bankName: details.bankName || '',
+          accountNumber: details.accountNumber || '',
+          transactionRef: details.transactionRef || '',
+          amount: details.amount || '',
+          transactionDate: details.transactionDate || prev.transactionDate,
+        }))}
         onSubmit={handlePaymentSubmit}
         isProcessing={isProcessingPayment}
       />

@@ -25,22 +25,23 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   const navigate = useNavigate();
 
   return (
-    <div className={`mb-4 ${className}`}>
+    <div className={`mb-5 ${className}`}>
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1.5 mb-2" aria-label="Breadcrumb">
+        <nav className="flex items-center gap-1.5 mb-2.5" aria-label="Breadcrumb">
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={idx}>
-              {idx > 0 && <ChevronRight size={12} className="text-gray-500" />}
+              {idx > 0 && <ChevronRight size={13} style={{ color: 'var(--text-muted)' }} />}
               {crumb.path ? (
                 <button
                   onClick={() => navigate(crumb.path!)}
-                  className="text-xs text-gray-400 hover:text-blue-400 transition-colors font-medium"
+                  className="hover:text-blue-400 transition-colors font-medium"
+                  style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}
                 >
                   {crumb.label}
                 </button>
               ) : (
-                <span className="text-xs text-gray-200 font-semibold">{crumb.label}</span>
+                <span className="font-semibold" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{crumb.label}</span>
               )}
             </React.Fragment>
           ))}
@@ -50,9 +51,9 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       {/* Main Header Title Row */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-200 leading-tight">{title}</h1>
+          <h1 className="font-bold leading-tight" style={{ fontSize: '1.4rem', color: 'var(--text-heading)' }}>{title}</h1>
           {description && (
-            <p className="text-sm text-gray-400 mt-1">{description}</p>
+            <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>{description}</p>
           )}
         </div>
         {actions && (

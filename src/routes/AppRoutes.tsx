@@ -18,9 +18,13 @@ import Orders from "../pages/Orders";
 import OrderDetails from "../pages/OrderDetails";
 import PurchaseOrders from "../pages/PurchaseOrders";
 import PurchaseOrderDetails from "../pages/PurchaseOrderDetails";
-import Users from "../pages/Users";
+import Customers from "../pages/Customers";
+import Suppliers from "../pages/Suppliers";
 import CustomerDetails from "../pages/CustomerDetails";
 import SupplierDetails from "../pages/SupplierDetails";
+import SalesOfficers from "../pages/SalesOfficers";
+import Reports from "../pages/Reports";
+import MobileApp from "../pages/MobileApp";
 
 const AppRoutes: React.FC = () => {
   return (
@@ -79,6 +83,20 @@ const AppRoutes: React.FC = () => {
           }
         />
 
+        {/* SALES OFFICERS (NEW) */}
+        <Route
+          path="/sales-officers"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <SalesOfficers />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/salesmen" element={<Navigate to="/sales-officers" replace />} />
+        <Route path="/sales-officer" element={<Navigate to="/sales-officers" replace />} />
+
         {/* PURCHASE ORDERS (NEW) */}
         <Route
           path="/purchase-orders"
@@ -102,34 +120,55 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* USERS (CUSTOMERS & SUPPLIERS - NEW) */}
+        {/* CUSTOMERS & SUPPLIERS (SEPARATE PAGES) */}
         <Route
-          path="/users"
-          element={<Navigate to="/users/customers" replace />}
-        />
-
-        <Route
-          path="/users/customers"
+          path="/customers"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
-                <Users />
+                <Customers />
               </RoleRoute>
             </ProtectedRoute>
           }
         />
 
         <Route
-          path="/users/suppliers"
+          path="/customers/:id"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
-                <Users />
+                <CustomerDetails />
               </RoleRoute>
             </ProtectedRoute>
           }
         />
 
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <Suppliers />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/suppliers/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <SupplierDetails />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Legacy /users redirects and aliases */}
+        <Route path="/users" element={<Navigate to="/customers" replace />} />
+        <Route path="/users/customers" element={<Navigate to="/customers" replace />} />
+        <Route path="/users/suppliers" element={<Navigate to="/suppliers" replace />} />
         <Route
           path="/users/customers/:id"
           element={
@@ -140,7 +179,6 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/users/suppliers/:id"
           element={
@@ -212,6 +250,30 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
                 <UserManagement />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* REPORTS & ANALYTICS */}
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <Reports />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* MOBILE APP (UNDER DEVELOPMENT) */}
+        <Route
+          path="/mobile-app"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "salesman", "inventory_manager"]}>
+                <MobileApp />
               </RoleRoute>
             </ProtectedRoute>
           }

@@ -2,12 +2,14 @@ import type {
   InvoiceResponse,
   BackendInvoiceData,
   PaymentStatusType,
-  InvoiceCustomer 
+  InvoiceCustomer,
+  InvoicePaymentRecord 
 } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory"; 
 import { mockInvoicesList } from "../data/mockInvoices";
 import { mockCustomers } from "../data/mockCustomers";
 import { mockInventoryItems } from "../data/mockInventory";
+import { extractCityFromAddress } from "../types/customers";
 
 export interface NextInvoiceIdResponse {
   nextInvoiceId: string;
@@ -36,19 +38,20 @@ export const invoiceService = {
 
   // Get all customers
   async getAllCustomers(): Promise<InvoiceCustomer[]> {
-    return mockCustomers.map(c => ({
+    return mockCustomers.map((c) => ({
       _id: c.id,
-      fullName: c.businessName || c.contactPerson,
-      email: c.email || '',
-      phone: c.phone || '',
-      vatNumber: '119283401-7000',
+      shopName: c.shopName || c.businessName,
+      fullName: c.shopName || c.businessName || 'Customer',
+      contactPerson: c.contactPerson || '',
+      phone: c.phone || '+94705787818',
+      phone2: c.phone2 || '',
+      phone3: c.phone3 || '',
       customerCode: c.customerId,
-      address: {
-        street: c.address,
-        city: c.city,
-        country: 'Sri Lanka',
-        zip: '00100'
-      }
+      creditLimit: c.creditLimit || 1000000,
+      salesRep: c.salesRep,
+      salesRepName: c.salesRepName,
+      address: c.address,
+      city: c.city || extractCityFromAddress(c.address),
     }));
   },
 
@@ -58,7 +61,7 @@ export const invoiceService = {
     return `INV-2026-${nextNum.toString().padStart(3, '0')}`;
   },
 
-  // Get invoice by ID - Public
+  // Get invoice by ID
   async getById(id: string): Promise<InvoiceResponse> {
     const found = mockInvoicesList.find(i => i._id === id || i.invoiceId === id);
     if (found) return found;
@@ -75,21 +78,27 @@ export const invoiceService = {
   // Create new invoice
   async create(invoiceData: BackendInvoiceData): Promise<InvoiceResponse> {
     const nextIdStr = `INV-2026-${(mockInvoicesList.length + 1).toString().padStart(3, '0')}`;
+    const totalAmount = invoiceData.totalAmount || 0;
+    const paidAmount = invoiceData.paidAmount || (invoiceData.paymentStatus === 'Completed' ? totalAmount : 0);
+    const remainingAmount = Math.max(0, totalAmount - paidAmount);
+
     const newInv: InvoiceResponse = {
       _id: `inv-${Date.now()}`,
       invoiceId: invoiceData.invoiceId || nextIdStr,
       customer: typeof invoiceData.customer === 'string' ? {
         _id: invoiceData.customer,
+        shopName: 'Customer ' + invoiceData.customer,
         fullName: 'Customer ' + invoiceData.customer,
-        email: '',
         phone: '',
-        vatNumber: '',
         customerCode: 'CUST-001'
       } : (invoiceData.customer as any),
       items: invoiceData.items || [],
       subTotal: invoiceData.subTotal || 0,
       discount: invoiceData.discount || 0,
-      totalAmount: invoiceData.totalAmount || 0,
+      totalAmount,
+      paidAmount,
+      remainingAmount,
+      payments: invoiceData.payments || [],
       paymentStatus: invoiceData.paymentStatus || 'Pending',
       paymentMethod: invoiceData.paymentMethod || 'Cash',
       issueDate: invoiceData.issueDate || new Date().toISOString(),
@@ -108,19 +117,82 @@ export const invoiceService = {
     const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
     if (found) {
       Object.assign(found, updateData, { updated_at: new Date().toISOString() });
+      if (updateData.paidAmount !== undefined) {
+        found.remainingAmount = Math.max(0, found.totalAmount - updateData.paidAmount);
+      }
       return found;
     }
     return mockInvoicesList[0];
   },
 
-  // Update status
-  async updatePaymentStatus(invoiceId: string, paymentStatus: PaymentStatusType): Promise<InvoiceResponse> {
+  // Update status and payment amount
+  async updatePaymentStatus(
+    invoiceId: string, 
+    paymentStatus: PaymentStatusType, 
+    paymentRecord?: InvoicePaymentRecord
+  ): Promise<InvoiceResponse> {
     const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
     if (found) {
       found.paymentStatus = paymentStatus;
+      if (paymentRecord) {
+        if (!found.payments) found.payments = [];
+        found.payments.unshift(paymentRecord);
+        found.paidAmount = (found.paidAmount || 0) + paymentRecord.amount;
+        found.remainingAmount = Math.max(0, found.totalAmount - found.paidAmount);
+      } else if (paymentStatus === 'Completed' || paymentStatus === 'Paid') {
+        found.paidAmount = found.totalAmount;
+        found.remainingAmount = 0;
+      }
+      found.updated_at = new Date().toISOString();
       return found;
     }
     return mockInvoicesList[0];
+  },
+
+  // Record bulk payment against multiple invoices
+  async recordBulkPayment(
+    allocations: Array<{ invoiceId: string; amount: number }>,
+    paymentDetails: {
+      transactionId: string;
+      paymentMethod: string;
+      reference?: string;
+      bankName?: string;
+      date?: string;
+      notes?: string;
+    }
+  ): Promise<InvoiceResponse[]> {
+    const updatedInvoices: InvoiceResponse[] = [];
+    const date = paymentDetails.date || new Date().toISOString();
+
+    for (const alloc of allocations) {
+      if (alloc.amount <= 0) continue;
+      const invoice = mockInvoicesList.find(i => i._id === alloc.invoiceId || i.invoiceId === alloc.invoiceId);
+      if (invoice) {
+        if (!invoice.payments) invoice.payments = [];
+        const record: InvoicePaymentRecord = {
+          id: `pay-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          transactionId: paymentDetails.transactionId,
+          amount: alloc.amount,
+          date: date,
+          paymentMethod: paymentDetails.paymentMethod,
+          reference: paymentDetails.reference,
+          bankName: paymentDetails.bankName,
+          notes: paymentDetails.notes,
+        };
+        invoice.payments.unshift(record);
+        invoice.paidAmount = (invoice.paidAmount || 0) + alloc.amount;
+        invoice.remainingAmount = Math.max(0, invoice.totalAmount - invoice.paidAmount);
+        
+        if (invoice.remainingAmount <= 0) {
+          invoice.paymentStatus = 'Completed';
+        } else {
+          invoice.paymentStatus = 'Partially Paid';
+        }
+        invoice.updated_at = new Date().toISOString();
+        updatedInvoices.push(invoice);
+      }
+    }
+    return updatedInvoices;
   },
 
   // Delete invoice

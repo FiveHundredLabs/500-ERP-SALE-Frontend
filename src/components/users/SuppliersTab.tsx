@@ -1,38 +1,68 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../erp';
 import type { Column } from '../erp/DataTable';
-import { mockSuppliers as initialSuppliers } from '../../data/mockSuppliers';
-import type { Supplier, SupplierCreateDto, SupplierTypeValue, SupplierStatusValue } from '../../types/suppliers';
-import { Plus, Eye, Edit2, Trash2, X } from 'lucide-react';
+import type { Supplier, SupplierCreateDto } from '../../types/suppliers';
+import { 
+  Plus, 
+  Eye, 
+  Edit2, 
+  Trash2, 
+  X, 
+  MessageCircle, 
+  Phone, 
+  MoreVertical, 
+  Truck, 
+  Building2, 
+  User, 
+  MapPin, 
+  Mail, 
+  Check 
+} from 'lucide-react';
 import { supplierService } from '../../services/SupplierService';
+import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 
 const SuppliersTab: React.FC = () => {
   const navigate = useNavigate();
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    const fetchSuppliers = async () => {
-      setLoading(true);
-      try {
-        const data = await supplierService.getAll();
-        setSuppliers(data);
-      } catch {
-        setSuppliers(initialSuppliers);
-      } finally {
-        setLoading(false);
+  // Floating Action Menu state
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menus on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setActiveMenuId(null);
       }
     };
-    fetchSuppliers();
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const loadSuppliers = async () => {
+    setLoading(true);
+    try {
+      const data = await supplierService.getAll();
+      setSuppliers(data);
+    } catch (err) {
+      console.error('Failed to load suppliers:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSuppliers();
   }, []);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
 
   // Table state
   const [sortColumn, setSortColumn] = useState('companyName');
@@ -50,43 +80,66 @@ const SuppliersTab: React.FC = () => {
     companyName: '',
     contactPerson: '',
     phone: '',
+    phone2: '',
+    phone3: '',
     email: '',
     address: '',
     city: '',
     country: 'Sri Lanka',
-    supplierType: 'Manufacturer',
     status: 'Active',
-    paymentTerms: 'Net 30',
+    notes: '',
   });
 
-  const typeOptions = [
-    { value: 'Manufacturer', label: 'Manufacturer' },
-    { value: 'Wholesaler', label: 'Wholesaler' },
-    { value: 'Importer', label: 'Importer' },
-    { value: 'Local Supplier', label: 'Local Supplier' },
-    { value: 'Other', label: 'Other' },
-  ];
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const statusOptions = [
     { value: 'Active', label: 'Active' },
     { value: 'Inactive', label: 'Inactive' },
   ];
 
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+
+    suppliers.forEach(s => {
+      suggestions.push({
+        id: `s-name-${s.id}`,
+        title: s.companyName,
+        subtitle: `${s.contactPerson || 'Supplier'} · WA: ${s.phone} · ${s.city || s.address}`,
+        category: 'Supplier',
+        value: s.companyName,
+      });
+
+      suggestions.push({
+        id: `s-id-${s.id}`,
+        title: s.supplierId,
+        subtitle: `${s.companyName}`,
+        category: 'Supplier ID',
+        value: s.supplierId,
+      });
+    });
+
+    return suggestions;
+  }, [suppliers]);
+
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter((s) => {
+      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        searchQuery === '' ||
-        s.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.supplierId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.city.toLowerCase().includes(searchQuery.toLowerCase());
+        q === '' ||
+        s.companyName.toLowerCase().includes(q) ||
+        (s.contactPerson && s.contactPerson.toLowerCase().includes(q)) ||
+        s.supplierId.toLowerCase().includes(q) ||
+        s.phone.toLowerCase().includes(q) ||
+        (s.phone2 && s.phone2.toLowerCase().includes(q)) ||
+        (s.phone3 && s.phone3.toLowerCase().includes(q)) ||
+        (s.city && s.city.toLowerCase().includes(q)) ||
+        (s.address && s.address.toLowerCase().includes(q));
 
       const matchesStatus = statusFilter === '' || s.status === statusFilter;
-      const matchesType = typeFilter === '' || s.supplierType === typeFilter;
 
-      return matchesSearch && matchesStatus && matchesType;
+      return matchesSearch && matchesStatus;
     });
-  }, [suppliers, searchQuery, statusFilter, typeFilter]);
+  }, [suppliers, searchQuery, statusFilter]);
 
   const sortedSuppliers = useMemo(() => {
     return [...filteredSuppliers].sort((a, b) => {
@@ -113,43 +166,49 @@ const SuppliersTab: React.FC = () => {
     }
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
+  const formatCurrency = (val: number) => `LKR ${Math.round(val).toLocaleString('en-US')}/=`;
+
+  const validateForm = () => {
+    const errs: Record<string, string> = {};
+    if (!formData.companyName.trim()) errs.companyName = 'Company / Supplier Name is required';
+    if (!formData.phone.trim() || formData.phone.length < 8) errs.phone = 'Valid primary contact phone is required';
+    if (!formData.address.trim()) errs.address = 'Address is required';
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   // Submit Handler
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.companyName || !formData.contactPerson || !formData.phone) return;
+    if (!validateForm()) return;
+
+    // Extract city if not provided
+    let extractedCity = formData.city;
+    if (!extractedCity && formData.address.includes(',')) {
+      extractedCity = formData.address.split(',').pop()?.trim() || '';
+    }
+
+    const payload = {
+      ...formData,
+      city: extractedCity,
+    };
 
     if (editSupplier) {
       try {
-        const updated = await supplierService.update(editSupplier.id, formData);
+        const updated = await supplierService.update(editSupplier.id, payload);
         setSuppliers((prev) => prev.map((s) => (s.id === editSupplier.id ? { ...s, ...updated } : s)));
-      } catch {
-        setSuppliers((prev) =>
-          prev.map((s) => (s.id === editSupplier.id ? { ...s, ...formData, updatedAt: new Date().toISOString() } : s))
-        );
+        success('Supplier Updated', `Successfully updated ${formData.companyName}.`);
+      } catch (err: any) {
+        toastError('Update Failed', err?.message || 'Failed to update supplier.');
       }
-      success('Supplier Updated', `Successfully updated ${formData.companyName}.`);
-      setEditSupplier(null);
     } else {
       try {
-        const created = await supplierService.create(formData);
+        const created = await supplierService.create(payload);
         setSuppliers((prev) => [created, ...prev]);
-      } catch {
-        const newSup: Supplier = {
-          id: Math.random().toString(36).substr(2, 9),
-          supplierId: `SUP-${Math.floor(10000 + Math.random() * 90000)}`,
-          ...formData,
-          totalPOs: 0,
-          totalPurchaseAmount: 0,
-          outstandingPayments: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        setSuppliers((prev) => [newSup, ...prev]);
+        success('Supplier Created', `Added ${formData.companyName} to database.`);
+      } catch (err: any) {
+        toastError('Create Failed', err?.message || 'Failed to create supplier.');
       }
-      success('Supplier Created', `Added ${formData.companyName} to database.`);
     }
 
     setShowAddModal(false);
@@ -160,17 +219,18 @@ const SuppliersTab: React.FC = () => {
     setEditSupplier(supplier);
     setFormData({
       companyName: supplier.companyName,
-      contactPerson: supplier.contactPerson,
+      contactPerson: supplier.contactPerson || '',
       phone: supplier.phone,
+      phone2: supplier.phone2 || '',
+      phone3: supplier.phone3 || '',
       email: supplier.email || '',
       address: supplier.address,
-      city: supplier.city,
+      city: supplier.city || '',
       country: supplier.country || 'Sri Lanka',
-      supplierType: supplier.supplierType,
       status: supplier.status,
-      paymentTerms: supplier.paymentTerms,
       notes: supplier.notes || '',
     });
+    setFormErrors({});
     setShowAddModal(true);
   };
 
@@ -178,9 +238,11 @@ const SuppliersTab: React.FC = () => {
     if (!deleteSupplier) return;
     try {
       await supplierService.delete(deleteSupplier.id);
-    } catch {}
-    setSuppliers((prev) => prev.filter((s) => s.id !== deleteSupplier.id));
-    success('Supplier Deleted', `Deleted supplier ${deleteSupplier.companyName}.`);
+      setSuppliers((prev) => prev.filter((s) => s.id !== deleteSupplier.id));
+      success('Supplier Deleted', `Deleted supplier ${deleteSupplier.companyName}.`);
+    } catch {
+      toastError('Delete Failed', 'Failed to delete supplier.');
+    }
     setDeleteSupplier(null);
   };
 
@@ -189,14 +251,16 @@ const SuppliersTab: React.FC = () => {
       companyName: '',
       contactPerson: '',
       phone: '',
+      phone2: '',
+      phone3: '',
       email: '',
       address: '',
       city: '',
       country: 'Sri Lanka',
-      supplierType: 'Manufacturer',
       status: 'Active',
-      paymentTerms: 'Net 30',
+      notes: '',
     });
+    setFormErrors({});
   };
 
   const columns: Column<Supplier>[] = [
@@ -215,38 +279,48 @@ const SuppliersTab: React.FC = () => {
       render: (row) => (
         <div>
           <p className="font-semibold text-slate-200 text-sm leading-tight truncate max-w-[200px]">{row.companyName}</p>
-          <p className="text-[11px] text-slate-500 truncate">{row.address}, {row.city}</p>
+          <p className="text-[11px] text-slate-400 truncate mt-0.5">{row.address}{row.city ? `, ${row.city}` : ''}</p>
         </div>
       ),
     },
     {
       key: 'contactPerson',
-      header: 'Contact Person',
-      minWidth: '140px',
+      header: 'Contact & WhatsApp',
+      minWidth: '180px',
       render: (row) => (
         <div>
-          <p className="text-xs text-slate-300 font-semibold">{row.contactPerson}</p>
-          <p className="text-[11px] text-slate-500 font-mono">{row.phone}</p>
+          {row.contactPerson ? (
+            <p className="text-xs text-slate-300 font-semibold">{row.contactPerson}</p>
+          ) : (
+            <p className="text-xs text-slate-500 italic">No contact person</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <a
+              href={`https://wa.me/${cleanWhatsAppNumber(row.phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-medium transition"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle size={11} className="text-emerald-400" />
+              <span>{row.phone}</span>
+            </a>
+          </div>
+          {(row.phone2 || row.phone3) && (
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[170px]">
+              {[row.phone2, row.phone3].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
-      ),
-    },
-    {
-      key: 'supplierType',
-      header: 'Type',
-      sortable: true,
-      minWidth: '100px',
-      render: (row) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800/80 text-slate-400 border border-slate-700">
-          {row.supplierType}
-        </span>
       ),
     },
     {
       key: 'totalPOs',
       header: 'Total POs',
       align: 'center',
-      minWidth: '70px',
-      render: (row) => <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-slate-800/80 text-slate-300 border border-slate-700">{row.totalPOs}</span>,
+      minWidth: '75px',
+      render: (row) => <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">{row.totalPOs}</span>,
     },
     {
       key: 'totalPurchaseAmount',
@@ -254,16 +328,16 @@ const SuppliersTab: React.FC = () => {
       sortable: true,
       align: 'right',
       minWidth: '130px',
-      render: (row) => <span className="font-bold text-slate-100 font-mono">{formatCurrency(row.totalPurchaseAmount)}</span>,
+      render: (row) => <span className="font-bold text-slate-100 font-mono text-xs">{formatCurrency(row.totalPurchaseAmount)}</span>,
     },
     {
       key: 'outstandingPayments',
       header: 'Outstanding Pay',
       sortable: true,
       align: 'right',
-      minWidth: '120px',
+      minWidth: '125px',
       render: (row) => (
-        <span className={`font-mono font-bold ${row.outstandingPayments > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+        <span className={`font-mono font-bold text-xs ${row.outstandingPayments > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
           {formatCurrency(row.outstandingPayments)}
         </span>
       ),
@@ -272,63 +346,89 @@ const SuppliersTab: React.FC = () => {
       key: 'status',
       header: 'Status',
       sortable: true,
-      minWidth: '80px',
+      minWidth: '85px',
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: '',
       align: 'right',
-      render: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => navigate(`/users/suppliers/${row.id}`)}
-            className="p-1 rounded text-slate-400 hover:text-purple-400 hover:bg-slate-800"
-            title="View Details"
-          >
-            <Eye size={15} />
-          </button>
-          <button
-            onClick={() => handleOpenEdit(row)}
-            className="p-1 rounded text-slate-400 hover:text-emerald-400 hover:bg-slate-800"
-            title="Edit Supplier"
-          >
-            <Edit2 size={15} />
-          </button>
-          <button
-            onClick={() => setDeleteSupplier(row)}
-            className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-800"
-            title="Delete Supplier"
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ),
+      minWidth: '50px',
+      render: (row) => {
+        const isMenuOpen = activeMenuId === row.id;
+        return (
+          <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setActiveMenuId(isMenuOpen ? null : row.id)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              title="Supplier actions"
+            >
+              <MoreVertical size={16} />
+            </button>
+
+            {/* Three-Dot Floating Menu */}
+            {isMenuOpen && (
+              <div 
+                ref={menuRef}
+                className="absolute right-0 top-8 z-50 w-44 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-[#334155]/60 animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div className="p-1 space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setActiveMenuId(null);
+                      navigate(`/suppliers/${row.id}`);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
+                  >
+                    <Eye size={14} className="text-purple-400" />
+                    <span>View & Settle</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveMenuId(null);
+                      handleOpenEdit(row);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
+                  >
+                    <Edit2 size={14} className="text-blue-400" />
+                    <span>Edit Supplier</span>
+                  </button>
+                </div>
+
+                <div className="p-1">
+                  <button
+                    onClick={() => {
+                      setActiveMenuId(null);
+                      setDeleteSupplier(row);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
+                  >
+                    <Trash2 size={14} className="text-red-400" />
+                    <span>Delete Supplier</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
   return (
     <div>
       {/* Header bar within tab */}
-      <div className="erp-card mb-6 p-0 overflow-hidden">
+      <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl mb-6 p-0 overflow-hidden shadow-lg">
         <FilterBar
-          searchPlaceholder="Search supplier company, ID, city..."
+          searchPlaceholder="Search supplier, ID, city, phone..."
           searchValue={searchQuery}
           onSearchChange={(val) => {
             setSearchQuery(val);
             setCurrentPage(1);
           }}
+          suggestions={searchSuggestions}
           selects={[
-            {
-              value: typeFilter,
-              onChange: (val) => {
-                setTypeFilter(val);
-                setCurrentPage(1);
-              },
-              options: typeOptions,
-              placeholder: 'All Supplier Types',
-              width: 'w-40',
-            },
             {
               value: statusFilter,
               onChange: (val) => {
@@ -337,14 +437,13 @@ const SuppliersTab: React.FC = () => {
               },
               options: statusOptions,
               placeholder: 'All Statuses',
-              width: 'w-32',
+              width: 'w-36',
             },
           ]}
-          hasActiveFilters={searchQuery !== '' || statusFilter !== '' || typeFilter !== ''}
+          hasActiveFilters={searchQuery !== '' || statusFilter !== ''}
           onClearFilters={() => {
             setSearchQuery('');
             setStatusFilter('');
-            setTypeFilter('');
             setCurrentPage(1);
           }}
           rightContent={
@@ -354,9 +453,9 @@ const SuppliersTab: React.FC = () => {
                 resetForm();
                 setShowAddModal(true);
               }}
-              className="erp-btn erp-btn-primary erp-btn-sm gap-1.5 bg-purple-600 hover:bg-purple-700"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95 hover:shadow-blue-600/30"
             >
-              <Plus size={14} /> Add Supplier
+              <Plus size={15} /> Add Supplier
             </button>
           }
         />
@@ -367,7 +466,7 @@ const SuppliersTab: React.FC = () => {
           data={paginatedSuppliers}
           loading={loading}
           keyExtractor={(item) => item.id}
-          onRowClick={(item) => navigate(`/users/suppliers/${item.id}`)}
+          onRowClick={(item) => navigate(`/suppliers/${item.id}`)}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}
@@ -380,113 +479,180 @@ const SuppliersTab: React.FC = () => {
         />
       </div>
 
-      {/* Add / Edit Supplier Modal */}
+      {/* Add / Edit Supplier Modal (Styled like Customer Create Modal) */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
-          <div className="relative erp-card w-full max-w-lg animate-slideIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-semibold text-slate-100">
-                {editSupplier ? 'Edit Supplier' : 'Add New Supplier'}
-              </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-300">
+        <div className="fixed inset-0 z-[999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-[#334155] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative text-slate-100 my-8">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/70">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 shadow-md">
+                  <Truck size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editSupplier ? 'Edit Supplier Profile' : 'Add New Supplier'}
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    {editSupplier ? `Update information for ${editSupplier.companyName}` : 'Register a new vendor or wholesale supplier'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[#334155] transition"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitForm} className="space-y-3 mt-4 text-xs">
+            {/* Form Content */}
+            <form onSubmit={handleSubmitForm} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Row 1: Company Name & Contact Person (Optional) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Company / Supplier Name <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Building2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Tokyo Bearings & Lubricants"
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                      className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    />
+                  </div>
+                  {formErrors.companyName && (
+                    <p className="text-red-400 text-xs mt-1">{formErrors.companyName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Contact Person <span className="text-gray-500 font-normal lowercase">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="e.g. Nimal Fernando"
+                      value={formData.contactPerson || ''}
+                      onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                      className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Phone Numbers */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Primary / WhatsApp <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="+94771234567"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm font-mono text-emerald-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    />
+                  </div>
+                  {formErrors.phone && (
+                    <p className="text-red-400 text-xs mt-1">{formErrors.phone}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Phone 2 <span className="text-gray-500 font-normal lowercase">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +94112345678"
+                    value={formData.phone2 || ''}
+                    onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
+                    className="w-full bg-[#1e293b] border border-[#334155] rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Phone 3 <span className="text-gray-500 font-normal lowercase">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +94712345678"
+                    value={formData.phone3 || ''}
+                    onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
+                    className="w-full bg-[#1e293b] border border-[#334155] rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Address (with City note) */}
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">Company Name *</label>
-                <input
-                  required
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. Petrotec Industries Ltd"
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Supplier Address <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
-                    required
                     type="text"
-                    className="erp-input"
-                    placeholder="e.g. Shantha Wijesinghe"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Phone Number *</label>
-                  <input
                     required
-                    type="text"
-                    className="erp-input"
-                    placeholder="011-567-8901"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. 112, Kandy Road, Kelaniya"
+                    value={formData.address}
+                    onChange={(e) => {
+                      const addr = e.target.value;
+                      let city = formData.city;
+                      if (addr.includes(',')) {
+                        city = addr.split(',').pop()?.trim() || '';
+                      }
+                      setFormData({ ...formData, address: addr, city });
+                    }}
+                    className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   />
                 </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Tip: End with city name after comma (e.g. <em>Main Street, Kelaniya</em>) for automated city categorization.
+                </p>
+                {formErrors.address && (
+                  <p className="text-red-400 text-xs mt-1">{formErrors.address}</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Row 4: Email & Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Email Address</label>
-                  <input
-                    type="email"
-                    className="erp-input"
-                    placeholder="orders@petrotec.lk"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Email Address <span className="text-gray-500 font-normal lowercase">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="e.g. supplier@domain.lk"
+                      value={formData.email || ''}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">City / Location *</label>
-                  <input
-                    required
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Colombo 14"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Address</label>
-                <input
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. 78, Grandpass Road"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Supplier Type</label>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Supplier Status
+                  </label>
                   <select
-                    className="erp-select w-full"
-                    value={formData.supplierType}
-                    onChange={(e) => setFormData({ ...formData, supplierType: e.target.value as SupplierTypeValue })}
-                  >
-                    {typeOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Status</label>
-                  <select
-                    className="erp-select w-full"
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as SupplierStatusValue })}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    className="w-full bg-[#1e293b] border border-[#334155] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -494,26 +660,34 @@ const SuppliersTab: React.FC = () => {
                 </div>
               </div>
 
+              {/* Row 5: Notes */}
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">Payment Terms</label>
-                <input
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. Net 30, Cash on Delivery"
-                  value={formData.paymentTerms}
-                  onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Notes & Remarks <span className="text-gray-500 font-normal lowercase">(optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Additional notes about products supplied, bank account numbers, or terms..."
+                  value={formData.notes || ''}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full bg-[#1e293b] border border-[#334155] rounded-xl px-3.5 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+              {/* Actions */}
+              <div className="pt-3 border-t border-[#334155] flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="erp-btn erp-btn-outline"
+                  className="px-4 py-2.5 text-xs font-semibold text-gray-300 hover:text-white hover:bg-[#1e293b] rounded-xl transition border border-[#334155]"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="erp-btn erp-btn-primary bg-purple-600 hover:bg-purple-700">
+                <button 
+                  type="submit" 
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/25 flex items-center gap-1.5"
+                >
+                  <Check size={15} />
                   {editSupplier ? 'Save Changes' : 'Create Supplier'}
                 </button>
               </div>

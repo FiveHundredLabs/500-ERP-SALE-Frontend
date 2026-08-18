@@ -37,6 +37,7 @@ export interface POItem {
   subtotal: number;
   total: number;
   receivedQty?: number;
+  remark?: string;          // Optional item-level remark/note for supplier
 }
 
 // ============= Purchase Order =============
@@ -80,6 +81,8 @@ export interface PurchaseOrder {
 
   // Financials
   subTotal: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
   totalDiscount: number;
   totalTax: number;
   shippingCharges: number;

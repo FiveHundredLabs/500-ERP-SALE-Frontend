@@ -1,38 +1,156 @@
 import type { FinanceTransaction } from "../types/finance";
 
+const d = (dateStr: string) => new Date(dateStr).toISOString();
+
 export const mockFinanceTransactions: FinanceTransaction[] = [
   {
     _id: "tx-001",
     transactionId: "TXN-2026-001",
-    transactionDate: "2026-02-01T00:00:00.000Z",
+    transactionDate: d("2026-07-14"),
     paymentMethod: {
       type: "Bank Transfer",
-      bankName: "Commercial Bank",
+      bankName: "Commercial Bank of Ceylon",
       accountNumber: "8001234567",
-      transactionRef: "CBL-REF-001"
+      transactionRef: "CBL-TXN-20260714-001",
     },
-    invoice: {
-      invoiceId: "INV-2026-001"
-    },
-    amount: "76000",
-    created_at: "2026-02-01T00:00:00.000Z",
-    updated_at: "2026-02-01T00:00:00.000Z"
+    invoice: { invoiceId: "INV-2026-001" },
+    amount: "745750",
+    created_at: d("2026-07-14"),
+    updated_at: d("2026-07-14"),
   },
   {
     _id: "tx-002",
     transactionId: "TXN-2026-002",
-    transactionDate: "2026-02-03T00:00:00.000Z",
+    transactionDate: d("2026-07-21"),
+    paymentMethod: {
+      type: "Cheque",
+      bankName: "Hatton National Bank",
+      accountNumber: "HNB-GMP-004432",
+      transactionRef: "HNB-CHQ-20260721-002",
+    },
+    invoice: { invoiceId: "INV-2026-002" },
+    amount: "74100",
+    created_at: d("2026-07-21"),
+    updated_at: d("2026-07-21"),
+  },
+  {
+    _id: "tx-003",
+    transactionId: "TXN-2026-003",
+    transactionDate: d("2026-08-08"),
+    paymentMethod: {
+      type: "Cash",
+      bankName: "N/A",
+      accountNumber: "N/A",
+      transactionRef: "CASH-RECV-20260808-003",
+    },
+    invoice: { invoiceId: "INV-2026-006" },
+    amount: "178600",
+    created_at: d("2026-08-08"),
+    updated_at: d("2026-08-08"),
+  },
+  {
+    _id: "tx-004",
+    transactionId: "TXN-2026-004",
+    transactionDate: d("2026-08-12"),
+    paymentMethod: {
+      type: "Cash",
+      bankName: "N/A",
+      accountNumber: "N/A",
+      transactionRef: "CASH-RECV-20260812-004",
+    },
+    invoice: { invoiceId: "INV-2026-008" },
+    amount: "120650",
+    created_at: d("2026-08-12"),
+    updated_at: d("2026-08-12"),
+  },
+  {
+    _id: "tx-005",
+    transactionId: "TXN-2026-005",
+    transactionDate: d("2026-08-15"),
+    paymentMethod: {
+      type: "Bank Deposit",
+      bankName: "Bank of Ceylon",
+      accountNumber: "BOC-SLB-229887",
+      transactionRef: "BOC-DEP-20260815-005",
+    },
+    invoice: { invoiceId: "INV-2026-010" },
+    amount: "62700",
+    created_at: d("2026-08-15"),
+    updated_at: d("2026-08-15"),
+  },
+  {
+    _id: "tx-006",
+    transactionId: "TXN-2026-006",
+    transactionDate: d("2026-07-03"),
     paymentMethod: {
       type: "Bank Transfer",
-      bankName: "Bank of Ceylon",
-      accountNumber: "1234567890",
-      transactionRef: "BOC-REF-002"
+      bankName: "Sampath Bank",
+      accountNumber: "SPB-COL-112243",
+      transactionRef: "SPB-TXN-20260703-006",
     },
-    invoice: {
-      invoiceId: "INV-2026-002"
+    invoice: { invoiceId: "INV-2026-003" },
+    amount: "150000",
+    created_at: d("2026-07-03"),
+    updated_at: d("2026-07-03"),
+  },
+  {
+    _id: "tx-007",
+    transactionId: "TXN-2026-007",
+    transactionDate: d("2026-07-28"),
+    paymentMethod: {
+      type: "Cheque",
+      bankName: "People's Bank",
+      accountNumber: "PB-KDY-334567",
+      transactionRef: "PB-CHQ-20260728-007",
     },
-    amount: "145000",
-    created_at: "2026-02-03T00:00:00.000Z",
-    updated_at: "2026-02-03T00:00:00.000Z"
-  }
+    invoice: { invoiceId: "INV-2026-001" },
+    amount: "200000",
+    created_at: d("2026-07-28"),
+    updated_at: d("2026-07-28"),
+  },
+  {
+    _id: "tx-008",
+    transactionId: "TXN-2026-008",
+    transactionDate: d("2026-08-10"),
+    paymentMethod: {
+      type: "Bank Transfer",
+      bankName: "Commercial Bank of Ceylon",
+      accountNumber: "CBL-GAL-889921",
+      transactionRef: "CBL-TXN-20260810-008",
+    },
+    invoice: { invoiceId: "INV-2026-003" },
+    amount: "201500",
+    created_at: d("2026-08-10"),
+    updated_at: d("2026-08-10"),
+  },
+  {
+    _id: "tx-009",
+    transactionId: "TXN-2026-009",
+    transactionDate: d("2026-08-14"),
+    paymentMethod: {
+      type: "Cash",
+      bankName: "N/A",
+      accountNumber: "N/A",
+      transactionRef: "CASH-RECV-20260814-009",
+    },
+    invoice: { invoiceId: "INV-2026-007" },
+    amount: "100000",
+    created_at: d("2026-08-14"),
+    updated_at: d("2026-08-14"),
+  },
+  {
+    _id: "tx-010",
+    transactionId: "TXN-2026-010",
+    transactionDate: d("2026-08-17"),
+    paymentMethod: {
+      type: "Bank Deposit",
+      bankName: "Nations Trust Bank",
+      accountNumber: "NTB-COL-440012",
+      transactionRef: "NTB-DEP-20260817-010",
+    },
+    invoice: { invoiceId: "INV-2026-004" },
+    amount: "102125",
+    created_at: d("2026-08-17"),
+    updated_at: d("2026-08-17"),
+  },
 ];

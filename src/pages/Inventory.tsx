@@ -12,7 +12,21 @@ import type { InventoryItem } from "../types/inventory";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 
 const Inventory: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [stats, setStats] = useState({
     totalItems: 0,
     inStock: 0,
@@ -91,17 +105,12 @@ const Inventory: React.FC = () => {
 
   const handleFormSubmit = async (formData: any) => {
     try {
-      const payload = {
-        ...formData,
-        actual_sold_price: formData.sell_price * (1 - (formData.discount_rate || 0) / 100)
-      };
-
       if (editingItem && !viewMode) {
-        await inventoryService.update(editingItem.id, payload);
-        showAlert("Item updated successfully!", "success");
+        await inventoryService.update(editingItem.id, formData);
+        showAlert("Product updated successfully!", "success");
       } else if (!viewMode) {
-        await inventoryService.create(payload);
-        showAlert("Item created successfully!", "success");
+        await inventoryService.create(formData);
+        showAlert("Product added successfully!", "success");
       }
       setRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
@@ -117,27 +126,21 @@ const Inventory: React.FC = () => {
   };
 
   const inventoryColumns = [
-    "product_name",
     "product_code",
-    "quantity",
-    "status",
+    "product_name",
     "purchase_price",
     "sell_price",
-    "discount_rate",
-    "actual_sold_price"
+    "profit_margin",
+    "sold_count"
   ];
 
   const inventoryColumnLabels = {
-    product_name: "Product Name",
     product_code: "Product Code",
-    quantity: "Stock Qty",
-    sold_count: "Sold Qty",
-    status: "Status",
-    purchase_price: "Purchase Price",
-    sell_price: "Sell Price",
-    discount_rate: "Discount (%)",
-    actual_sold_price: "Actual Sold Price",
-    vehicle: "Vehicle Info"
+    product_name: "Product Name",
+    purchase_price: "Cost (LKR)",
+    sell_price: "Selling Price (LKR)",
+    profit_margin: "Profit Margin",
+    sold_count: "Selling Quantity",
   };
 
   return (
@@ -182,8 +185,37 @@ const Inventory: React.FC = () => {
             searchTerm={searchTerm}
             selectedCategory={selectedCategory}
             computeRowValue={(column, item) => {
-              if (column === "actual_sold_price") {
-                return (item.sell_price * (1 - (item.discount_rate || 0) / 100)).toFixed(2);
+              if (column === "product_code") {
+                return <span className="font-mono text-xs font-bold text-blue-400">{item.product_code}</span>;
+              }
+              if (column === "product_name") {
+                return <span className="font-semibold text-gray-200">{item.product_name}</span>;
+              }
+              if (column === "purchase_price") {
+                return <span className="font-mono text-gray-300">LKR {(item.purchase_price || 0).toLocaleString()}</span>;
+              }
+              if (column === "sell_price") {
+                return <span className="font-mono font-bold text-gray-200">LKR {(item.sell_price || 0).toLocaleString()}</span>;
+              }
+              if (column === "profit_margin") {
+                const cost = Number(item.purchase_price) || 0;
+                const sell = Number(item.sell_price) || 0;
+                const profit = sell - cost;
+                const marginPct = sell > 0 ? ((profit / sell) * 100).toFixed(1) : "0.0";
+                const isPositive = profit >= 0;
+                return (
+                  <div className="font-mono flex items-center gap-1.5">
+                    <span className={`font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                      LKR {profit.toLocaleString()}
+                    </span>
+                    <span className="text-[11px] text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-sans font-semibold">
+                      {marginPct}%
+                    </span>
+                  </div>
+                );
+              }
+              if (column === "sold_count") {
+                return <span className="font-mono text-gray-300">{(item.sold_count || 0).toLocaleString()} PCS</span>;
               }
               return item[column];
             }}

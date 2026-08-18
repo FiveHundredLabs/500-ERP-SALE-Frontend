@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { InvoiceData, InvoiceItem, InvoiceCustomer } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory";
-import { PaymentMethod, PaymentStatus, type PaymentStatusType } from "../types/invoice";
+import { PaymentMethod, PaymentStatus, type PaymentStatusType, type PaymentMethodType } from "../types/invoice";
 import { useCustomerSearch, type Customer } from "../hooks/useCustomerSearch";
 import { useItemSearch } from "../hooks/useItemSearch";
 import { CustomerSearchAndManagement } from "./invoice/CustomerSearchAndManagement";
@@ -13,7 +13,9 @@ import { InvoiceSummary } from "./invoice/InvoiceSummary";
 import PaymentModal from "../components/PaymentModal";
 import POPickerModal from "./common/POPickerModal";
 import type { PurchaseOrder } from "../types/purchaseOrders";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, UserCheck } from "lucide-react";
+import userService from "../services/UserService";
+import type { User } from "../types/users";
 
 interface InvoiceFormProps {
   invoiceData: InvoiceData;
@@ -22,6 +24,7 @@ interface InvoiceFormProps {
   onAddItem: (item: Omit<InvoiceItem, 'id' | 'total'>) => void;
   onRemoveItem: (id: string) => void;
   onUpdateItem: (id: string, updates: Partial<InvoiceItem>) => void;
+  onTotalDiscountChange?: (discountType: 'percentage' | 'amount', discountValue: number) => void;
   inventoryItems: InventoryItem[];
   onPaymentStatusChange?: (status: PaymentStatusType, invoice: InvoiceData) => void;
   onPaymentComplete?: () => Promise<void>;
@@ -35,8 +38,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   onAddItem,
   onRemoveItem,
   onUpdateItem,
+  onTotalDiscountChange,
   inventoryItems,
-  onPaymentStatusChange,
   onPaymentComplete,
   isProcessingPayment = false,
 }) => {
@@ -63,22 +66,35 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     quantity: string;
     unitPrice: string;
     itemName: string;
+    product_code?: string;
+    costPrice?: number;
+    discountType?: 'percentage' | 'amount';
+    discountScope?: 'per_unit' | 'total_qty';
+    discountValue?: string;
   }
 
-  const [newItem, setNewItem] = useState<NewItemState>({ 
-    item: "", 
-    quantity: "1", 
-    unitPrice: "0", 
-    itemName: "" 
+  const [newItem, setNewItem] = useState<NewItemState>({
+    item: "",
+    quantity: "1",
+    unitPrice: "0",
+    itemName: "",
+    product_code: undefined,
+    costPrice: 0,
+    discountType: 'percentage',
+    discountScope: 'per_unit',
+    discountValue: '0',
   });
 
-  const [discountInput, setDiscountInput] = useState(invoiceData.discountPercentage.toString());
-  const [creditPeriod, setCreditPeriod] = useState<string>('custom');
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
+  // Salesman list (users with role === 'salesman')
+  const [salesmen, setSalesmen] = useState<User[]>([]);
+  useEffect(() => {
+    userService.getUsers().then(users => setSalesmen(users.filter(u => u.role === 'salesman')));
+  }, []);
+
   const handleOrderImport = useCallback((po: PurchaseOrder) => {
-    // Map PO items to invoice line items
     po.items.forEach(p => {
       const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
         item: p.id || p.sku,
@@ -89,38 +105,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       onAddItem(lineItem);
     });
 
-    // Store imported PO reference
     setImportedOrderId(po.poNumber);
     onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
   }, [onFieldChange, onAddItem]);
-
-  // When credit period preset is selected, auto-calculate dueDate from issueDate
-  const handleCreditPeriodChange = (period: string) => {
-    setCreditPeriod(period);
-    if (period !== 'custom' && invoiceData.issueDate) {
-      const days = parseInt(period);
-      const issue = new Date(invoiceData.issueDate);
-      issue.setDate(issue.getDate() + days);
-      const due = issue.toISOString().split('T')[0];
-      onFieldChange('dueDate', due);
-    }
-  };
-
-  // When issueDate changes, recalculate dueDate if a preset is active
-  const handleIssueDateChange = (value: string) => {
-    onFieldChange('issueDate', value);
-    if (creditPeriod !== 'custom' && value) {
-      const days = parseInt(creditPeriod);
-      const issue = new Date(value);
-      issue.setDate(issue.getDate() + days);
-      const due = issue.toISOString().split('T')[0];
-      onFieldChange('dueDate', due);
-    }
-  };
-
-  useEffect(() => {
-    setDiscountInput(invoiceData.discountPercentage.toString());
-  }, [invoiceData.discountPercentage]);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
@@ -128,7 +115,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   // Payment modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
-    method: invoiceData.paymentMethod as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque',
+    method: invoiceData.paymentMethod as PaymentMethodType,
     bankName: "",
     accountNumber: "",
     transactionRef: "",
@@ -136,59 +123,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     transactionDate: new Date().toISOString().split('T')[0]
   });
 
-  const [paymentModalTriggered, setPaymentModalTriggered] = useState(false);
-
-  const itemTotal = useMemo(() => {
-    const qty = parseInt(newItem.quantity) || 0;
-    const price = parseFloat(newItem.unitPrice) || 0;
-    return qty * price;
-  }, [newItem.quantity, newItem.unitPrice]);
-
-  const stockWarning = useMemo(() => {
-    if (!newItem.item) return null;
-    const selectedItem = inventoryItems.find(item => item._id === newItem.item);
-    if (!selectedItem) return null;
-    
-    const qty = parseInt(newItem.quantity) || 0;
-    const existingQuantity = invoiceData.items
-      .filter(item => item.item === newItem.item)
-      .reduce((sum, it) => sum + it.quantity, 0);
-    
-    const remaining = selectedItem.quantity - existingQuantity;
-    if (qty + existingQuantity > selectedItem.quantity) {
-      return `Only ${remaining} items available (${existingQuantity} already in cart)`;
-    }
-    return null;
-  }, [newItem.item, newItem.quantity, inventoryItems, invoiceData.items]);
-
-  const handlePaymentStatusChange = useCallback((value: string) => {
-    const newStatus = value as PaymentStatusType;
-   
-    onFieldChange('paymentStatus', newStatus);
-    
-    if (newStatus === PaymentStatus.COMPLETED && !paymentModalTriggered && !isProcessingPayment) {
-      setPaymentDetails(prev => ({
-        ...prev,
-        method: invoiceData.paymentMethod,
-        amount: (invoiceData.totalAmount > 0 ? invoiceData.totalAmount : 0).toFixed(2)
-      }));
-      
-      // Show payment modal
-      setShowPaymentModal(true);
-      setPaymentModalTriggered(true);
-      if (onPaymentStatusChange) {
-        onPaymentStatusChange(newStatus, invoiceData);
-      }
-    } else if (newStatus !== PaymentStatus.COMPLETED) {
-      setPaymentModalTriggered(false);
-    }
-  }, [invoiceData, onFieldChange, onPaymentStatusChange, paymentModalTriggered, isProcessingPayment]);
-
-  useEffect(() => {
-    if (invoiceData.paymentStatus !== PaymentStatus.COMPLETED) {
-      setPaymentModalTriggered(false);
-    }
-  }, [invoiceData.paymentStatus]);
+  const stockWarning = null;
 
   useEffect(() => {
     if (isProcessingPayment && showPaymentModal) {
@@ -197,15 +132,72 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, [isProcessingPayment, showPaymentModal]);
 
   const handleItemSelect = useCallback((inventoryItem: InventoryItem) => {
-    setNewItem({ 
-      item: inventoryItem._id, 
-      itemName: inventoryItem.product_name, 
-      quantity: "1", 
-      unitPrice: inventoryItem.sell_price.toString() 
-    });
+    setNewItem(prev => ({
+      ...prev,
+      item: inventoryItem._id,
+      itemName: inventoryItem.product_name,
+      product_code: inventoryItem.product_code,
+      quantity: "1",
+      unitPrice: inventoryItem.sell_price.toString(),
+      costPrice: inventoryItem.purchase_price || 0,
+      discountValue: '0',
+    }));
     setItemSearchTerm(`${inventoryItem.product_name} (${inventoryItem.product_code})`);
     setShowItemSuggestions(false);
   }, [setItemSearchTerm, setShowItemSuggestions]);
+
+  const handleDiscountChange = useCallback((discountData: {
+    discountType: 'percentage' | 'amount';
+    discountScope: 'per_unit' | 'total_qty';
+    discountValue: string;
+  }) => {
+    setNewItem(prev => ({
+      ...prev,
+      discountType: discountData.discountType,
+      discountScope: discountData.discountScope,
+      discountValue: discountData.discountValue,
+    }));
+  }, []);
+
+  // Credit period state in days (e.g. 30, 60, custom)
+  const [creditPeriod, setCreditPeriod] = useState<string>('30');
+
+  const handleCreditPeriodChange = useCallback((days: string) => {
+    setCreditPeriod(days);
+    if (days !== 'custom') {
+      const numDays = parseInt(days, 10);
+      const baseDate = invoiceData.issueDate ? new Date(invoiceData.issueDate) : new Date();
+      if (!isNaN(baseDate.getTime())) {
+        const dueDate = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        onFieldChange('dueDate', dueDate);
+        onFieldChange('creditPeriod', numDays);
+      }
+    }
+  }, [invoiceData.issueDate, onFieldChange]);
+
+  const handleBillingDateChange = (newDate: string) => {
+    onFieldChange('issueDate', newDate);
+    if (creditPeriod !== 'custom') {
+      const numDays = parseInt(creditPeriod, 10) || 0;
+      const baseDate = new Date(newDate);
+      if (!isNaN(baseDate.getTime())) {
+        const dueDate = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        onFieldChange('dueDate', dueDate);
+      }
+    }
+  };
+
+  // When payment method changes: If Credit -> Pending, else -> Completed
+  const handlePaymentMethodChange = (method: string) => {
+    onFieldChange('paymentMethod', method);
+    if (method === PaymentMethod.CREDIT || method === 'Credit') {
+      onFieldChange('paymentStatus', PaymentStatus.PENDING);
+      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      handleCreditPeriodChange(periodToUse);
+    } else {
+      onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
+    }
+  };
 
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
@@ -213,7 +205,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     setCustomerSearchTerm(`${customer.fullName} (${customer.phone})`);
     setShowCustomerSuggestions(false);
     setCustomerModalMode(null);
-  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions]);
+
+    // Auto-set payment method to Credit and credit period to customer's default period
+    const defaultPeriod = (customer as any).creditPeriod ?? 30;
+    onFieldChange('paymentMethod', PaymentMethod.CREDIT);
+    onFieldChange('paymentStatus', PaymentStatus.PENDING);
+    handleCreditPeriodChange(String(defaultPeriod));
+  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -223,58 +221,64 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, [onCustomerIdChange, setCustomerSearchTerm]);
 
   const handleClearItemSelection = useCallback(() => {
-    setNewItem({ item: "", quantity: "1", unitPrice: "0", itemName: "" });
+    setNewItem({ item: "", quantity: "1", unitPrice: "0", itemName: "", product_code: undefined, costPrice: 0, discountType: 'percentage', discountScope: 'per_unit', discountValue: '0' });
     setItemSearchTerm("");
   }, [setItemSearchTerm]);
 
-  const handleAddItem = useCallback(() => {
-    const qty = parseInt(newItem.quantity);
-    const price = parseFloat(newItem.unitPrice);
+  const handleAddItem = useCallback((itemData?: {
+    item: string;
+    itemName: string;
+    product_code?: string;
+    quantity: number;
+    unitPrice: number;
+    costPrice: number;
+    discountType: 'percentage' | 'amount';
+    discountScope: 'per_unit' | 'total_qty';
+    discountValue: number;
+    discountAmount: number;
+    total: number;
+  }) => {
+    if (!itemData) return;
 
-    if (!newItem.item || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) {
-      alert("Please select an item and enter valid quantity and price");
-      return;
-    }
+    const { item, itemName, product_code, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount } = itemData;
 
-    const existingItem = invoiceData.items.find(item => item.item === newItem.item);
-    const inventoryItem = inventoryItems.find(item => item._id === newItem.item);
+    const existingItem = invoiceData.items.find(inv => inv.item === item);
 
     if (existingItem) {
-      if (inventoryItem) {
-        const newTotalQuantity = existingItem.quantity + qty;
-        if (newTotalQuantity > inventoryItem.quantity) {
-          alert(`Cannot add ${qty} items. Only ${inventoryItem.quantity - existingItem.quantity} more available.`);
-          return;
-        }
-
-        const updatedQuantity = existingItem.quantity + qty;
-        const updatedTotal = updatedQuantity * price;
-        onUpdateItem(existingItem.id, { 
-          quantity: updatedQuantity, 
-          unitPrice: price,
-          total: updatedTotal 
-        });
-      }
+      const updatedQty = existingItem.quantity + quantity;
+      const newTotal = updatedQty * unitPrice - discountAmount;
+      onUpdateItem(existingItem.id, {
+        quantity: updatedQty,
+        unitPrice,
+        total: Math.max(0, newTotal),
+        product_code,
+        costPrice,
+        discountType,
+        discountScope,
+        discountValue,
+        discountAmount,
+      });
     } else {
-      if (inventoryItem && qty > inventoryItem.quantity) {
-        alert(`Cannot add ${qty} items. Only ${inventoryItem.quantity} in stock.`);
-        return;
-      }
       onAddItem({
-        item: newItem.item,
-        itemName: newItem.itemName,
-        quantity: qty,
-        unitPrice: price
+        item,
+        itemName,
+        product_code,
+        quantity,
+        unitPrice,
+        costPrice,
+        discountType,
+        discountScope,
+        discountValue,
+        discountAmount,
       });
     }
 
     handleClearItemSelection();
-  }, [newItem, invoiceData.items, inventoryItems, onAddItem, onUpdateItem, handleClearItemSelection]);
+  }, [invoiceData.items, onAddItem, onUpdateItem, handleClearItemSelection]);
 
   const handleUpdateItemQuantity = useCallback((id: string, newQuantity: number) => {
     const item = invoiceData.items.find(item => item.id === id);
     if (!item) return;
-    
     onUpdateItem(id, { quantity: newQuantity });
   }, [invoiceData.items, onUpdateItem]);
 
@@ -313,27 +317,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     return { subTotal, discountAmount, taxAmount, totalAmount };
   }, [invoiceData.subTotal, invoiceData.discount, invoiceData.totalAmount, invoiceData.applyVat, invoiceData.vatAmount]);
 
-  const handleDiscountPercentageChange = (value: string) => {
-    setDiscountInput(value);
-    const percentage = parseFloat(value);
-    if (!isNaN(percentage)) {
-      onFieldChange('discountPercentage', percentage);
-    }
-  };
-
-  const handleDiscountBlur = () => {
-    let percentage = parseFloat(discountInput);
-    if (isNaN(percentage)) percentage = 0;
-    const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
-    setDiscountInput(clampedPercentage.toString());
-    onFieldChange('discountPercentage', clampedPercentage);
-  };
-
-  const handleVatToggle = () => {
-    const newVatState = !invoiceData.applyVat;
-    onFieldChange('applyVat', newVatState);
-  };
-
   useEffect(() => {
     if (invoiceData.customerDetails && !selectedCustomer) {
       setSelectedCustomer(invoiceData.customerDetails as Customer);
@@ -343,8 +326,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handlePaymentModalClose = () => {
     setShowPaymentModal(false);
-    setPaymentModalTriggered(false);
-    
     if (!isProcessingPayment && invoiceData.paymentStatus === PaymentStatus.COMPLETED) {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
     }
@@ -352,8 +333,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handlePaymentCompleteInternal = async () => {
     setShowPaymentModal(false);
-    setPaymentModalTriggered(true);
-    
     if (onPaymentComplete) {
       await onPaymentComplete();
     }
@@ -365,23 +344,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         _id: '',
         fullName: '',
         phone: '',
-        email: '',
-        vatNumber: '',
-        address: undefined,
         customerCode: '',
-        vehicle_number: '',
-        vehicle_model: '',
-        year_of_manufacture: undefined
       };
     }
     
     return {
       _id: customer._id,
-      fullName: customer.fullName,
+      shopName: customer.shopName || customer.fullName,
+      fullName: customer.shopName || customer.fullName,
+      contactPerson: customer.contactPerson,
       phone: customer.phone,
-      email: customer.email || '',
-      vatNumber: customer.vatNumber || '',
-      address: typeof customer.address === 'string' ? undefined : customer.address,
+      address: customer.address,
+      city: customer.city,
       customerCode: customer.customerCode || '',
       vehicle_number: customer.vehicle_number,
       vehicle_model: customer.vehicle_model,
@@ -435,12 +409,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           updated_at: invoiceData.updated_at || ''
         }}
         paymentDetails={paymentDetails}
-        onPaymentDetailsChange={setPaymentDetails}
+        onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
+          ...prev,
+          ...details,
+          bankName: details.bankName || '',
+          accountNumber: details.accountNumber || '',
+          transactionRef: details.transactionRef || '',
+          amount: details.amount || '',
+          transactionDate: details.transactionDate || prev.transactionDate,
+        }))}
         onSubmit={handlePaymentCompleteInternal}
         isProcessing={isProcessingPayment}
       />
 
-      {/* PO Picker Modal */}
+      {/* POPickerModal */}
       <POPickerModal
         isOpen={showOrderPicker}
         onClose={() => setShowOrderPicker(false)}
@@ -483,76 +465,36 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         />
 
         <div className="space-y-4">
-          {/* Issue Date / Credit Period / Due Date */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Salesman Selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Issue Date*
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Salesman</span>
               </label>
-              <input
-                type="date"
-                value={invoiceData.issueDate}
-                onChange={(e) => handleIssueDateChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+              <select
+                value={invoiceData.salesman?._id || ''}
+                onChange={(e) => {
+                  const selected = salesmen.find(s => s._id === e.target.value);
+                  onFieldChange('salesman', selected ? { _id: selected._id, name: selected.fullName } as any : null as any);
+                }}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+              >
+                <option value="">— Select Salesman —</option>
+                {salesmen.map(s => (
+                  <option key={s._id} value={s._id}>{s.fullName}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Credit Period Selector */}
+            {/* Payment Method */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Credit Period
-              </label>
-              <div className="flex flex-col gap-1.5">
-                <select
-                  value={creditPeriod}
-                  onChange={(e) => handleCreditPeriodChange(e.target.value)}
-                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="custom">Custom (manual)</option>
-                  <option value="0">Immediate (0 days)</option>
-                  <option value="7">7 Days</option>
-                  <option value="14">14 Days</option>
-                  <option value="30">30 Days</option>
-                  <option value="45">45 Days</option>
-                  <option value="60">60 Days</option>
-                  <option value="90">90 Days</option>
-                </select>
-                {creditPeriod !== 'custom' && (
-                  <p className="text-[11px] text-blue-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                    Due date auto-calculated
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Due Date*
-              </label>
-              <input
-                type="date"
-                value={invoiceData.dueDate}
-                onChange={(e) => onFieldChange('dueDate', e.target.value)}
-                readOnly={creditPeriod !== 'custom'}
-                className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                 Payment Method*
               </label>
               <select
                 value={invoiceData.paymentMethod}
-                onChange={(e) => onFieldChange('paymentMethod', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
                 required
               >
                 {Object.values(PaymentMethod).map(method => (
@@ -560,111 +502,76 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 ))}
               </select>
             </div>
+
+            {/* Billing Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Payment Status*
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Billing Date*
+              </label>
+              <input
+                type="date"
+                value={invoiceData.issueDate}
+                onChange={(e) => handleBillingDateChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium font-mono"
+                required
+              />
+            </div>
+
+            {/* Credit Period & Due Date (Visible and editable) */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Credit Period
               </label>
               <select
-                value={invoiceData.paymentStatus}
-                onChange={(e) => handlePaymentStatusChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                value={creditPeriod}
+                onChange={(e) => handleCreditPeriodChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
               >
-                {Object.values(PaymentStatus).map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
+                <option value="custom">Custom Due Date</option>
+                <option value="0">Immediate (0 Days)</option>
+                <option value="7">7 Days</option>
+                <option value="14">14 Days</option>
+                <option value="15">15 Days</option>
+                <option value="30">30 Days</option>
+                <option value="45">45 Days</option>
+                <option value="60">60 Days</option>
+                <option value="90">90 Days</option>
               </select>
             </div>
           </div>
 
-          {invoiceData.paymentMethod === PaymentMethod.BANK_DEPOSIT && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Due Date (Always editable) */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Bank Deposit Date
-              </label>
-              <input
-                type="date"
-                value={invoiceData.bankDepositDate || ''}
-                onChange={(e) => onFieldChange('bankDepositDate', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Vehicle Number*
-            </label>
-            <input
-              type="text"
-              value={invoiceData.vehicleNumber || ''}
-              onChange={(e) => onFieldChange('vehicleNumber', e.target.value)}
-              placeholder="Vehicle Number"
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Discount (%)
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Due Date
               </label>
               <div className="relative">
                 <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={discountInput}
-                  onChange={(e) => handleDiscountPercentageChange(e.target.value)}
-                  onBlur={handleDiscountBlur}
-                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                  type="date"
+                  value={invoiceData.dueDate || ''}
+                  onChange={(e) => {
+                    setCreditPeriod('custom');
+                    onFieldChange('dueDate', e.target.value);
+                  }}
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs font-medium font-mono"
                 />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  %
-                </div>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Discount Amount: <span className="text-green-400">LKR {discountAmount.toFixed(2)}</span>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                VAT (18%)
-              </label>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={invoiceData.applyVat}
-                      onChange={handleVatToggle}
-                      className="sr-only"
-                    />
-                    <div className={`block w-12 h-6 rounded-full transition-colors ${invoiceData.applyVat ? 'bg-green-500' : 'bg-gray-600'}`}></div>
-                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${invoiceData.applyVat ? 'transform translate-x-6' : ''}`}></div>
-                  </div>
-                  <span className="ml-3 text-gray-300">
-                    {invoiceData.applyVat ? 'VAT Applied' : 'No VAT'}
-                  </span>
+            {invoiceData.paymentMethod === PaymentMethod.BANK_DEPOSIT && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Bank Deposit Date
                 </label>
+                <input
+                  type="date"
+                  value={invoiceData.bankDepositDate || ''}
+                  onChange={(e) => onFieldChange('bankDepositDate', e.target.value)}
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium font-mono"
+                />
               </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Notes
-            </label>
-            <textarea
-              value={invoiceData.notes || ''}
-              onChange={(e) => onFieldChange('notes', e.target.value)}
-              placeholder="Additional notes..."
-              rows={3}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            )}
           </div>
         </div>
       </div>
@@ -678,33 +585,34 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         newItem={newItem}
         onItemSelect={handleItemSelect}
         onQuantityChange={(quantity: string) => setNewItem(prev => ({ ...prev, quantity }))}
-        onUnitPriceChange={(unitPrice: string) => setNewItem(prev => ({ ...prev, unitPrice }))}
+        onDiscountChange={handleDiscountChange}
         onAddItem={handleAddItem}
         onClearSelection={handleClearItemSelection}
-        itemTotal={itemTotal}
         stockWarning={stockWarning}
         invoiceItems={invoiceData.items}
       />
 
       {invoiceData.items.length > 0 && (
-        <div className="bg-[#1e293b] rounded-lg border border-[#334155]">
-          <div className="p-6">
-            <InvoiceItemsList
-              items={invoiceData.items}
-              inventoryItems={inventoryItems}
-              onUpdateQuantity={handleUpdateItemQuantity}
-              onRemoveItem={onRemoveItem}
-            />
+        <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-5 space-y-4">
+          <InvoiceItemsList
+            items={invoiceData.items}
+            inventoryItems={inventoryItems}
+            onUpdateQuantity={handleUpdateItemQuantity}
+            onUpdateItem={onUpdateItem}
+            onRemoveItem={onRemoveItem}
+          />
 
-            <InvoiceSummary
-              subTotal={subTotal}
-              discountPercentage={invoiceData.discountPercentage}
-              discountAmount={discountAmount}
-              taxAmount={taxAmount}
-              totalAmount={totalAmount}
-              applyVat={invoiceData.applyVat}
-            />
-          </div>
+          <InvoiceSummary
+            subTotal={subTotal}
+            totalDiscountType={invoiceData.totalDiscountType}
+            totalDiscountValue={invoiceData.totalDiscountValue}
+            discountPercentage={invoiceData.discountPercentage}
+            discountAmount={discountAmount}
+            taxAmount={taxAmount}
+            totalAmount={totalAmount}
+            applyVat={invoiceData.applyVat}
+            onTotalDiscountChange={onTotalDiscountChange}
+          />
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 /* 
   Global utility classes and CSS custom properties for HardTrade ERP
   Harmonized with Invoice, Quotation, and Inventory page aesthetics
+  Redesigned: larger fonts, wider content, optimised density @ 120% zoom
 */
 
 /* ============= Base Setup ============= */
@@ -9,12 +10,18 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Scale everything so that 120% browser zoom feels like 100% — pages designed for ~96% zoom look great at 120% */
+  font-size: 15px; /* up from browser default 16px → effectively larger baseline */
+}
+
 html, body {
-  background-color: #0f172a;
-  color: #f8fafc;
+  background-color: var(--bg-page, #0f172a);
+  color: var(--text-primary, #f8fafc);
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ============= Global Design Tokens ============= */
@@ -118,15 +125,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.65rem;
+  gap: 0.3rem;
+  padding: 0.25rem 0.75rem;
   border-radius: var(--radius-pill);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
   text-transform: capitalize;
   white-space: nowrap;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .badge-approved,
@@ -176,61 +183,64 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
-/* ============= Data Tables (Matching ReusableTable) ============= */
+/* ============= Data Tables ============= */
 .erp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
-  background-color: #1e293b;
+  font-size: 0.9rem;
+  background-color: var(--bg-card, #1e293b);
 }
 
 .erp-table thead th {
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
   text-align: left;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #e2e8f0;
-  background-color: #1e293b;
-  border-bottom: 1px solid #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary, #e2e8f0);
+  background-color: var(--bg-table-header, #1e293b);
+  border-bottom: 1px solid var(--border-color, #334155);
   white-space: nowrap;
   user-select: none;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.erp-table thead th:first-child { padding-left: 1rem; }
-.erp-table thead th:last-child  { padding-right: 1rem; }
+.erp-table thead th:first-child { padding-left: 1.25rem; }
+.erp-table thead th:last-child  { padding-right: 1.25rem; }
 
 .erp-table tbody tr {
-  border-bottom: 1px solid #334155;
-  background-color: #0f172a;
+  border-bottom: 1px solid var(--border-color, #334155);
+  background-color: var(--bg-table-row-odd, #0f172a);
   transition: background-color 150ms ease;
-  height: 52px;
+  height: 56px;
 }
 
 .erp-table tbody tr:nth-child(even) {
-  background-color: #111b2d;
+  background-color: var(--bg-table-row-even, #111b2d);
 }
 
 .erp-table tbody tr:hover {
-  background-color: #1e293b;
+  background-color: var(--bg-table-row-hover, #1e293b);
 }
 
 .erp-table tbody td {
-  padding: 0.75rem 1rem;
-  color: #cbd5e1;
+  padding: 0.875rem 1.125rem;
+  color: var(--text-secondary, #cbd5e1);
   vertical-align: middle;
   white-space: nowrap;
+  font-size: 0.9rem;
 }
 
-.erp-table tbody td:first-child { padding-left: 1rem; }
-.erp-table tbody td:last-child  { padding-right: 1rem; }
+.erp-table tbody td:first-child { padding-left: 1.25rem; }
+.erp-table tbody td:last-child  { padding-right: 1.25rem; }
 
 .erp-table tbody tr:last-child { border-bottom: none; }
 
 .erp-table-container {
   overflow-x: auto;
   border-radius: var(--radius-lg);
-  border: 1px solid #334155;
-  background-color: #1e293b;
+  border: 1px solid var(--border-color, #334155);
+  background-color: var(--bg-card, #1e293b);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -241,32 +251,32 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   border-radius: 0;
 }
 
-/* ============= Cards (Matching Inventory/Quotation Cards) ============= */
+/* ============= Cards ============= */
 .erp-card {
-  background-color: #1e293b;
-  border: 1px solid #334155;
+  background-color: var(--bg-card, #1e293b);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card, 0 4px 6px -1px rgba(0,0,0,0.1));
 }
 
 .erp-card-sm {
-  background-color: #1e293b;
-  border: 1px solid #334155;
+  background-color: var(--bg-card, #1e293b);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-md);
-  padding: 1rem;
+  padding: 1.125rem;
 }
 
 /* ============= Form Controls ============= */
 .erp-input {
   width: 100%;
-  background-color: #0f172a;
-  border: 1px solid #334155;
+  background-color: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-md);
-  color: #f8fafc;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  height: 40px;
+  color: var(--text-primary, #f8fafc);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  height: 44px;
   transition: border-color 150ms ease, box-shadow 150ms ease;
   outline: none;
 }
@@ -277,23 +287,23 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .erp-input::placeholder {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 
 .erp-input:disabled {
-  background-color: #0b1120;
-  color: #64748b;
+  background-color: var(--bg-card-inner, #0b1120);
+  color: var(--text-muted, #64748b);
   cursor: not-allowed;
 }
 
 .erp-select {
-  background-color: #0f172a;
-  border: 1px solid #334155;
+  background-color: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-md);
-  color: #f8fafc;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  height: 40px;
+  color: var(--text-primary, #f8fafc);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  height: 44px;
   outline: none;
   cursor: pointer;
   transition: border-color 150ms ease;
@@ -305,20 +315,20 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .erp-select option {
-  background-color: #1e293b;
-  color: #f8fafc;
+  background-color: var(--bg-card, #1e293b);
+  color: var(--text-primary, #f8fafc);
 }
 
-/* ============= Buttons (Matching Inventory / Quotation buttons) ============= */
+/* ============= Buttons ============= */
 .erp-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
-  height: 38px;
+  gap: 0.45rem;
+  padding: 0.6rem 1.125rem;   /* was 0.5 / 1 */
+  height: 42px;               /* was 38px */
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  font-size: 0.9rem;          /* was 0.875rem */
   font-weight: 500;
   cursor: pointer;
   transition: all 150ms ease;
@@ -341,15 +351,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* Secondary / Outline Button */
 .erp-btn-secondary,
 .erp-btn-outline {
-  background-color: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
+  background-color: var(--bg-card, #1e293b);
+  border-color: var(--border-color, #334155);
+  color: var(--text-secondary, #e2e8f0);
 }
 .erp-btn-secondary:hover,
 .erp-btn-outline:hover {
-  background-color: #334155;
-  color: #ffffff;
-  border-color: #475569;
+  background-color: var(--bg-card-hover, #334155);
+  color: var(--text-primary, #ffffff);
+  border-color: var(--text-muted, #475569);
 }
 
 /* Success Button */
@@ -377,26 +387,26 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* Ghost Button */
 .erp-btn-ghost {
   background-color: transparent;
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
 }
 .erp-btn-ghost:hover {
-  background-color: #334155;
-  color: #ffffff;
+  background-color: var(--bg-card-inner, #334155);
+  color: var(--text-primary, #ffffff);
 }
 
 /* Small Button */
 .erp-btn-sm {
-  height: 32px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.78rem;
-  gap: 0.3rem;
+  height: 36px;               /* was 32px */
+  padding: 0.35rem 0.75rem;
+  font-size: 0.825rem;        /* was 0.78rem */
+  gap: 0.35rem;
 }
 
 /* Icon Button */
 .erp-btn-icon {
-  padding: 0.4rem;
-  height: 34px;
-  width: 34px;
+  padding: 0.45rem;
+  height: 38px;
+  width: 38px;
   border-radius: var(--radius-md);
 }
 
@@ -418,6 +428,16 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* Hide sidebar nav scrollbar entirely */
 .sidebar-nav { scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar-nav::-webkit-scrollbar { display: none; width: 0; }
+
+/* ============= Typography Helpers ============= */
+/* Force inline tailwind text sizes to be scaled up proportionally */
+.text-xs    { font-size: 0.78rem  !important; }   /* was 0.75 */
+.text-sm    { font-size: 0.9rem   !important; }   /* was 0.875 */
+.text-base  { font-size: 1rem     !important; }
+.text-lg    { font-size: 1.15rem  !important; }   /* was 1.125 */
+.text-xl    { font-size: 1.3rem   !important; }   /* was 1.25 */
+.text-2xl   { font-size: 1.6rem   !important; }   /* was 1.5 */
+.text-3xl   { font-size: 1.95rem  !important; }   /* was 1.875 */
 
 /* ============= Animations ============= */
 @keyframes slideInRight {

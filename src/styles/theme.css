@@ -1,0 +1,1383 @@
+/* 
+  theme.css — Complete Light & Dark Theme System for SNK Enterprise ERP
+  Covers all pages, components, modals, tables, inputs, sidebar, charts etc.
+*/
+
+/* ================= DARK THEME (DEFAULT) ================= */
+:root,
+html.dark,
+body.dark-theme {
+  --bg-page: #0f172a;
+  --bg-sidebar: #0b1120;
+  --bg-header: #1e293b;
+  --bg-card: #1e293b;
+  --bg-card-inner: #0f172a;
+  --bg-card-alt: #162032;
+  --bg-input: #0f172a;
+  --bg-dropdown: #0f172a;
+  --bg-modal: #1e293b;
+  --bg-table-header: #1e293b;
+  --bg-table-row-odd: #0f172a;
+  --bg-table-row-even: #111b2d;
+  --bg-table-row-hover: #1e293b;
+  --border-color: #334155;
+  --border-subtle: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-heading: #f1f5f9;
+  --shadow-card: 0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1);
+  --shadow-modal: 0 20px 40px rgba(0,0,0,0.4);
+  --filter-bar-bg: rgba(30,41,59,0.7);
+}
+
+/* ================= LIGHT THEME ================= */
+html.light,
+body.light-theme,
+[data-theme="light"] {
+  --bg-page: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --bg-header: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-inner: #f8fafc;
+  --bg-card-alt: #f1f5f9;
+  --bg-input: #ffffff;
+  --bg-dropdown: #ffffff;
+  --bg-modal: #ffffff;
+  --bg-table-header: #f8fafc;
+  --bg-table-row-odd: #ffffff;
+  --bg-table-row-even: #f8fafc;
+  --bg-table-row-hover: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-heading: #0f172a;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-modal: 0 20px 40px rgba(0,0,0,0.15);
+  --filter-bar-bg: rgba(248,250,252,0.95);
+}
+
+/* ====================================================
+   LIGHT THEME: BASE RESETS
+   ==================================================== */
+html.light body,
+html.light .App,
+html.light #root {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* ====================================================
+   PAGE BACKGROUNDS — hardcoded bg-[#0f172a] wrappers
+   ==================================================== */
+html.light .bg-\[\#0f172a\] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .flex.h-screen.bg-\[\#0f172a\] {
+  background-color: #f1f5f9 !important;
+}
+
+/* ====================================================
+   SIDEBAR
+   ==================================================== */
+html.light aside,
+html.light aside.bg-\[\#0b1120\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light aside .border-\[\#334155\] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light aside h1.text-white {
+  color: #0f172a !important;
+}
+
+html.light aside .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light aside .text-slate-300 {
+  color: #475569 !important;
+}
+
+html.light aside .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Sidebar nav item hover */
+html.light aside .hover\:bg-\[\#1e293b\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Sidebar active item */
+html.light aside .bg-blue-600\/20 {
+  background-color: #eff6ff !important;
+}
+
+html.light aside .text-slate-400.flex-shrink-0 {
+  color: #64748b !important;
+}
+
+/* Sidebar divider lines */
+html.light aside .bg-\[\#334155\] {
+  background-color: #e2e8f0 !important;
+}
+
+html.light aside .bg-\[\#0b1120\] {
+  background-color: #ffffff !important;
+}
+
+html.light aside .border-b.border-\[\#334155\] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light aside .border-t.border-\[\#334155\] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light aside button.hover\:bg-\[\#1e293b\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #374151 !important;
+}
+
+html.light aside .hover\:border-\[\#334155\]:hover {
+  border-color: #cbd5e1 !important;
+}
+
+html.light aside span[style*="color: #94a3b8"] {
+  color: #64748b !important;
+}
+
+/* ====================================================
+   HEADER
+   ==================================================== */
+html.light header,
+html.light header.bg-\[\#1e293b\]\/90,
+html.light .h-\[68px\].bg-\[\#1e293b\]\/90,
+html.light .h-16.bg-\[\#1e293b\]\/80,
+html.light .h-16.bg-\[\#0f172a\]\/70 {
+  background-color: rgba(255,255,255,0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+}
+
+html.light header h1.text-gray-100,
+html.light .h-\[68px\] h1.text-gray-100,
+html.light .h-16 h1.text-gray-100,
+html.light .h-16 h1.text-gray-200 {
+  color: #0f172a !important;
+}
+
+html.light header p.text-gray-400,
+html.light .h-\[68px\] .text-gray-400,
+html.light .h-16 .text-gray-400 {
+  color: #64748b !important;
+}
+
+html.light header button.text-gray-400,
+html.light .h-\[68px\] button.text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light header button.hover\:text-white:hover,
+html.light .h-\[68px\] button.hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+html.light header button.hover\:bg-\[\#334155\]:hover,
+html.light .h-\[68px\] button.hover\:bg-\[\#334155\]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* ====================================================
+   CARDS — .erp-card, .erp-card-sm, bg-[#1e293b] divs
+   ==================================================== */
+html.light .erp-card,
+html.light .erp-card-sm {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+}
+
+html.light .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#1e293b\]\/70 {
+  background-color: rgba(255,255,255,0.95) !important;
+}
+
+html.light .bg-\[\#1e293b\]\/90,
+html.light .bg-\[\#1e293b\]\/80,
+html.light .bg-\[\#1e293b\]\/60 {
+  background-color: rgba(255,255,255,0.95) !important;
+}
+
+html.light .bg-\[\#162032\],
+html.light .bg-\[\#1a2333\],
+html.light .bg-\[\#111b2d\] {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-\[\#0b1120\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#243244\] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .bg-\[\#020617\] {
+  background-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#111827\] {
+  background-color: #f8fafc !important;
+}
+
+/* ====================================================
+   BORDERS
+   ==================================================== */
+html.light .border-\[\#334155\],
+html.light .border-\[\#334155\]\/60,
+html.light .border-\[\#334155\]\/40,
+html.light .border-\[\#334155\]\/20 {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .border-slate-700,
+html.light .border-slate-800 {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .divide-\[\#334155\]\/60 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-\[\#334155\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .border-b.border-\[\#334155\] {
+  border-color: #e2e8f0 !important;
+}
+
+/* ====================================================
+   TEXT COLORS
+   ==================================================== */
+html.light .text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-gray-100,
+html.light .text-slate-100 {
+  color: #1e293b !important;
+}
+
+html.light .text-gray-200,
+html.light .text-slate-200 {
+  color: #334155 !important;
+}
+
+html.light .text-gray-300,
+html.light .text-slate-300 {
+  color: #475569 !important;
+}
+
+html.light .text-gray-400,
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .text-gray-500,
+html.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* ====================================================
+   FORM INPUTS, SELECTS, TEXTAREAS
+   ==================================================== */
+html.light .erp-input,
+html.light .erp-select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light .erp-input::placeholder,
+html.light .erp-select::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light .erp-input:focus,
+html.light .erp-select:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+}
+
+html.light .erp-select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* FilterBar inputs, date pickers, selects */
+html.light .bg-\[\#0f172a\].border.border-\[\#334155\].rounded-lg {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input[type="text"].bg-\[\#0f172a\],
+html.light input[type="date"].bg-\[\#0f172a\],
+html.light input[type="email"].bg-\[\#0f172a\],
+html.light input[type="number"].bg-\[\#0f172a\],
+html.light input[type="password"].bg-\[\#0f172a\],
+html.light textarea.bg-\[\#0f172a\],
+html.light select.bg-\[\#0f172a\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Catch-all for any input with dark classes */
+html.light input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light input[type="date"],
+html.light input[type="time"],
+html.light input[type="datetime-local"] {
+  color-scheme: light !important;
+}
+
+html.light input[type="date"]::-webkit-calendar-picker-indicator,
+html.light input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: none !important;
+  opacity: 0.6;
+}
+
+/* ====================================================
+   BUTTONS — .erp-btn variants
+   ==================================================== */
+html.light .erp-btn-secondary,
+html.light .erp-btn-outline {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #374151 !important;
+}
+
+html.light .erp-btn-secondary:hover,
+html.light .erp-btn-outline:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+html.light .erp-btn-ghost {
+  color: #475569 !important;
+}
+
+html.light .erp-btn-ghost:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Tailwind-style dark button overrides */
+html.light .bg-\[\#1e293b\].border.border-\[\#334155\] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #374151 !important;
+}
+
+html.light .hover\:bg-\[\#334155\]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .hover\:bg-\[\#243244\]:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* ====================================================
+   TABLES — .erp-table and DataTable
+   ==================================================== */
+/* ====================================================
+   TABLES & TABLE DATA — Comprehensive Light Mode System
+   ==================================================== */
+html.light table {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-collapse: collapse !important;
+}
+
+html.light .erp-table,
+html.light .erp-table-container,
+html.light .overflow-x-auto.bg-\[\#0f172a\],
+html.light .overflow-x-auto.rounded-xl.border,
+html.light .overflow-x-auto.rounded-lg.border,
+html.light .overflow-x-auto.border,
+html.light .overflow-hidden.border {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Table Headers */
+html.light table thead,
+html.light table thead tr,
+html.light table th,
+html.light .erp-table thead th,
+html.light thead.bg-\[\#0f172a\],
+html.light thead.bg-\[\#1e293b\],
+html.light tr.bg-\[\#1e293b\],
+html.light tr.bg-\[\#0f172a\],
+html.light tr.bg-\[\#0f172a\]\/90,
+html.light tr.bg-\[\#0f172a\]\/60 {
+  background-color: #f8fafc !important;
+  color: #334155 !important;
+  border-color: #e2e8f0 !important;
+  font-weight: 700 !important;
+}
+
+html.light table th .text-gray-200,
+html.light table th .text-gray-300,
+html.light table th .text-gray-400,
+html.light table th .text-slate-300,
+html.light table th .text-slate-400 {
+  color: #334155 !important;
+}
+
+/* Table Rows & Cells */
+html.light table tbody tr {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light table tbody tr:nth-child(even),
+html.light table tr.bg-\[\#111b2d\],
+html.light table tr.bg-\[\#1e293b\]\/30,
+html.light table tr.bg-\[\#1e293b\]\/10 {
+  background-color: #f8fafc !important;
+}
+
+html.light table tbody tr:hover,
+html.light table tr.hover\:bg-\[\#1e293b\]:hover,
+html.light table tr.hover\:bg-\[\#1e293b\]\/70:hover,
+html.light table tr.hover\:bg-\[\#1e293b\]\/40:hover,
+html.light table tr.hover\:bg-\[\#0f172a\]\/50:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light table td,
+html.light .erp-table tbody td {
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Specific text elements inside table cells */
+html.light table td .text-white,
+html.light table td .text-slate-100,
+html.light table td .text-slate-200,
+html.light table td .text-gray-100,
+html.light table td .text-gray-200,
+html.light table td .text-gray-300,
+html.light table td .text-slate-300,
+html.light table td p.font-semibold,
+html.light table td span.font-semibold,
+html.light table td span.font-bold {
+  color: #0f172a !important;
+}
+
+html.light table td .text-slate-400,
+html.light table td .text-gray-400 {
+  color: #475569 !important;
+}
+
+html.light table td .text-slate-500,
+html.light table td .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* High-Contrast Data Highlights inside Tables */
+html.light table td .text-blue-400,
+html.light table td .text-blue-300 {
+  color: #1d4ed8 !important;
+}
+
+html.light table td .text-emerald-400,
+html.light table td .text-emerald-300,
+html.light table td .text-green-400,
+html.light table td .text-green-300 {
+  color: #15803d !important;
+}
+
+html.light table td .text-amber-400,
+html.light table td .text-amber-300,
+html.light table td .text-yellow-400,
+html.light table td .text-yellow-300 {
+  color: #b45309 !important;
+}
+
+html.light table td .text-purple-400,
+html.light table td .text-purple-300 {
+  color: #7e22ce !important;
+}
+
+html.light table td .text-cyan-400,
+html.light table td .text-cyan-300 {
+  color: #0369a1 !important;
+}
+
+html.light table td .text-red-400,
+html.light table td .text-red-300,
+html.light table td .text-rose-400,
+html.light table td .text-rose-300 {
+  color: #be123c !important;
+}
+
+/* Table Pill / Badge Backgrounds in Light Mode */
+html.light table .bg-blue-500\/10,
+html.light table .bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+html.light table .bg-emerald-500\/10,
+html.light table .bg-emerald-500\/15,
+html.light table .bg-emerald-500\/20,
+html.light table .bg-green-500\/10,
+html.light table .bg-green-500\/20 {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+html.light table .bg-amber-500\/10,
+html.light table .bg-amber-500\/15,
+html.light table .bg-amber-500\/20,
+html.light table .bg-yellow-500\/10,
+html.light table .bg-yellow-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+html.light table .bg-purple-500\/10,
+html.light table .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+  color: #7e22ce !important;
+}
+
+html.light table .bg-cyan-500\/10,
+html.light table .bg-cyan-500\/20 {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0369a1 !important;
+}
+
+html.light table .bg-red-500\/10,
+html.light table .bg-red-500\/15,
+html.light table .bg-red-500\/20,
+html.light table .bg-red-950\/15,
+html.light table .bg-rose-500\/10,
+html.light table .bg-rose-500\/20 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #be123c !important;
+}
+
+/* Inputs & Form Controls inside Tables */
+html.light table input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light table input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+}
+
+html.light table select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Dividers & Borders in Tables */
+html.light .divide-\[\#334155\]\/60 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-\[\#334155\]\/40 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-\[\#334155\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+/* Pagination in Tables */
+html.light .bg-\[\#1e293b\].border.border-\[\#334155\].text-gray-200 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #374151 !important;
+}
+
+html.light .text-gray-400.flex.flex-wrap {
+  color: #64748b !important;
+}
+
+html.light span.text-white.font-semibold {
+  color: #0f172a !important;
+}
+
+/* Empty Table States */
+html.light table td[colspan] {
+  color: #64748b !important;
+}
+
+html.light table td[colspan] svg {
+  color: #94a3b8 !important;
+}
+
+/* Search dropdown */
+html.light .bg-\[\#0f172a\].border.border-\[\#334155\].rounded-xl {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+html.light .bg-\[\#1e293b\]\/50 {
+  background-color: #f8fafc !important;
+}
+
+html.light .divide-\[\#1e293b\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .hover\:bg-\[\#1e293b\].text-gray-200 {
+  color: #334155 !important;
+}
+
+html.light span.font-medium.text-xs.text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-gray-400.uppercase {
+  color: #64748b !important;
+}
+
+/* ====================================================
+   MODALS & DIALOGS
+   ==================================================== */
+html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-\[10px\],
+html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-xl,
+html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-lg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important;
+}
+
+html.light h3.text-base.font-semibold.text-\[\#F8FAFC\] {
+  color: #0f172a !important;
+}
+
+html.light p.text-sm.text-\[\#CBD5E1\] {
+  color: #475569 !important;
+}
+
+html.light .text-\[\#94A3B8\].hover\:text-\[\#F8FAFC\] {
+  color: #64748b !important;
+}
+
+/* ====================================================
+   USER PROFILE DROPDOWN
+   ==================================================== */
+html.light .bg-\[\#111827\].border.border-\[\#334155\] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-lg.shadow-xl {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+html.light p.text-sm.font-semibold.text-\[\#F8FAFC\] {
+  color: #0f172a !important;
+}
+
+html.light p.text-xs.text-\[\#94A3B8\] {
+  color: #64748b !important;
+}
+
+html.light .text-\[\#CBD5E1\].hover\:text-\[\#EF4444\] {
+  color: #475569 !important;
+}
+
+html.light .p-3\.5.border-b.border-\[\#334155\] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .px-3\.5.py-2\.5.border-b.border-\[\#334155\] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .hover\:bg-\[\#EF4444\]\/10:hover {
+  background-color: rgba(239,68,68,0.08) !important;
+}
+
+html.light p.text-\[10px\].text-\[\#94A3B8\] {
+  color: #64748b !important;
+}
+
+/* ====================================================
+   DASHBOARD — KPI Cards, Charts, Overdue list
+   ==================================================== */
+html.light .bg-\[\#1e293b\]\/70.border.border-\[\#334155\].rounded-xl {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+
+html.light p.text-gray-400.font-medium {
+  color: #64748b !important;
+}
+
+html.light p.font-bold.text-white {
+  color: #0f172a !important;
+}
+
+/* Chart labels and tick text */
+html.light .recharts-cartesian-axis-tick text,
+html.light .recharts-text {
+  fill: #475569 !important;
+}
+
+html.light .recharts-legend-item-text {
+  color: #475569 !important;
+}
+
+html.light .recharts-cartesian-grid line {
+  stroke: #e2e8f0 !important;
+}
+
+html.light .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ====================================================
+   SKELETON LOADERS
+   ==================================================== */
+html.light .skeleton,
+html.light .skeleton-text {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%) !important;
+  background-size: 200px 100% !important;
+}
+
+/* ====================================================
+   SCROLLBARS
+   ==================================================== */
+html.light ::-webkit-scrollbar-track {
+  background: #f8fafc !important;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* ====================================================
+   BADGE COLORS (unchanged, already use semantic vars)
+   ==================================================== */
+
+/* ====================================================
+   REPORTS PAGE
+   ==================================================== */
+html.light .reports-step-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ====================================================
+   MOBILE APP PAGE
+   ==================================================== */
+html.light .mobile-feature-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ====================================================
+   FINANCE / PAYMENT MODAL
+   ==================================================== */
+html.light .bg-\[\#0f172a\].rounded-t-2xl,
+html.light .bg-\[\#0f172a\].rounded-2xl {
+  background-color: #f8fafc !important;
+}
+
+/* ====================================================
+   SHARED: Any remaining dark elements using text-white inside main content
+   ==================================================== */
+html.light main p.text-white,
+html.light main span.text-white,
+html.light main h2.text-white,
+html.light main h3.text-white,
+html.light main h4.text-white,
+html.light main label.text-white {
+  color: #0f172a !important;
+}
+
+html.light main .text-gray-100 {
+  color: #1e293b !important;
+}
+
+html.light main .text-gray-200 {
+  color: #374151 !important;
+}
+
+html.light main .text-gray-300 {
+  color: #475569 !important;
+}
+
+html.light main .text-gray-400 {
+  color: #64748b !important;
+}
+
+/* ====================================================
+   LOGIN PAGE
+   ==================================================== */
+html.light .min-h-screen.bg-\[\#0f172a\] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .min-h-screen.bg-\[\#0f172a\] .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ====================================================
+   TOAST NOTIFICATIONS
+   ==================================================== */
+html.light .toast-success {
+  background-color: #f0fdf4 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+html.light .toast-error {
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+  color: #991b1b !important;
+}
+
+/* ====================================================
+   TAB COMPONENTS
+   ==================================================== */
+html.light button.bg-\[\#1e293b\].text-white {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* ====================================================
+   SEARCH FILTER BAR (legacy SearchFilterBar component)
+   ==================================================== */
+html.light .bg-\[\#1e293b\].rounded-xl {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#0f172a\].border-\[\#334155\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* ====================================================
+   TARGETED FIXES: DASHBOARD, FORMS, CARDS & STATUS BADGES
+   ==================================================== */
+
+/* 1. Dashboard "Orders by Status" Donut & List */
+html.light .bg-\[\#0f172a\]\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .hover\:bg-\[\#0f172a\]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .space-y-2\.5 .bg-\[\#0f172a\]\/60 span.text-white {
+  color: #0f172a !important;
+}
+
+html.light .space-y-2\.5 .bg-\[\#0f172a\]\/60 span.text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .space-y-2\.5 .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 2. Top-Selling Products Ranked Circle & Progress Bar */
+html.light .bg-slate-800,
+html.light .bg-slate-800\/80 {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-gray-800 {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-\[\#0f172a\].rounded-full.h-2 {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 3. Invoice / Quotation "Total Discount" Row & Action Bar */
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 span.text-gray-300 {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Sticky Action Footer */
+html.light .sticky.bottom-4.bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .bg-gray-700 {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+html.light .hover\:bg-gray-600:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* 4. Finance KPI Cards, Overdue Banner, & Filter Tabs */
+html.light .bg-gradient-to-r.from-red-950\/20 {
+  background: #ffffff !important;
+  border-color: #fca5a5 !important;
+}
+
+html.light .bg-gradient-to-r.from-amber-950\/20 {
+  background: #ffffff !important;
+  border-color: #fcd34d !important;
+}
+
+html.light .border-green-500\/30 {
+  border-color: #86efac !important;
+}
+
+html.light .text-red-300 {
+  color: #991b1b !important;
+}
+
+html.light .text-red-400 {
+  color: #dc2626 !important;
+}
+
+html.light .text-red-400\/80,
+html.light .text-red-400\/90 {
+  color: #b91c1c !important;
+}
+
+html.light .text-amber-300 {
+  color: #92400e !important;
+}
+
+html.light .text-amber-400 {
+  color: #d97706 !important;
+}
+
+html.light .text-amber-400\/80 {
+  color: #b45309 !important;
+}
+
+html.light .text-green-400 {
+  color: #15803d !important;
+}
+
+html.light .text-green-500 {
+  color: #16a34a !important;
+}
+
+html.light .text-emerald-400 {
+  color: #15803d !important;
+}
+
+/* Credit Expiry Alert Banner in Light Mode */
+html.light .bg-red-500\/10.border-red-500\/30 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
+/* Filter Tabs in Finance Table & Sales Officers */
+html.light .border-b.border-\[\#334155\] button.text-gray-400 {
+  color: #475569 !important;
+}
+
+html.light .border-b.border-\[\#334155\] button.text-gray-400:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 5. Status Column Badges (Outstanding, Due Soon, Paid, etc.) */
+html.light span.bg-slate-800,
+html.light span.bg-gray-800 {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+html.light span.text-slate-300.bg-slate-800,
+html.light span.text-gray-300.bg-gray-800 {
+  color: #475569 !important;
+}
+
+/* 6. MODAL DIALOGS: "Add New Customer" & Detail Modals */
+html.light .bg-\[\#0b132b\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+html.light .bg-\[\#0b132b\] h3.text-white {
+  color: #0f172a !important;
+}
+
+html.light .bg-\[\#111c3a\],
+html.light .bg-\[\#111c3a\]\/80 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .border-\[\#1e2e54\],
+html.light .border-\[\#233560\] {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-\[\#0a1024\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-\[\#0f2420\]\/70,
+html.light .bg-\[\#0f2420\] {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.light .border-\[\#1a453b\] {
+  border-color: #bbf7d0 !important;
+}
+
+html.light .bg-\[\#0f2420\]\/70 span,
+html.light .bg-\[\#0f2420\]\/70 div {
+  color: #166534 !important;
+}
+
+html.light .bg-\[\#201435\]\/70,
+html.light .bg-\[\#201435\] {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+html.light .border-\[\#44266e\] {
+  border-color: #e9d5ff !important;
+}
+
+html.light .bg-\[\#201435\]\/70 span,
+html.light .bg-\[\#201435\]\/70 div {
+  color: #6b21a8 !important;
+}
+
+/* 7. PAGINATION BUTTONS */
+html.light button.bg-\[\#334155\] {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light button.bg-\[\#334155\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+html.light button:disabled.bg-\[\#334155\],
+html.light button[disabled].bg-\[\#334155\] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  opacity: 0.6 !important;
+}
+
+/* 8. SALES OFFICERS TABS BAR & CONTAINER */
+html.light .bg-\[\#0f172a\]\/50 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .p-4.bg-\[\#0f172a\]\/50 .bg-\[\#0f172a\] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .p-4.bg-\[\#0f172a\]\/50 .bg-\[\#0f172a\] button.text-gray-400 {
+  color: #475569 !important;
+}
+
+html.light .p-4.bg-\[\#0f172a\]\/50 .bg-\[\#0f172a\] button:hover {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light .p-4.bg-\[\#0f172a\]\/50 .bg-\[\#0f172a\] .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 9. MOBILE APP HERO SHOWCASE */
+html.light .bg-gradient-to-br.from-\[\#1e293b\].via-\[\#0f172a\] {
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #f1f5f9 100%) !important;
+  border-color: #bfdbfe !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .bg-gradient-to-br.from-\[\#1e293b\].via-\[\#0f172a\] h1 {
+  color: #0f172a !important;
+}
+
+html.light .bg-gradient-to-br.from-\[\#1e293b\].via-\[\#0f172a\] p {
+  color: #334155 !important;
+}
+
+html.light .bg-gradient-to-br.from-\[\#1e293b\].via-\[\#0f172a\] .bg-\[\#0f172a\]\/80 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 10. PRODUCT SEARCH DROPDOWN SUGGESTIONS & HOVER */
+html.light .absolute.z-30.bg-\[\#0f172a\],
+html.light .absolute.bg-\[\#0f172a\].border.border-\[\#334155\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light .absolute.z-30.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover,
+html.light .absolute.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover {
+  background-color: #eff6ff !important;
+}
+
+html.light .absolute.z-30.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover .text-white,
+html.light .absolute.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover .text-white {
+  color: #1e3a8a !important;
+}
+
+html.light .absolute.z-30.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover .text-gray-400,
+html.light .absolute.bg-\[\#0f172a\] .hover\:bg-\[\#1e293b\]:hover .text-gray-400 {
+  color: #475569 !important;
+}
+
+
+/* ====================================================
+   TARGETED FIXES: DASHBOARD, FORMS, CARDS & STATUS BADGES
+   ==================================================== */
+
+/* 11. TABLE 3-DOT ACTION POPOVER MENUS */
+html.light div.absolute.right-0.top-8.z-50.w-48,
+html.light div.absolute.z-50.w-48.bg-\[\#0b132b\] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+  color: #0f172a !important;
+}
+
+html.light div.absolute.z-50.w-48 .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.absolute.z-50.w-48 button {
+  color: #334155 !important;
+}
+
+html.light div.absolute.z-50.w-48 button:hover,
+html.light div.absolute.z-50.w-48 button.hover\:bg-slate-700\/50:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light div.absolute.z-50.w-48 button.hover\:bg-blue-600\/20:hover {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+html.light div.absolute.z-50.w-48 button.hover\:bg-green-600\/20:hover {
+  background-color: #f0fdf4 !important;
+  color: #15803d !important;
+}
+
+html.light div.absolute.z-50.w-48 .text-green-400 {
+  color: #15803d !important;
+}
+
+html.light div.absolute.z-50.w-48 .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+
+/* 12. INVENTORY: PRODUCT DETAILS MODAL (Selling Quantity Bar & Profit Margin) */
+html.light .bg-\[\#0f172a\]\/70.border.border-\[\#334155\].rounded-xl.p-3\.5 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#0f172a\]\/70.border.border-\[\#334155\].rounded-xl.p-3\.5 span.text-gray-400 {
+  color: #334155 !important;
+}
+
+html.light .bg-\[\#0f172a\].border.border-emerald-500\/30.rounded-xl.p-3\.5 {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.light .bg-\[\#0f172a\].border.border-emerald-500\/30.rounded-xl.p-3\.5 span.text-gray-300 {
+  color: #166534 !important;
+}
+
+html.light .bg-\[\#0f172a\].border.border-emerald-500\/30.rounded-xl.p-3\.5 span.text-gray-500 {
+  color: #15803d !important;
+}
+
+/* 13. CUSTOMER MODAL: SECTION CONTAINER TINTS IN LIGHT MODE */
+html.light .bg-\[\#111c3a\]\/80 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-\[\#0f2420\]\/70,
+html.light .bg-\[\#0f2420\] {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.light .bg-\[\#0f2420\]\/70 .text-emerald-400,
+html.light .bg-\[\#0f2420\]\/70 .text-emerald-300,
+html.light .bg-\[\#0f2420\]\/70 span {
+  color: #166534 !important;
+}
+
+html.light .bg-\[\#201435\]\/70,
+html.light .bg-\[\#201435\] {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+html.light .bg-\[\#201435\]\/70 .text-purple-400,
+html.light .bg-\[\#201435\]\/70 .text-purple-300,
+html.light .bg-\[\#201435\]\/70 span {
+  color: #6b21a8 !important;
+}
+
+/* 14. INVOICE & QUOTATION PREVIEW MODAL BACKDROP */
+html.light .overflow-auto.bg-\[\#0b1329\],
+html.light .overflow-auto.bg-\[\#0b1120\] {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\].p-3.rounded-xl.border.border-\[\#334155\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] span.text-gray-300 {
+  color: #0f172a !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-\[\#1e293b\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-gray-700\/60 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light .flex-shrink-0.bg-\[\#0f172a\] button.bg-gray-700\/60:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+

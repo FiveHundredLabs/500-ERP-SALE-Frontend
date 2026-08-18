@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, StatusBadge, ConfirmDialog, useToast } from '../components/erp';
+import { PageHeader, StatusBadge, useToast } from '../components/erp';
 import { mockOrders } from '../data/mockOrders';
 import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
 import type { Order, OrderStatusType } from '../types/orders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { orderService } from '../services/OrderService';
+import CreatePOModal from '../components/orders/CreatePOModal';
 import {
   ShoppingBag,
   UserCheck,
@@ -27,6 +28,7 @@ const OrderDetails: React.FC = () => {
 
   const [order, setOrder] = useState<Order | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [showConvertToPOModal, setShowConvertToPOModal] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -44,8 +46,6 @@ const OrderDetails: React.FC = () => {
     };
     fetchOrder();
   }, [id]);
-
-  const [confirmPOModal, setConfirmPOModal] = useState(false);
 
   if (loading) {
     return (
@@ -77,72 +77,28 @@ const OrderDetails: React.FC = () => {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
-  const handleConvertToPO = () => {
-    setTimeout(() => {
-      const generatedPONumber = `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+  const handleCreateConvertedPO = (createdPO: PurchaseOrder) => {
+    mockPurchaseOrders.unshift(createdPO);
 
-      const newPO: PurchaseOrder = {
-        id: Math.random().toString(36).substr(2, 9),
-        poNumber: generatedPONumber,
-        poDate: new Date().toISOString().split('T')[0],
-        expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        supplierId: 'SUP-001',
-        supplierName: 'Petrotec Pipes Pvt Ltd',
-        supplierContact: 'Suresh Mendis',
-        supplierPhone: '011-234-5678',
-        supplierAddress: '12 Industrial Zone',
-        supplierCity: 'Colombo',
-        customerName: order.customerName,
-        createdById: 'EMP-001',
-        createdByName: 'Admin User',
-        items: order.products.map((p) => ({
-          id: p.id || Math.random().toString(),
-          sku: p.sku,
-          productName: p.productName,
-          category: p.category,
-          quantity: p.quantity,
-          unit: p.unit,
-          unitPrice: p.unitPrice * 0.7,
-          discount: 0,
-          tax: 0,
-          subtotal: p.quantity * (p.unitPrice * 0.7),
-          total: p.quantity * (p.unitPrice * 0.7),
-        })),
-        numberOfItems: order.products.length,
-        subTotal: order.products.reduce((sum, p) => sum + p.quantity * (p.unitPrice * 0.7), 0),
-        totalDiscount: 0,
-        totalTax: 0,
-        shippingCharges: 2500,
-        grandTotal: order.products.reduce((sum, p) => sum + p.quantity * (p.unitPrice * 0.7), 0) + 2500,
-        status: 'Draft',
-        paymentStatus: 'Unpaid',
-        paymentTerms: 'Net 30',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+    const updatedOrder: Order = {
+      ...order,
+      status: 'Converted to PO',
+      convertedPOId: createdPO.poNumber,
+      timeline: [
+        ...order.timeline,
+        {
+          id: Math.random().toString(),
+          event: 'Converted to PO',
+          description: `Converted to Purchase Order ${createdPO.poNumber} for Supplier ${createdPO.supplierName}`,
+          timestamp: new Date().toISOString(),
+          actor: 'Admin User',
+        },
+      ],
+    };
 
-      mockPurchaseOrders.unshift(newPO);
-
-      const updatedOrder: Order = {
-        ...order,
-        status: 'Converted to PO',
-        convertedPOId: generatedPONumber,
-        timeline: [
-          ...order.timeline,
-          {
-            id: Math.random().toString(),
-            event: 'Converted to PO',
-            description: `Converted to Purchase Order ${generatedPONumber}`,
-            timestamp: new Date().toISOString(),
-            actor: 'Admin User',
-          },
-        ],
-      };
-
-      setOrder(updatedOrder);
-      setConfirmPOModal(false);
-      success('Converted to PO Successfully!', `Created Purchase Order ${generatedPONumber} from Order ${order.orderId}.`);
-    }, 600);
+    setOrder(updatedOrder);
+    setShowConvertToPOModal(false);
+    success('Converted to PO Successfully!', `Created Purchase Order ${createdPO.poNumber} from Order ${order.orderId}.`);
   };
 
   const handleUpdateStatus = async (newStatus: OrderStatusType) => {
@@ -160,7 +116,7 @@ const OrderDetails: React.FC = () => {
     <AppLayout
       headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
       headerTitle={`Order ${order.orderId}`}
-      headerSubtitle={`Created on ${order.orderDate} by ${order.salesman.name}`}
+      headerSubtitle={`Created on ${order.orderDate} by ${typeof order.salesman === 'object' && order.salesman ? order.salesman.name : (order.salesman || 'Sales Representative')}`}
     >
       <PageHeader
         title={`Order: ${order.orderId}`}
@@ -189,7 +145,7 @@ const OrderDetails: React.FC = () => {
 
             {order.status !== 'Converted to PO' && order.status !== 'Completed' && (
               <button
-                onClick={() => setConfirmPOModal(true)}
+                onClick={() => setShowConvertToPOModal(true)}
                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20"
               >
                 <FileCheck size={14} /> Convert to PO
@@ -294,19 +250,19 @@ const OrderDetails: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Name:</span>
-                  <span className="font-semibold text-gray-200">{order.salesman.name}</span>
+                  <span className="font-semibold text-gray-200">{order.salesman?.name || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Employee ID:</span>
-                  <span className="font-mono text-gray-300">{order.salesman.employeeId}</span>
+                  <span className="font-mono text-gray-300">{order.salesman?.employeeId || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Assigned Territory:</span>
-                  <span className="text-gray-300">{order.salesman.area}</span>
+                  <span className="text-gray-300">{order.salesman?.area || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Contact Phone:</span>
-                  <span className="text-gray-300">{order.salesman.phone}</span>
+                  <span className="text-gray-300">{order.salesman?.phone || '—'}</span>
                 </div>
               </div>
             </div>
@@ -445,17 +401,26 @@ const OrderDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* CONVERT TO PO DIALOG */}
-      <ConfirmDialog
-        isOpen={confirmPOModal}
-        title="Convert Order to Purchase Order?"
-        message={`This will automatically generate a new Purchase Order from Sales Order ${order.orderId} and set status to "Converted to PO".`}
-        confirmText="Convert to PO Now"
-        cancelText="Cancel"
-        type="info"
-        onConfirm={handleConvertToPO}
-        onCancel={() => setConfirmPOModal(false)}
-      />
+      {/* CONVERT TO PO MODAL */}
+      {showConvertToPOModal && (
+        <CreatePOModal
+          isOpen={showConvertToPOModal}
+          onClose={() => setShowConvertToPOModal(false)}
+          onSubmit={handleCreateConvertedPO}
+          initialData={{
+            referenceOrderId: order.orderId,
+            referenceOrderNum: order.orderId,
+            customerName: order.customerName,
+            notes: `Converted from Customer Order #${order.orderId}`,
+            items: order.products.map((p) => ({
+              sku: p.sku,
+              productName: p.productName,
+              quantity: p.quantity,
+              sellingPrice: p.unitPrice,
+            })),
+          }}
+        />
+      )}
     </AppLayout>
   );
 };

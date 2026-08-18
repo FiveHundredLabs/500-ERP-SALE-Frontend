@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
-import type { InventoryItem, VehicleInfo } from "../types/inventory";
+import { X, Package, Tag, Plus, Check, TrendingUp } from "lucide-react";
+import type { InventoryItem } from "../types/inventory";
+import { mockInventoryItems } from "../data/mockInventory";
 
 interface InventoryFormProps {
   isOpen: boolean;
@@ -22,66 +23,35 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
   const [formData, setFormData] = useState({
     product_name: "",
     product_code: "",
-    quantity: "",
-    sold_count: "",
-    discount_rate: "",
-    status: "in_stock" as "in_stock" | "out_of_stock" | "discontinued",
     purchase_price: "",
     sell_price: "",
-    shipment_code: "",
-    vehicle: {
-      brand: "",
-      model: "",
-      chassis_no: "",
-      year: new Date().getFullYear().toString()
-    }
+    sold_count: "0",
   });
 
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        product_name: initialData.product_name,
-        product_code: initialData.product_code,
-        quantity: initialData.quantity.toString(),
-        sold_count: initialData.sold_count.toString(),
-        discount_rate: (initialData.discount_rate ?? 0).toString(),
-        status: initialData.status,
-        purchase_price: initialData.purchase_price.toString(),
-        sell_price: initialData.sell_price.toString(),
-        shipment_code: initialData.shipment_code,
-        vehicle: { ...initialData.vehicle, year: initialData.vehicle.year.toString() }
+        product_name: initialData.product_name || "",
+        product_code: initialData.product_code || "",
+        purchase_price: (initialData.purchase_price ?? "").toString(),
+        sell_price: (initialData.sell_price ?? "").toString(),
+        sold_count: (initialData.sold_count ?? 0).toString(),
       });
-
-      if (initialData.updated_at) {
-        setUpdatedAt(
-          new Date(initialData.updated_at).toLocaleString("en-US", {
-            dateStyle: "medium",
-            timeStyle: "short"
-          })
-        );
-      }
+      setErrors({});
     } else {
+      // Auto generate next product code
+      const nextNum = mockInventoryItems.length + 1001;
       setFormData({
         product_name: "",
-        product_code: "",
-        quantity: "",
-        sold_count: "",
-        discount_rate: "",
-        status: "in_stock",
+        product_code: `PRD-${nextNum}`,
         purchase_price: "",
         sell_price: "",
-        shipment_code: "",
-        vehicle: {
-          brand: "",
-          model: "",
-          chassis_no: "",
-          year: new Date().getFullYear().toString()
-        }
+        sold_count: "0",
       });
-      setUpdatedAt(null);
+      setErrors({});
     }
   }, [initialData, isOpen]);
 
@@ -91,23 +61,34 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       onClose();
       return;
     }
+
+    const errs: Record<string, string> = {};
+    if (!formData.product_name.trim()) errs.product_name = "Product name is required";
+    if (!formData.purchase_price || parseFloat(formData.purchase_price) <= 0) {
+      errs.purchase_price = "Valid cost is required";
+    }
+    if (!formData.sell_price || parseFloat(formData.sell_price) <= 0) {
+      errs.sell_price = "Valid selling price is required";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+
     if (!onSubmit) return;
     setLoading(true);
     try {
       const payload = {
-        ...formData,
-        quantity: parseInt(formData.quantity) || 0,
-        sold_count: parseInt(formData.sold_count) || 0,
-        discount_rate: parseFloat(formData.discount_rate) || 0,
+        product_name: formData.product_name.trim(),
+        product_code: formData.product_code || `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
         purchase_price: parseFloat(formData.purchase_price) || 0,
         sell_price: parseFloat(formData.sell_price) || 0,
-        actual_sold_price:
-          parseFloat(formData.sell_price || "0") *
-          (1 - (parseFloat(formData.discount_rate || "0") / 100)),
-        vehicle: {
-          ...formData.vehicle,
-          year: parseInt(formData.vehicle.year) || new Date().getFullYear()
-        }
+        quantity: 0,
+        sold_count: parseInt(formData.sold_count) || 0,
+        status: "in_stock",
+        vehicle: { brand: "Universal", model: "All Models", chassis_no: "N/A", year: 2026 },
+        shipment_code: "SHP-AUTO",
       };
       await onSubmit(payload);
       onClose();
@@ -116,286 +97,210 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
     }
   };
 
-  const handleVehicleChange = (field: keyof VehicleInfo, value: string) => {
-    if (viewMode) return;
-    setFormData(prev => ({
-      ...prev,
-      vehicle: {
-        ...prev.vehicle,
-        [field]: value
-      }
-    }));
-  };
-
   if (!isOpen) return null;
 
   const getTitle = () => {
-    if (viewMode) return "View Inventory Item Details";
-    if (isEditing) return "Edit Inventory Item";
-    return "Add New Inventory Item";
+    if (viewMode) return "Product Details";
+    if (isEditing) return "Edit Product";
+    return "Add New Product";
   };
 
-  const numberInputClass = (readOnly: boolean) =>
-    `w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${readOnly ? "cursor-not-allowed opacity-70" : ""}`;
-
-  const calculateActualSoldPrice = () => {
-    const sell = parseFloat(formData.sell_price || "0");
-    const discount = parseFloat(formData.discount_rate || "0");
-    return (sell * (1 - discount / 100)).toFixed(2);
-  };
+  const formatCurrency = (val: number | string) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "LKR", minimumFractionDigits: 0 }).format(Number(val) || 0);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1e293b] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-        <div className="flex items-center justify-between p-6 border-b border-[#334155]">
-          <h2 className="text-xl font-semibold text-white">{getTitle()}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X size={24} />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#0f172a]/60">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+              <Package size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-white">{getTitle()}</h2>
+              <p className="text-xs text-gray-400">
+                {viewMode ? "View product information" : "Specify product name, cost, and selling price"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[#334155] transition-colors"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Product Info */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-white">Product Information</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">Product Name</label>
-                  <input
-                    type="text"
-                    value={formData.product_name}
-                    onChange={(e) =>
-                      !viewMode &&
-                      setFormData((prev) => ({ ...prev, product_name: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white ${viewMode ? "cursor-not-allowed opacity-70" : ""
-                      }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">Product Code</label>
-                  <input
-                    type="text"
-                    value={formData.product_code}
-                    onChange={(e) =>
-                      !viewMode &&
-                      setFormData((prev) => ({ ...prev, product_code: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white ${viewMode ? "cursor-not-allowed opacity-70" : ""
-                      }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">In Stock Quantity</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.quantity}
-                    onChange={(e) =>
-                      !viewMode && setFormData((prev) => ({ ...prev, quantity: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={numberInputClass(viewMode)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">Sold Quantity</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.sold_count}
-                    onChange={(e) =>
-                      !viewMode &&
-                      setFormData((prev) => ({ ...prev, sold_count: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={numberInputClass(viewMode)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Discount Rate (%)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={formData.discount_rate}
-                      onChange={(e) =>
-                        !viewMode &&
-                        setFormData((prev) => ({ ...prev, discount_rate: e.target.value }))
-                      }
-                      readOnly={viewMode}
-                      className={numberInputClass(viewMode)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-1">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        !viewMode &&
-                        setFormData((prev) => ({
-                          ...prev,
-                          status: e.target.value as any,
-                        }))
-                      }
-                      disabled={viewMode}
-                      className={numberInputClass(viewMode)}
-                    >
-                      <option value="in_stock">In Stock</option>
-                      <option value="out_of_stock">Out of Stock</option>
-                      <option value="discontinued">Discontinued</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Product Code Badge (Auto-generated) */}
+          <div className="bg-[#0f172a] border border-[#334155] rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Tag size={15} className="text-blue-400" />
+              <span className="text-xs font-medium text-gray-400">Product Code:</span>
             </div>
-
-            {/* Pricing & Vehicle */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-white">Pricing & Vehicle</h3>
-              <div className="space-y-4">
-                {/* Purchase Price, Sell Price */}
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">Purchase Price</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.purchase_price}
-                    onChange={(e) =>
-                      !viewMode && setFormData(prev => ({ ...prev, purchase_price: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={numberInputClass(viewMode)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">Sell Price</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.sell_price}
-                    onChange={(e) =>
-                      !viewMode && setFormData(prev => ({ ...prev, sell_price: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={numberInputClass(viewMode)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">Shipment Code</label>
-                  <input
-                    type="text"
-                    value={formData.shipment_code}
-                    onChange={(e) =>
-                      !viewMode &&
-                      setFormData((prev) => ({ ...prev, shipment_code: e.target.value }))
-                    }
-                    readOnly={viewMode}
-                    className={numberInputClass(viewMode)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-1">Brand</label>
-                    <input
-                      type="text"
-                      value={formData.vehicle.brand}
-                      onChange={(e) => handleVehicleChange("brand", e.target.value)}
-                      readOnly={viewMode}
-                      className={numberInputClass(viewMode)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-1">Model</label>
-                    <input
-                      type="text"
-                      value={formData.vehicle.model}
-                      onChange={(e) => handleVehicleChange("model", e.target.value)}
-                      readOnly={viewMode}
-                      className={numberInputClass(viewMode)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-1">Chassis No</label>
-                    <input
-                      type="text"
-                      value={formData.vehicle.chassis_no}
-                      onChange={(e) => handleVehicleChange("chassis_no", e.target.value)}
-                      readOnly={viewMode}
-                      className={numberInputClass(viewMode)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-1">Year</label>
-                    <input
-                      type="number"
-                      min="1900"
-                      max="2100"
-                      value={formData.vehicle.year}
-                      onChange={(e) => handleVehicleChange("year", e.target.value)}
-                      readOnly={viewMode}
-                      className={numberInputClass(viewMode)}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold text-blue-300 bg-blue-600/20 px-2 py-0.5 rounded border border-blue-500/30">
+                {formData.product_code || "Auto Generated"}
+              </span>
+              {!viewMode && !isEditing && (
+                <span className="text-[10px] text-gray-400 uppercase font-medium">Auto</span>
+              )}
             </div>
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-[#334155]">
-            <p className="text-sm text-gray-400">
-              {updatedAt && (
-                <>
-                  <span className="text-xs text-gray-400">Last Updated At:</span> <br />
-                  <span className="text-sm text-white">{updatedAt}</span>
-                </>
-              )}
-            </p>
+          {/* Product Name */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Product Name {!viewMode && <span className="text-red-400">*</span>}
+            </label>
+            <input
+              type="text"
+              value={formData.product_name}
+              onChange={e => {
+                if (!viewMode) {
+                  setFormData(prev => ({ ...prev, product_name: e.target.value }));
+                  if (errors.product_name) setErrors(prev => ({ ...prev, product_name: "" }));
+                }
+              }}
+              readOnly={viewMode}
+              placeholder="e.g. PVC Pressure Pipe 50mm"
+              className={`w-full bg-[#0f172a] border rounded-lg px-3.5 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                viewMode ? "cursor-default opacity-80" : errors.product_name ? "border-red-500" : "border-[#334155]"
+              }`}
+              autoFocus={!viewMode && !isEditing}
+            />
+            {errors.product_name && (
+              <p className="text-red-400 text-[11px] mt-1">{errors.product_name}</p>
+            )}
+          </div>
 
-            <p className="text-sm text-gray-400">
-              <span className="text-xs text-gray-400">Actual Sold Price:</span> <br />
-              <span className="text-lg font-bold text-green-400">{calculateActualSoldPrice()}</span>
-            </p>
-            
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-gray-300 hover:text-white"
-              >
-                {viewMode ? "Close" : "Cancel"}
-              </button>
-
-              {!viewMode && (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {loading ? "Saving..." : isEditing ? "Update Item" : "Create Item"}
-                </button>
+          {/* Cost and Selling Price in 2 Columns */}
+          <div className="grid grid-cols-2 gap-3.5">
+            {/* Cost Price */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Cost (LKR) {!viewMode && <span className="text-red-400">*</span>}
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.purchase_price}
+                onChange={e => {
+                  if (!viewMode) {
+                    setFormData(prev => ({ ...prev, purchase_price: e.target.value }));
+                    if (errors.purchase_price) setErrors(prev => ({ ...prev, purchase_price: "" }));
+                  }
+                }}
+                readOnly={viewMode}
+                placeholder="0.00"
+                className={`w-full bg-[#0f172a] border rounded-lg px-3.5 py-2.5 text-sm font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  viewMode ? "cursor-default opacity-80" : errors.purchase_price ? "border-red-500" : "border-[#334155]"
+                }`}
+              />
+              {errors.purchase_price && (
+                <p className="text-red-400 text-[11px] mt-1">{errors.purchase_price}</p>
               )}
             </div>
+
+            {/* Selling Price */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Selling Price (LKR) {!viewMode && <span className="text-red-400">*</span>}
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.sell_price}
+                onChange={e => {
+                  if (!viewMode) {
+                    setFormData(prev => ({ ...prev, sell_price: e.target.value }));
+                    if (errors.sell_price) setErrors(prev => ({ ...prev, sell_price: "" }));
+                  }
+                }}
+                readOnly={viewMode}
+                placeholder="0.00"
+                className={`w-full bg-[#0f172a] border rounded-lg px-3.5 py-2.5 text-sm font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  viewMode ? "cursor-default opacity-80" : errors.sell_price ? "border-red-500" : "border-[#334155]"
+                }`}
+              />
+              {errors.sell_price && (
+                <p className="text-red-400 text-[11px] mt-1">{errors.sell_price}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Selling Quantity (View / Details info) */}
+          {viewMode && (
+            <div className="bg-[#0f172a]/70 border border-[#334155] rounded-xl p-3.5 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-400">Total Selling Quantity:</span>
+              <span className="text-sm font-bold text-emerald-400 font-mono">
+                {formData.sold_count} PCS
+              </span>
+            </div>
+          )}
+
+          {/* Auto-Calculated Profit Margin Card */}
+          {Number(formData.sell_price) > 0 && Number(formData.purchase_price) > 0 && (
+            <div className="bg-[#0f172a] border border-emerald-500/30 rounded-xl p-3.5 flex items-center justify-between shadow-inner">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+                  <TrendingUp size={15} />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-gray-300 block">Auto Profit Margin</span>
+                  <span className="text-[11px] text-gray-500">Calculated from Selling Price - Cost</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className={`font-mono text-sm font-bold block ${
+                  Number(formData.sell_price) >= Number(formData.purchase_price) ? "text-emerald-400" : "text-red-400"
+                }`}>
+                  {formatCurrency(Number(formData.sell_price) - Number(formData.purchase_price))}
+                </span>
+                <span className="text-[11px] font-mono text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30 inline-block mt-0.5">
+                  {(
+                    ((Number(formData.sell_price) - Number(formData.purchase_price)) /
+                      Number(formData.sell_price)) *
+                    100
+                  ).toFixed(1)}% Margin
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Footer Actions */}
+          <div className="flex justify-end items-center gap-3 pt-3 border-t border-[#334155] mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 rounded-lg text-xs font-medium transition-colors"
+            >
+              {viewMode ? "Close" : "Cancel"}
+            </button>
+
+            {!viewMode && (
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50"
+              >
+                {loading ? (
+                  "Saving..."
+                ) : isEditing ? (
+                  <>
+                    <Check size={14} /> Update Product
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} /> Add Product
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </form>
       </div>

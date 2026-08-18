@@ -53,49 +53,40 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
   const renderCustomerDetails = () => {
     const details = [];
+    const cust = invoiceData.customerDetails as any;
     
-    if (!invoiceData.customerDetails) {
+    if (!cust) {
       details.push(<div key="no-customer">Customer information not available</div>);
       return details;
     }
     
     // Add address if it exists
-    if (invoiceData.customerDetails.address) {
-      const addressParts = [];
-      if (invoiceData.customerDetails.address.street) {
-        addressParts.push(invoiceData.customerDetails.address.street);
-      }
-      if (invoiceData.customerDetails.address.city) {
-        addressParts.push(invoiceData.customerDetails.address.city);
-      }
-      if (invoiceData.customerDetails.address.country) {
-        addressParts.push(invoiceData.customerDetails.address.country);
-      }
-      if (invoiceData.customerDetails.address.zip) {
-        addressParts.push(invoiceData.customerDetails.address.zip);
-      }
-      
-      if (addressParts.length > 0) {
-        details.push(<div key="address">{addressParts.join(', ')}</div>);
+    if (cust.address) {
+      if (typeof cust.address === 'string') {
+        details.push(<div key="address">{cust.address}</div>);
+      } else {
+        const addressParts = [];
+        if (cust.address.street) addressParts.push(cust.address.street);
+        if (cust.address.city) addressParts.push(cust.address.city);
+        if (cust.address.country) addressParts.push(cust.address.country);
+        if (cust.address.zip) addressParts.push(cust.address.zip);
+        if (addressParts.length > 0) {
+          details.push(<div key="address">{addressParts.join(', ')}</div>);
+        }
       }
     }
     
     // Add date 
     details.push(<div key="date">{formatDate(invoiceData.issueDate)}</div>);
     
-    // Add email only if it exists
-    if (invoiceData.customerDetails.email) {
-      details.push(<div key="email">{invoiceData.customerDetails.email}</div>);
-    }
-    
     // Add phone only if it exists
-    if (invoiceData.customerDetails.phone) {
-      details.push(<div key="phone">{invoiceData.customerDetails.phone}</div>);
+    if (cust.phone) {
+      details.push(<div key="phone">{cust.phone}</div>);
     }
     
     // Add VAT number only if it exists
-    if (invoiceData.customerDetails.vatNumber) {
-      details.push(<div key="vat">VAT: {invoiceData.customerDetails.vatNumber}</div>);
+    if (cust.vatNumber) {
+      details.push(<div key="vat">VAT: {cust.vatNumber}</div>);
     }
     
     return details;
@@ -297,10 +288,16 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   paddingLeft: '2mm', 
                   fontWeight: 'bold',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                   height: '100%'
                 }}>
-                  {item.itemName || item.item || `ITEM NAME / DESCRIPTION`}
+                  <span>{item.itemName || item.item || `ITEM NAME / DESCRIPTION`}</span>
+                  {item.discountAmount && item.discountAmount > 0 ? (
+                    <span style={{ fontSize: '9px', color: '#dc2626', fontWeight: 'normal' }}>
+                      (Disc: -LKR {item.discountAmount.toFixed(2)}{item.discountValue ? ` • ${item.discountValue}${item.discountType === 'percentage' ? '%' : ' Rs.'}` : ''})
+                    </span>
+                  ) : null}
                 </div>
                 <div style={{ 
                   textAlign: 'center',

@@ -1,24 +1,7 @@
 import React, { useRef } from 'react';
 import { Search, UserPlus, User, X, Edit, Eye } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
-
-interface Customer {
-  _id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  vatNumber: string;
-  address?: {
-    street?: string;
-    city?: string;
-    country?: string;
-    zip?: string;
-  };
-  vehicle_number?: string;
-  vehicle_model?: string;
-  year_of_manufacture?: number;
-  customerCode?: string;
-}
+import type { Customer } from '../../hooks/useCustomerSearch';
 
 interface CustomerSearchAndManagementProps {
   searchTerm: string;
@@ -60,7 +43,7 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
         {selectedCustomer && (
           <div className="flex items-center gap-2 text-green-400 text-sm">
             <User className="w-4 h-4" />
-            <span>Customer: {selectedCustomer.fullName}</span>
+            <span>Customer: {selectedCustomer.shopName || selectedCustomer.fullName}</span>
             <div className="flex items-center gap-1 ml-2">
               <button
                 onClick={onViewCustomer}
@@ -105,16 +88,13 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
             onChange={(e) => {
               const value = e.target.value;
               onSearchChange(value);
-              onShowSuggestionsChange(value.trim().length >= 2);
+              onShowSuggestionsChange(true);
             }}
-            onFocus={() => {
-              if (searchTerm.trim().length >= 2 && filteredCustomers.length > 0) {
-                onShowSuggestionsChange(true);
-              }
-            }}
-            placeholder="Type to search customers..."
-            className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-10 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Search customers by phone, name, or email"
+            onFocus={() => onShowSuggestionsChange(true)}
+            onClick={() => onShowSuggestionsChange(true)}
+            placeholder="Search by shop name, contact person, or phone..."
+            className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-10 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+            aria-label="Search by customer name"
           />
           {searchTerm && (
             <button
@@ -127,32 +107,33 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
           )}
           
           {/* Customer Search Suggestions Dropdown */}
-          {showSuggestions && searchTerm.trim().length >= 2 && (
+          {showSuggestions && (
             <div className="absolute z-20 w-full mt-1 bg-[#0f172a] border border-[#334155] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase bg-[#1e293b]/60 flex justify-between">
+                <span>{searchTerm ? `Matching customers (${filteredCustomers.length})` : `All available customers (${filteredCustomers.length})`}</span>
+                <span className="text-[10px] text-gray-500">Customer Name</span>
+              </div>
               {filteredCustomers.length === 0 ? (
-                <div className="px-3 py-2 text-gray-400 text-sm italic border-b border-[#334155]">
-                  No customers found "{searchTerm}"
+                <div className="px-3 py-3 text-gray-400 text-sm italic border-b border-[#334155]">
+                  No customers found matching "{searchTerm}"
                 </div>
               ) : (
                 filteredCustomers.map((customer) => (
                   <div
                     key={customer._id}
-                    className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150"
+                    className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150 text-xs"
                     onClick={() => onCustomerSelect(customer)}
                   >
-                    <div className="font-medium text-white">{customer.fullName || 'Unnamed Customer'}</div>
-                    <div className="text-sm text-gray-400 flex justify-between mt-1">
+                    <div className="font-medium text-white">{customer.shopName || customer.fullName || 'Unnamed Customer'}</div>
+                    <div className="text-[11px] text-gray-400 flex justify-between mt-1">
                       <span>Phone: {customer.phone || 'N/A'}</span>
-                      <span className="text-blue-400">{customer.email || 'No email'}</span>
+                      <span className="text-cyan-400 font-mono">{customer.customerCode || ''}</span>
                     </div>
-                    {customer.address && (customer.address.street || customer.address.city) && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Address: {customer.address.street} {customer.address.city} {customer.address.country}
-                      </div>
-                    )}
-                    {customer.vehicle_number && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Vehicle: {customer.vehicle_number} {customer.vehicle_model && `(${customer.vehicle_model})`}
+                    {customer.address && (
+                      <div className="text-[11px] text-gray-400 mt-0.5">
+                        Address: {typeof customer.address === 'string'
+                          ? customer.address
+                          : `${customer.address.street || ''} ${customer.address.city || ''}`}
                       </div>
                     )}
                   </div>
@@ -162,9 +143,11 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
           )}
         </div>
         <div className="text-xs text-gray-500 mt-1">
-          Search by phone number, name, or email.
+          Search by shop name, contact person, or phone number.
         </div>
       </div>
     </div>
   );
 };
+
+export default CustomerSearchAndManagement;

@@ -28,7 +28,7 @@ interface DataTableProps<T> {
   totalPages?: number;
   totalItems?: number;
   itemsPerPage?: number;
-  onPageChange?: (page: number) => void;
+  onPageChange?: (page: number) => number | void;
 }
 
 function DataTable<T>({
@@ -58,16 +58,33 @@ function DataTable<T>({
   return (
     <div className={`flex flex-col ${className}`}>
       {/* Table Container */}
-      <div className="overflow-x-auto rounded-xl border border-[#334155] bg-[#1e293b]">
+      <div
+        className="overflow-x-auto rounded-xl"
+        style={{
+          border: '1px solid var(--border-color)',
+          backgroundColor: 'var(--bg-card)',
+        }}
+      >
         <table className="min-w-full border-collapse">
           <thead>
-            <tr className="bg-[#1e293b] text-gray-200 text-sm border-b border-[#334155]">
+            <tr style={{ backgroundColor: 'var(--bg-table-header)', borderBottom: '1px solid var(--border-color)' }}>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  style={{ width: col.width, minWidth: col.minWidth }}
-                  className={`p-3 font-semibold ${getAlignClass(col.align)} ${
-                    col.sortable ? 'cursor-pointer select-none hover:text-white hover:bg-[#334155]' : ''
+                  style={{
+                    fontSize: '0.78rem',
+                    letterSpacing: '0.05em',
+                    width: col.width,
+                    minWidth: col.minWidth,
+                    color: 'var(--text-secondary)',
+                    backgroundColor: 'var(--bg-table-header)',
+                    padding: '0.875rem 1rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    borderBottom: '1px solid var(--border-color)',
+                  }}
+                  className={`${getAlignClass(col.align)} ${
+                    col.sortable ? 'cursor-pointer select-none' : ''
                   }`}
                   onClick={() => col.sortable && onSort && onSort(col.key)}
                 >
@@ -82,7 +99,7 @@ function DataTable<T>({
                           ? <ChevronUp size={14} className="text-blue-400" />
                           : <ChevronDown size={14} className="text-blue-400" />
                       ) : (
-                        <ArrowUpDown size={14} className="text-slate-500 opacity-60 hover:opacity-100" />
+                        <ArrowUpDown size={14} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />
                       )
                     )}
                   </div>
@@ -93,9 +110,9 @@ function DataTable<T>({
           <tbody>
             {loading ? (
               Array.from({ length: 5 }).map((_, idx) => (
-                <tr key={idx} className="bg-[#0f172a]">
+                <tr key={idx} style={{ backgroundColor: 'var(--bg-table-row-odd)' }}>
                   {columns.map((col) => (
-                    <td key={col.key} className="p-3">
+                    <td key={col.key} className="px-4 py-3.5">
                       <div className="skeleton-text rounded w-3/4 h-4" />
                     </td>
                   ))}
@@ -103,10 +120,10 @@ function DataTable<T>({
               ))
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center py-12 text-gray-400">
-                  <div className="flex flex-col items-center gap-2">
-                    <Inbox size={36} className="text-slate-500 stroke-[1.5]" />
-                    <p className="text-sm font-medium text-gray-300">{emptyMessage}</p>
+                <td colSpan={columns.length} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex flex-col items-center gap-3">
+                    <Inbox size={40} style={{ color: 'var(--text-muted)', opacity: 0.6 }} className="stroke-[1.5]" />
+                    <p className="font-medium" style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>{emptyMessage}</p>
                   </div>
                 </td>
               </tr>
@@ -115,12 +132,27 @@ function DataTable<T>({
                 <tr
                   key={keyExtractor(row)}
                   onClick={() => onRowClick && onRowClick(row)}
-                  className={`border-b border-[#334155]/60 transition-colors ${
-                    idx % 2 ? 'bg-[#111b2d]' : 'bg-[#0f172a]'
-                  } ${onRowClick ? 'cursor-pointer hover:bg-[#1e293b]' : 'hover:bg-[#1e293b]'}`}
+                  className="transition-colors"
+                  style={{
+                    borderBottom: '1px solid var(--border-color)',
+                    backgroundColor: idx % 2 ? 'var(--bg-table-row-even)' : 'var(--bg-table-row-odd)',
+                    cursor: onRowClick ? 'pointer' : 'default',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--bg-table-row-hover)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLTableRowElement).style.backgroundColor = idx % 2
+                      ? 'var(--bg-table-row-even)'
+                      : 'var(--bg-table-row-odd)';
+                  }}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={`p-3 text-sm text-gray-300 ${getAlignClass(col.align)}`}>
+                    <td
+                      key={col.key}
+                      className={getAlignClass(col.align)}
+                      style={{ padding: '0.875rem 1rem', color: 'var(--text-secondary)', fontSize: '0.9rem', verticalAlign: 'middle' }}
+                    >
                       {col.render ? col.render(row, idx) : (row as any)[col.key]}
                     </td>
                   ))}
@@ -133,21 +165,27 @@ function DataTable<T>({
 
       {/* Pagination Footer */}
       {totalPages && totalPages > 1 && onPageChange && currentPage && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4" style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
           <div>
             Showing{' '}
-            <span className="text-white font-medium">
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
               {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, totalItems || 0)}
             </span>{' '}
             of{' '}
-            <span className="text-white font-medium">{totalItems || 0}</span>{' '}
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{totalItems || 0}</span>{' '}
             entries
           </div>
           <div className="flex items-center gap-2">
             <button
               disabled={currentPage === 1}
               onClick={() => onPageChange(currentPage - 1)}
-              className="px-3 py-1.5 rounded-lg text-sm bg-[#1e293b] border border-[#334155] text-gray-200 hover:bg-[#334155] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3.5 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.875rem',
+              }}
             >
               Previous
             </button>
@@ -163,11 +201,14 @@ function DataTable<T>({
                   <button
                     key={pageNum}
                     onClick={() => onPageChange(pageNum)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === pageNum
-                        ? 'bg-blue-600 text-white font-semibold'
-                        : 'bg-[#1e293b] text-gray-300 border border-[#334155] hover:bg-[#334155]'
-                    }`}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg font-medium transition-colors"
+                    style={{
+                      fontSize: '0.875rem',
+                      backgroundColor: currentPage === pageNum ? '#2563eb' : 'var(--bg-card)',
+                      color: currentPage === pageNum ? '#ffffff' : 'var(--text-secondary)',
+                      border: `1px solid ${currentPage === pageNum ? '#2563eb' : 'var(--border-color)'}`,
+                      fontWeight: currentPage === pageNum ? 600 : 400,
+                    }}
                   >
                     {pageNum}
                   </button>
@@ -176,7 +217,7 @@ function DataTable<T>({
                 (pageNum === 2 && currentPage > 3) ||
                 (pageNum === totalPages - 1 && currentPage < totalPages - 2)
               ) {
-                return <span key={pageNum} className="px-1 text-gray-500">...</span>;
+                return <span key={pageNum} className="px-1" style={{ color: 'var(--text-muted)' }}>...</span>;
               }
               return null;
             })}
@@ -184,7 +225,13 @@ function DataTable<T>({
             <button
               disabled={currentPage === totalPages}
               onClick={() => onPageChange(currentPage + 1)}
-              className="px-3 py-1.5 rounded-lg text-sm bg-[#1e293b] border border-[#334155] text-gray-200 hover:bg-[#334155] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3.5 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.875rem',
+              }}
             >
               Next
             </button>

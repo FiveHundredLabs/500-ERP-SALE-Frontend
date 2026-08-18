@@ -1,10 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../erp';
 import type { Column } from '../erp/DataTable';
 import { mockCustomers as initialCustomers } from '../../data/mockCustomers';
-import type { Customer, CustomerCreateDto, CustomerTypeValue, CustomerStatusValue } from '../../types/customers';
-import { Plus, Eye, Edit2, Trash2, X } from 'lucide-react';
+import { mockSalesOfficers } from '../../data/mockSalesOfficers';
+import type { Customer, CustomerCreateDto, CustomerStatusValue } from '../../types/customers';
+import { extractCityFromAddress } from '../../types/customers';
+import { 
+  Plus, 
+  Eye,
+  Edit2,
+  Trash2, 
+  X, 
+  MessageCircle, 
+  Phone, 
+  MoreVertical, 
+  UserCheck, 
+  MapPin
+} from 'lucide-react';
+import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 
 const CustomersTab: React.FC = () => {
   const navigate = useNavigate();
@@ -15,13 +29,28 @@ const CustomersTab: React.FC = () => {
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [salesRepFilter, setSalesRepFilter] = useState('');
 
   // Table state
-  const [sortColumn, setSortColumn] = useState('businessName');
+  const [sortColumn, setSortColumn] = useState('shopName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Active three-dot menu ID
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close three-dot menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setActiveMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -30,51 +59,97 @@ const CustomersTab: React.FC = () => {
 
   // Form state
   const [formData, setFormData] = useState<CustomerCreateDto>({
-    businessName: '',
+    shopName: '',
     contactPerson: '',
     phone: '',
-    email: '',
+    phone2: '',
+    phone3: '',
     address: '',
-    city: '',
-    customerType: 'Hardware Shop',
-    status: 'Active',
     creditLimit: 1000000,
-    paymentTerms: 'Net 30',
+    salesRep: 'Kasun Perera',
+    salesRepName: 'Kasun Perera',
+    status: 'Active',
+    notes: '',
   });
-
-  const typeOptions = [
-    { value: 'Hardware Shop', label: 'Hardware Shop' },
-    { value: 'Retailer', label: 'Retailer' },
-    { value: 'Contractor', label: 'Contractor' },
-    { value: 'Distributor', label: 'Distributor' },
-    { value: 'Other', label: 'Other' },
-  ];
 
   const statusOptions = [
     { value: 'Active', label: 'Active' },
     { value: 'Inactive', label: 'Inactive' },
   ];
 
+  const salesRepOptions = useMemo(() => {
+    return [
+      { value: '', label: 'All Sales Reps' },
+      ...mockSalesOfficers.map(s => ({ value: s.fullName, label: s.fullName })),
+    ];
+  }, []);
+
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+
+    // 1. Customer Names
+    customers.forEach(c => {
+      const name = c.shopName || c.businessName || '';
+      const rep = c.salesRepName || (typeof c.salesRep === 'object' ? c.salesRep.name : c.salesRep) || '';
+      suggestions.push({
+        id: `c-name-${c.id}`,
+        title: name,
+        subtitle: `${c.contactPerson ? `${c.contactPerson} · ` : ''}WA: ${c.phone} · ${c.city || extractCityFromAddress(c.address)} ${rep ? `· Rep: ${rep}` : ''}`,
+        category: 'Shop / Customer',
+        value: name,
+      });
+    });
+
+    // 2. Customer IDs
+    customers.forEach(c => {
+      suggestions.push({
+        id: `c-id-${c.id}`,
+        title: c.customerId,
+        subtitle: `${c.shopName || c.businessName} · ${c.city || extractCityFromAddress(c.address)}`,
+        category: 'Customer ID',
+        value: c.customerId,
+      });
+    });
+
+    return suggestions;
+  }, [customers]);
+
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
+      const name = (c.shopName || c.businessName || '').toLowerCase();
+      const contact = (c.contactPerson || '').toLowerCase();
+      const rep = (c.salesRepName || (typeof c.salesRep === 'object' ? c.salesRep.name : c.salesRep) || '').toLowerCase();
+      const city = (c.city || extractCityFromAddress(c.address) || '').toLowerCase();
+      const addr = (c.address || '').toLowerCase();
+      const query = searchQuery.toLowerCase().trim();
+
       const matchesSearch =
-        searchQuery === '' ||
-        c.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.customerId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.city.toLowerCase().includes(searchQuery.toLowerCase());
+        query === '' ||
+        name.includes(query) ||
+        contact.includes(query) ||
+        c.customerId.toLowerCase().includes(query) ||
+        c.phone.toLowerCase().includes(query) ||
+        (c.phone2 && c.phone2.toLowerCase().includes(query)) ||
+        (c.phone3 && c.phone3.toLowerCase().includes(query)) ||
+        rep.includes(query) ||
+        city.includes(query) ||
+        addr.includes(query);
 
       const matchesStatus = statusFilter === '' || c.status === statusFilter;
-      const matchesType = typeFilter === '' || c.customerType === typeFilter;
+      const matchesSalesRep = salesRepFilter === '' || rep.includes(salesRepFilter.toLowerCase());
 
-      return matchesSearch && matchesStatus && matchesType;
+      return matchesSearch && matchesStatus && matchesSalesRep;
     });
-  }, [customers, searchQuery, statusFilter, typeFilter]);
+  }, [customers, searchQuery, statusFilter, salesRepFilter]);
 
   const sortedCustomers = useMemo(() => {
     return [...filteredCustomers].sort((a, b) => {
-      const valA = (a as any)[sortColumn];
-      const valB = (b as any)[sortColumn];
+      let valA = (a as any)[sortColumn];
+      let valB = (b as any)[sortColumn];
+      if (sortColumn === 'shopName') {
+        valA = a.shopName || a.businessName || '';
+        valB = b.shopName || b.businessName || '';
+      }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
@@ -97,36 +172,65 @@ const CustomersTab: React.FC = () => {
   };
 
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
+    `LKR ${Math.round(val || 0).toLocaleString()}/=`;
 
   // Submit Handler (Add or Edit)
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.businessName || !formData.contactPerson || !formData.phone) {
+    if (!formData.shopName || !formData.phone || !formData.address) {
       return;
     }
 
+    const city = extractCityFromAddress(formData.address);
+
     if (editCustomer) {
       // Edit
+      const updated: Customer = {
+        ...editCustomer,
+        ...formData,
+        shopName: formData.shopName,
+        businessName: formData.shopName,
+        city,
+        updatedAt: new Date().toISOString(),
+      };
       setCustomers((prev) =>
-        prev.map((c) => (c.id === editCustomer.id ? { ...c, ...formData, updatedAt: new Date().toISOString() } : c))
+        prev.map((c) => (c.id === editCustomer.id ? updated : c))
       );
-      success('Customer Updated', `Successfully updated ${formData.businessName}.`);
+      const foundIdx = initialCustomers.findIndex(c => c.id === editCustomer.id);
+      if (foundIdx !== -1) {
+        initialCustomers[foundIdx] = updated;
+      }
+      success('Customer Updated', `Successfully updated ${formData.shopName}.`);
       setEditCustomer(null);
     } else {
       // Add
       const newCust: Customer = {
         id: Math.random().toString(36).substr(2, 9),
         customerId: `CUST-${Math.floor(10000 + Math.random() * 90000)}`,
-        ...formData,
-        totalOrders: 0,
+        shopName: formData.shopName,
+        businessName: formData.shopName,
+        contactPerson: formData.contactPerson || '',
+        phone: formData.phone,
+        phone2: formData.phone2,
+        phone3: formData.phone3,
+        address: formData.address,
+        city,
+        creditLimit: formData.creditLimit,
+        salesRep: formData.salesRep,
+        salesRepName: formData.salesRepName || formData.salesRep,
+        status: formData.status || 'Active',
+        totalInvoiced: 0,
+        totalPaid: 0,
         totalSales: 0,
         outstandingBalance: 0,
+        totalOrders: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        notes: formData.notes,
       };
       setCustomers((prev) => [newCust, ...prev]);
-      success('Customer Created', `Added ${formData.businessName} to database.`);
+      initialCustomers.unshift(newCust);
+      success('Customer Created', `Added ${formData.shopName} to database.`);
     }
 
     setShowAddModal(false);
@@ -135,102 +239,138 @@ const CustomersTab: React.FC = () => {
 
   const handleOpenEdit = (customer: Customer) => {
     setEditCustomer(customer);
+    const rep = customer.salesRepName || (typeof customer.salesRep === 'object' ? customer.salesRep.name : customer.salesRep) || '';
     setFormData({
-      businessName: customer.businessName,
-      contactPerson: customer.contactPerson,
+      shopName: customer.shopName || customer.businessName || '',
+      contactPerson: customer.contactPerson || '',
       phone: customer.phone,
-      email: customer.email || '',
+      phone2: customer.phone2 || '',
+      phone3: customer.phone3 || '',
       address: customer.address,
-      city: customer.city,
-      customerType: customer.customerType,
+      creditLimit: customer.creditLimit || 1000000,
+      salesRep: rep,
+      salesRepName: rep,
       status: customer.status,
-      creditLimit: customer.creditLimit,
-      paymentTerms: customer.paymentTerms,
       notes: customer.notes || '',
     });
+    setActiveMenuId(null);
     setShowAddModal(true);
   };
 
   const handleDeleteConfirm = () => {
     if (!deleteCustomer) return;
     setCustomers((prev) => prev.filter((c) => c.id !== deleteCustomer.id));
-    success('Customer Deleted', `Deleted customer ${deleteCustomer.businessName}.`);
+    const foundIdx = initialCustomers.findIndex(c => c.id === deleteCustomer.id);
+    if (foundIdx !== -1) {
+      initialCustomers.splice(foundIdx, 1);
+    }
+    success('Customer Deleted', `Deleted customer ${deleteCustomer.shopName || deleteCustomer.businessName}.`);
     setDeleteCustomer(null);
   };
 
   const resetForm = () => {
     setFormData({
-      businessName: '',
+      shopName: '',
       contactPerson: '',
       phone: '',
-      email: '',
+      phone2: '',
+      phone3: '',
       address: '',
-      city: '',
-      customerType: 'Hardware Shop',
-      status: 'Active',
       creditLimit: 1000000,
-      paymentTerms: 'Net 30',
+      salesRep: 'Kasun Perera',
+      salesRepName: 'Kasun Perera',
+      status: 'Active',
+      notes: '',
     });
   };
 
+  // Columns: Removed Type, Removed Orders, Added Sales Rep, Compact Three-Dot Menu
   const columns: Column<Customer>[] = [
     {
       key: 'customerId',
       header: 'Customer ID',
       sortable: true,
-      minWidth: '110px',
+      minWidth: '100px',
       render: (row) => <span className="font-mono text-cyan-400 font-bold text-xs">{row.customerId}</span>,
     },
     {
-      key: 'businessName',
-      header: 'Shop / Business Name',
+      key: 'shopName',
+      header: 'Shop Name & Address',
       sortable: true,
-      minWidth: '190px',
-      render: (row) => (
-        <div>
-          <p className="font-semibold text-slate-200 text-sm leading-tight truncate max-w-[200px]">{row.businessName}</p>
-          <p className="text-[11px] text-slate-500 truncate">{row.address}, {row.city}</p>
-        </div>
-      ),
+      minWidth: '220px',
+      render: (row) => {
+        const city = row.city || extractCityFromAddress(row.address);
+        return (
+          <div className="min-w-0">
+            <p className="font-bold text-slate-100 text-xs leading-tight truncate">{row.shopName || row.businessName}</p>
+            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-400 truncate">
+              <MapPin size={10} className="text-slate-500 shrink-0" />
+              <span className="truncate">{row.address}</span>
+              {city && (
+                <span className="shrink-0 px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300 font-medium">
+                  {city}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: 'contactPerson',
-      header: 'Contact',
-      minWidth: '140px',
+      header: 'Contact & WhatsApp',
+      minWidth: '170px',
       render: (row) => (
-        <div>
-          <p className="text-xs text-slate-300 font-semibold">{row.contactPerson}</p>
-          <p className="text-[11px] text-slate-500 font-mono">{row.phone}</p>
+        <div className="min-w-0">
+          {row.contactPerson ? (
+            <p className="text-xs text-slate-200 font-medium truncate">{row.contactPerson}</p>
+          ) : (
+            <p className="text-[11px] text-slate-500 italic">No contact person</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <a
+              href={`https://wa.me/${cleanWhatsAppNumber(row.phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-medium transition"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle size={11} className="text-emerald-400" />
+              <span>{row.phone}</span>
+            </a>
+          </div>
         </div>
       ),
     },
     {
-      key: 'customerType',
-      header: 'Type',
+      key: 'salesRep',
+      header: 'Sales Rep',
       sortable: true,
-      minWidth: '100px',
-      render: (row) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800/80 text-slate-400 border border-slate-700">
-          {row.customerType}
-        </span>
-      ),
+      minWidth: '130px',
+      render: (row) => {
+        const rep = row.salesRepName || (typeof row.salesRep === 'object' ? row.salesRep.name : row.salesRep);
+        return rep ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[11px] font-medium truncate max-w-[130px]">
+            <UserCheck size={11} className="text-blue-400 shrink-0" />
+            <span className="truncate">{rep}</span>
+          </span>
+        ) : (
+          <span className="text-slate-500 text-xs font-mono">—</span>
+        );
+      },
     },
     {
-      key: 'totalOrders',
-      header: 'Orders',
-      align: 'center',
-      minWidth: '70px',
-      render: (row) => (
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-slate-800/80 text-slate-300 border border-slate-700">{row.totalOrders}</span>
-      ),
-    },
-    {
-      key: 'totalSales',
-      header: 'Total Sales',
+      key: 'creditLimit',
+      header: 'Credit Limit',
       sortable: true,
       align: 'right',
-      minWidth: '120px',
-      render: (row) => <span className="font-bold text-slate-100 font-mono">{formatCurrency(row.totalSales)}</span>,
+      minWidth: '110px',
+      render: (row) => (
+        <span className="font-mono text-xs text-slate-300 font-medium">
+          {formatCurrency(row.creditLimit || 0)}
+        </span>
+      ),
     },
     {
       key: 'outstandingBalance',
@@ -239,9 +379,14 @@ const CustomersTab: React.FC = () => {
       align: 'right',
       minWidth: '120px',
       render: (row) => (
-        <span className={`font-mono font-bold ${row.outstandingBalance > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
-          {formatCurrency(row.outstandingBalance)}
-        </span>
+        <div className="text-right">
+          <span className={`font-mono font-bold text-xs ${row.outstandingBalance > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+            {formatCurrency(row.outstandingBalance || 0)}
+          </span>
+          {row.outstandingBalance > 0 && (
+            <p className="text-[10px] text-amber-500/80 font-medium">Pending</p>
+          )}
+        </div>
       ),
     },
     {
@@ -253,33 +398,67 @@ const CustomersTab: React.FC = () => {
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: '',
       align: 'right',
-      render: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => navigate(`/users/customers/${row.id}`)}
-            className="p-1 rounded text-slate-400 hover:text-blue-400 hover:bg-slate-800"
-            title="View Details"
-          >
-            <Eye size={15} />
-          </button>
-          <button
-            onClick={() => handleOpenEdit(row)}
-            className="p-1 rounded text-slate-400 hover:text-emerald-400 hover:bg-slate-800"
-            title="Edit Customer"
-          >
-            <Edit2 size={15} />
-          </button>
-          <button
-            onClick={() => setDeleteCustomer(row)}
-            className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-800"
-            title="Delete Customer"
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ),
+      minWidth: '50px',
+      render: (row) => {
+        const isMenuOpen = activeMenuId === row.id;
+
+        return (
+          <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setActiveMenuId(isMenuOpen ? null : row.id)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              title="Customer Actions"
+              aria-label="Actions menu"
+            >
+              <MoreVertical size={16} />
+            </button>
+
+            {/* Three-Dot Floating Dropdown Menu */}
+            {isMenuOpen && (
+              <div 
+                ref={menuRef}
+                className="absolute right-0 top-8 z-50 w-44 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-[#334155]/60 animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div className="p-1 space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setActiveMenuId(null);
+                      navigate(`/customers/${row.id}`);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
+                  >
+                    <Eye size={14} className="text-blue-400" />
+                    <span>View Details</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenEdit(row)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
+                  >
+                    <Edit2 size={14} className="text-purple-400" />
+                    <span>Edit Customer</span>
+                  </button>
+                </div>
+
+                <div className="p-1">
+                  <button
+                    onClick={() => {
+                      setActiveMenuId(null);
+                      setDeleteCustomer(row);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
+                  >
+                    <Trash2 size={14} className="text-red-400" />
+                    <span>Delete Customer</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -288,22 +467,23 @@ const CustomersTab: React.FC = () => {
       {/* Header bar within tab */}
       <div className="erp-card mb-6 p-0 overflow-hidden">
         <FilterBar
-          searchPlaceholder="Search customer, ID, city, phone..."
+          searchPlaceholder="Search by shop name, contact, phone, city, rep..."
           searchValue={searchQuery}
           onSearchChange={(val) => {
             setSearchQuery(val);
             setCurrentPage(1);
           }}
+          suggestions={searchSuggestions}
           selects={[
             {
-              value: typeFilter,
+              value: salesRepFilter,
               onChange: (val) => {
-                setTypeFilter(val);
+                setSalesRepFilter(val);
                 setCurrentPage(1);
               },
-              options: typeOptions,
-              placeholder: 'All Customer Types',
-              width: 'w-40',
+              options: salesRepOptions,
+              placeholder: 'All Sales Reps',
+              width: 'w-44',
             },
             {
               value: statusFilter,
@@ -316,11 +496,11 @@ const CustomersTab: React.FC = () => {
               width: 'w-32',
             },
           ]}
-          hasActiveFilters={searchQuery !== '' || statusFilter !== '' || typeFilter !== ''}
+          hasActiveFilters={searchQuery !== '' || statusFilter !== '' || salesRepFilter !== ''}
           onClearFilters={() => {
             setSearchQuery('');
             setStatusFilter('');
-            setTypeFilter('');
+            setSalesRepFilter('');
             setCurrentPage(1);
           }}
           rightContent={
@@ -330,9 +510,9 @@ const CustomersTab: React.FC = () => {
                 resetForm();
                 setShowAddModal(true);
               }}
-              className="erp-btn erp-btn-primary erp-btn-sm gap-1.5"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95 hover:shadow-blue-600/30"
             >
-              <Plus size={14} /> Add Customer
+              <Plus size={15} /> Add Customer
             </button>
           }
         />
@@ -342,7 +522,7 @@ const CustomersTab: React.FC = () => {
           columns={columns}
           data={paginatedCustomers}
           keyExtractor={(item) => item.id}
-          onRowClick={(item) => navigate(`/users/customers/${item.id}`)}
+          onRowClick={(item) => navigate(`/customers/${item.id}`)}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}
@@ -357,109 +537,197 @@ const CustomersTab: React.FC = () => {
 
       {/* Add / Edit Customer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
-          <div className="relative erp-card w-full max-w-lg animate-slideIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-semibold text-slate-100">
-                {editCustomer ? 'Edit Customer' : 'Add New Customer'}
-              </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-300">
+        <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0b132b] border border-[#1e293b] rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl relative text-slate-100 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#1e293b]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editCustomer ? 'Edit Customer Profile' : 'Add New Customer'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Set shop details, contact person, address, and assigned sales representative
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitForm} className="space-y-3 mt-4 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Business / Shop Name *</label>
-                <input
-                  required
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. Nirosha Enterprise"
-                  value={formData.businessName}
-                  onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                />
+            <form onSubmit={handleSubmitForm} className="space-y-4 text-xs">
+              {/* General Info */}
+              <div className="bg-[#111c3a]/80 border border-[#1e2e54] rounded-xl p-4 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">
+                      Shop Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
+                      placeholder="e.g. Nirosha Enterprise"
+                      value={formData.shopName}
+                      onChange={(e) => setFormData({ ...formData, shopName: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">
+                      Contact Person <span className="text-slate-500 font-normal text-[11px]">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
+                      placeholder="e.g. Nirosha Bandara"
+                      value={formData.contactPerson || ''}
+                      onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-300 font-semibold">
+                      Address <span className="text-rose-400">*</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-400">
+                      City automatically extracted after comma (e.g. "Main Street, Colombo")
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                      <MapPin size={13} />
+                    </div>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl pl-8.5 pr-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
+                      placeholder="e.g. 145, Baseline Road, Colombo 09"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
-                  <input
-                    required
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Nirosha Bandara"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  />
+              {/* Phone Numbers Section (Up to 3) */}
+              <div className="p-3.5 rounded-xl bg-[#0f2324]/60 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center justify-between pb-1.5 border-b border-emerald-500/20">
+                  <div className="flex items-center gap-1.5">
+                    <Phone size={13} className="text-emerald-400" />
+                    <span className="text-xs font-bold text-emerald-300">Contact Numbers</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1">
+                    <MessageCircle size={10} /> 1st Phone = WhatsApp Direct
+                  </span>
                 </div>
+
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Phone Number *</label>
+                  <label className="flex items-center justify-between text-slate-300 mb-1 font-semibold">
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <MessageCircle size={12} /> WhatsApp Number <span className="text-rose-400">*</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">Chat & Invoicing Target</span>
+                  </label>
                   <input
                     required
-                    type="text"
-                    className="erp-input"
-                    placeholder="077-123-4567"
+                    type="tel"
+                    className="w-full bg-[#071518] border border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-emerald-300 placeholder-slate-500 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    placeholder="e.g. +94705787818"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Email Address</label>
-                  <input
-                    type="email"
-                    className="erp-input"
-                    placeholder="info@shop.lk"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">
+                      Phone 2 <span className="text-slate-500 text-[10px]">(Landline / Office)</span>
+                    </label>
+                    <input
+                      type="tel"
+                      className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3.5 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      placeholder="e.g. 011-255-4321"
+                      value={formData.phone2 || ''}
+                      onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">
+                      Phone 3 <span className="text-slate-500 text-[10px]">(Secondary Mobile)</span>
+                    </label>
+                    <input
+                      type="tel"
+                      className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3.5 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      placeholder="e.g. 077-123-4567"
+                      value={formData.phone3 || ''}
+                      onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">City / Location *</label>
-                  <input
-                    required
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Colombo 09"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  />
+              </div>
+
+              {/* Credit Limit & Sales Representative */}
+              <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/40 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-1.5 border-b border-purple-500/20">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Credit & Sales Officer Assignment</span>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Street Address</label>
-                <input
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. 145, Baseline Road"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-purple-200 mb-1 font-semibold">Credit Limit (LKR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10000"
+                      className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      value={formData.creditLimit}
+                      onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-purple-200 mb-1 font-semibold">Sales Representative</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-400">
+                        <UserCheck size={13} />
+                      </div>
+                      <select
+                        className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-8.5 pr-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
+                        value={formData.salesRepName || formData.salesRep || ''}
+                        onChange={(e) => {
+                          const rep = e.target.value;
+                          setFormData({ 
+                            ...formData, 
+                            salesRep: rep,
+                            salesRepName: rep 
+                          });
+                        }}
+                      >
+                        <option value="">Unassigned</option>
+                        {mockSalesOfficers.map((so) => (
+                          <option key={so.id} value={so.fullName}>
+                            {so.fullName} ({so.assignedTerritory})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Customer Type</label>
+                  <label className="block text-purple-200 mb-1 font-semibold">Account Status</label>
                   <select
-                    className="erp-select w-full"
-                    value={formData.customerType}
-                    onChange={(e) => setFormData({ ...formData, customerType: e.target.value as CustomerTypeValue })}
-                  >
-                    {typeOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Status</label>
-                  <select
-                    className="erp-select w-full"
+                    className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
                   >
@@ -469,37 +737,19 @@ const CustomersTab: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Credit Limit (LKR)</label>
-                  <input
-                    type="number"
-                    className="erp-input"
-                    value={formData.creditLimit}
-                    onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Payment Terms</label>
-                  <input
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Net 30, COD"
-                    value={formData.paymentTerms}
-                    onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+              {/* Actions */}
+              <div className="pt-3 border-t border-[#1e293b] flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="erp-btn erp-btn-outline"
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-xl transition"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="erp-btn erp-btn-primary">
+                <button 
+                  type="submit" 
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30"
+                >
                   {editCustomer ? 'Save Changes' : 'Create Customer'}
                 </button>
               </div>
@@ -512,7 +762,7 @@ const CustomersTab: React.FC = () => {
       <ConfirmDialog
         isOpen={!!deleteCustomer}
         title="Delete Customer"
-        message={`Are you sure you want to delete ${deleteCustomer?.businessName}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${deleteCustomer?.shopName || deleteCustomer?.businessName}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         type="danger"

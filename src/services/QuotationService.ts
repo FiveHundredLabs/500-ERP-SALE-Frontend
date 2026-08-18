@@ -8,6 +8,7 @@ import type { InventoryItem } from "../types/inventory";
 import { mockQuotationsList } from "../data/mockQuotations";
 import { mockCustomers } from "../data/mockCustomers";
 import { mockInventoryItems } from "../data/mockInventory";
+import { extractCityFromAddress } from "../types/customers";
 
 export interface NextQuotationIdResponse {
   nextQuotationId: string;
@@ -25,16 +26,23 @@ export const quotationService = {
 
   // Get all customers
   async getAllCustomers(): Promise<QuotationCustomer[]> {
-    return mockCustomers.map(c => ({
+    return mockCustomers.map((c) => ({
       _id: c.id,
-      fullName: c.businessName || c.contactPerson,
-      email: c.email || '',
-      phone: c.phone || '',
-      vatNumber: '119283401-7000',
+      shopName: c.shopName || c.businessName,
+      fullName: c.shopName || c.businessName || 'Customer',
+      contactPerson: c.contactPerson || '',
+      email: '',
+      phone: c.phone || '+94705787818',
+      phone2: c.phone2 || '',
+      phone3: c.phone3 || '',
+      vatNumber: '',
       customerCode: c.customerId,
+      creditPeriod: 30,
+      paymentTerms: 'Net 30',
+      creditLimit: c.creditLimit || 1000000,
       address: {
         street: c.address,
-        city: c.city,
+        city: c.city || extractCityFromAddress(c.address),
         country: 'Sri Lanka',
         zip: '00100'
       }

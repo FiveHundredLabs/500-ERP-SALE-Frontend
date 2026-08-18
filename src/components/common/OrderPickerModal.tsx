@@ -40,7 +40,7 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
         !q ||
         o.orderId.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
-        o.salesman.name.toLowerCase().includes(q) ||
+        (o.salesman?.name || '').toLowerCase().includes(q) ||
         o.contactPerson.toLowerCase().includes(q);
       const matchStatus = !statusFilter || o.status === statusFilter;
       return matchSearch && matchStatus;

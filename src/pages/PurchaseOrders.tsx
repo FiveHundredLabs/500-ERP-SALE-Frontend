@@ -1,19 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
+import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
-import type { PurchaseOrder } from '../types/purchaseOrders';
-import { Eye, Download, ShoppingCart } from 'lucide-react';
+import { mockOrders } from '../data/mockOrders';
+import { Eye, Download, ShoppingCart, Plus, Edit, FileText } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
+import CreatePOModal from '../components/orders/CreatePOModal';
+import type { PurchaseOrder } from '../types/purchaseOrders';
 
 const PurchaseOrders: React.FC = () => {
   const navigate = useNavigate();
   const { success } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -23,38 +24,112 @@ const PurchaseOrders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedPOToUpdate, setSelectedPOToUpdate] = useState<PurchaseOrder | null>(null);
+
+  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
+    const index = initialPOs.findIndex(po => po.id === updatedPO.id);
+    if (index !== -1) {
+      initialPOs[index] = updatedPO;
+    }
+    try {
+      await purchaseOrderService.updateStatus(updatedPO.id, updatedPO.status);
+    } catch {
+      // ignore
+    }
+    setSelectedPOToUpdate(null);
+    success('PO Updated', `Purchase order ${updatedPO.poNumber} has been updated.`);
+    fetchPOs();
+  };
+
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchPOs = async () => {
+    setLoading(true);
+    try {
+      const data = await purchaseOrderService.getAll();
+      setPurchaseOrders(data);
+    } catch {
+      setPurchaseOrders(initialPOs);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   React.useEffect(() => {
-    const fetchPOs = async () => {
-      setLoading(true);
-      try {
-        const data = await purchaseOrderService.getAll();
-        setPurchaseOrders(data);
-      } catch {
-        setPurchaseOrders(initialPOs);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPOs();
   }, []);
+
+  const handleCreatePO = async (newPO: PurchaseOrder) => {
+    await purchaseOrderService.create(newPO);
+    setShowCreateModal(false);
+    fetchPOs();
+  };
+
+  // Returns the salesman from the original order if the PO was converted from one
+  const getSalesmanFromPO = (po: PurchaseOrder): { _id: string; name: string } | undefined => {
+    if (!po.referenceOrderId && !po.referenceOrderNum) return undefined;
+    const refId = po.referenceOrderId || po.referenceOrderNum;
+    const order = mockOrders.find(o => o.orderId === refId || o.id === refId);
+    if (order && order.salesman) {
+      return { _id: order.salesman.id, name: order.salesman.name };
+    }
+    return undefined;
+  };
 
   const supplierOptions = useMemo(() => {
     const names = Array.from(new Set(purchaseOrders.map((p) => p.supplierName)));
     return names.map((name) => ({ value: name, label: name }));
   }, [purchaseOrders]);
 
-  const statusOptions = [
-    { value: 'Draft', label: 'Draft' },
-    { value: 'Pending Approval', label: 'Pending Approval' },
-    { value: 'Approved', label: 'Approved' },
-    { value: 'Processing', label: 'Processing' },
-    { value: 'Partially Received', label: 'Partially Received' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Cancelled', label: 'Cancelled' },
-  ];
+
+
+  // Dynamic suggestions for FilterBar instant dropdown
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenSuppliers = new Set<string>();
+
+    // 1. Suppliers
+    purchaseOrders.forEach(po => {
+      if (po.supplierName && !seenSuppliers.has(po.supplierName)) {
+        seenSuppliers.add(po.supplierName);
+        suggestions.push({
+          id: `sup-${po.supplierId || po.supplierName}`,
+          title: po.supplierName,
+          subtitle: `${po.supplierContact ? `${po.supplierContact} · ` : ''}${po.supplierCity || po.supplierPhone || ''}`,
+          category: 'Supplier',
+          value: po.supplierName,
+        });
+      }
+    });
+
+    // 2. Purchase Orders
+    purchaseOrders.forEach(po => {
+      suggestions.push({
+        id: `po-${po.poNumber}`,
+        title: po.poNumber,
+        subtitle: `${po.supplierName} · LKR ${(po.grandTotal || 0).toLocaleString()} · ${po.status}`,
+        category: 'Purchase Order',
+        value: po.poNumber,
+      });
+    });
+
+    // 3. Reference Orders
+    purchaseOrders.forEach(po => {
+      if (po.referenceOrderNum) {
+        suggestions.push({
+          id: `ref-${po.referenceOrderNum}`,
+          title: `Ref: ${po.referenceOrderNum}`,
+          subtitle: `Linked PO: ${po.poNumber} (${po.supplierName})`,
+          category: 'Order ID',
+          value: po.referenceOrderNum,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [purchaseOrders]);
 
   const filteredPOs = useMemo(() => {
     return purchaseOrders.filter((po) => {
@@ -65,16 +140,15 @@ const PurchaseOrders: React.FC = () => {
         (po.referenceOrderNum && po.referenceOrderNum.toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesStatus = statusFilter === '' || po.status === statusFilter;
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
 
       const poDate = po.poDate;
       const matchesDateFrom = dateFrom === '' || poDate >= dateFrom;
       const matchesDateTo = dateTo === '' || poDate <= dateTo;
 
-      return matchesSearch && matchesStatus && matchesSupplier && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesSupplier && matchesDateFrom && matchesDateTo;
     });
-  }, [purchaseOrders, searchQuery, statusFilter, supplierFilter, dateFrom, dateTo]);
+  }, [purchaseOrders, searchQuery, supplierFilter, dateFrom, dateTo]);
 
   const sortedPOs = useMemo(() => {
     return [...filteredPOs].sort((a, b) => {
@@ -142,28 +216,21 @@ const PurchaseOrders: React.FC = () => {
       render: (row) => (
         <div>
           <p className="font-semibold text-[#F8FAFC] text-sm truncate max-w-[180px]">{row.supplierName}</p>
-          <p className="text-[11px] text-[#94A3B8]">{row.supplierCity}</p>
+          <p
+            className="text-[11px] text-[#94A3B8] cursor-help hover:text-purple-400 transition-colors"
+            title={`Full Address: ${row.supplierAddress || 'N/A'}, ${row.supplierCity || 'N/A'}`}
+          >
+            {row.supplierCity}
+          </p>
         </div>
       ),
     },
     {
-      key: 'createdByName',
-      header: 'Created By',
-      minWidth: '110px',
-      render: (row) => <span className="text-xs text-[#CBD5E1]">{row.createdByName}</span>,
-    },
-    {
       key: 'poDate',
-      header: 'PO Date',
+      header: 'Created Date',
       sortable: true,
-      minWidth: '95px',
+      minWidth: '110px',
       render: (row) => <span className="text-xs text-[#CBD5E1]">{row.poDate}</span>,
-    },
-    {
-      key: 'expectedDate',
-      header: 'Expected',
-      minWidth: '95px',
-      render: (row) => <span className="text-xs text-[#94A3B8]">{row.expectedDate}</span>,
     },
     {
       key: 'numberOfItems',
@@ -185,33 +252,60 @@ const PurchaseOrders: React.FC = () => {
       render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.grandTotal)}</span>,
     },
     {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      minWidth: '120px',
-      render: (row) => <StatusBadge status={row.status} />,
-    },
-    {
       key: 'actions',
       header: '',
       align: 'right',
-      minWidth: '70px',
-      render: (row) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
-          className="erp-btn erp-btn-secondary erp-btn-sm gap-1"
-        >
-          <Eye size={13} /> View
-        </button>
-      ),
+      minWidth: '220px',
+      render: (row) => {
+        const isEligibleForInvoice = !!(row.items && row.items.length > 0);
+        return (
+          <div className="flex gap-2 justify-end items-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
+              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm"
+              title="View Purchase Order"
+              aria-label="View Purchase Order"
+            >
+              <Eye size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPOToUpdate(row);
+              }}
+              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm"
+              title="Edit Purchase Order"
+              aria-label="Edit Purchase Order"
+            >
+              <Edit size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/invoice', { state: { convertFromPO: row, salesman: getSalesmanFromPO(row) } });
+              }}
+              disabled={!isEligibleForInvoice}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition whitespace-nowrap ${
+                isEligibleForInvoice
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                  : 'bg-[#1e293b] text-gray-500 border border-[#334155] cursor-not-allowed opacity-50'
+              }`}
+              title={isEligibleForInvoice ? "Convert Purchase Order to Sales Invoice" : "No items to convert"}
+            >
+              <FileText size={13} />
+              <span>Invoice</span>
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
   const hasActiveFilters =
-    searchQuery !== '' || statusFilter !== '' || supplierFilter !== '' || dateFrom !== '' || dateTo !== '';
+    searchQuery !== '' || supplierFilter !== '' || dateFrom !== '' || dateTo !== '';
 
   const clearAllFilters = () => {
-    setSearchQuery(''); setStatusFilter(''); setSupplierFilter('');
+    setSearchQuery(''); setSupplierFilter('');
     setDateFrom(''); setDateTo('');
     setCurrentPage(1);
   };
@@ -232,8 +326,19 @@ const PurchaseOrders: React.FC = () => {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <button onClick={handleExportCSV} className="erp-btn erp-btn-secondary erp-btn-sm gap-1.5 text-xs">
-              <Download size={13} /> Export CSV
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e293b]/80 hover:bg-[#334155] text-slate-300 hover:text-white border border-[#334155] rounded-xl text-xs font-semibold shadow-md transition-all duration-200"
+            >
+              <Download size={13} className="text-slate-400" />
+              <span>Export CSV</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-purple-600/20 transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <Plus size={14} />
+              <span>New PO</span>
             </button>
           </div>
         }
@@ -244,18 +349,12 @@ const PurchaseOrders: React.FC = () => {
           searchPlaceholder="Search PO number, supplier, ref order..."
           searchValue={searchQuery}
           onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+          suggestions={searchSuggestions}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
           onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
           selects={[
-            {
-              value: statusFilter,
-              onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
-              options: statusOptions,
-              placeholder: 'All PO Statuses',
-              width: 'w-40',
-            },
             {
               value: supplierFilter,
               onChange: (val) => { setSupplierFilter(val); setCurrentPage(1); },
@@ -285,6 +384,19 @@ const PurchaseOrders: React.FC = () => {
           onPageChange={setCurrentPage}
         />
       </div>
+
+      <CreatePOModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreatePO}
+      />
+
+      <CreatePOModal
+        isOpen={selectedPOToUpdate !== null}
+        onClose={() => setSelectedPOToUpdate(null)}
+        onSubmit={handleUpdatePO}
+        poToEdit={selectedPOToUpdate}
+      />
     </AppLayout>
   );
 };
