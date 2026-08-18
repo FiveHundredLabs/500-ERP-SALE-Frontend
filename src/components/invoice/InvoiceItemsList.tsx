@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, Tag } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { InvoiceItem } from '../../types/invoice';
 import type { InventoryItem } from '../../types/inventory';
 
@@ -25,10 +25,14 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
     return null;
   }
 
+  const formatAmount = (val: number) => {
+    return `${Math.round(val).toLocaleString()}/=`;
+  };
+
   const handleQuantityChange = (id: string, value: string) => {
-    setEditingValues(prev => ({
+    setEditingValues((prev) => ({
       ...prev,
-      [id]: { ...prev[id], quantity: value }
+      [id]: { ...prev[id], quantity: value },
     }));
 
     const num = parseInt(value);
@@ -47,7 +51,7 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
     }
 
     onUpdateQuantity(id, num);
-    setEditingValues(prev => {
+    setEditingValues((prev) => {
       const next = { ...prev };
       if (next[id]) {
         delete next[id].quantity;
@@ -113,14 +117,16 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
           Items List ({items.length} {items.length === 1 ? 'item' : 'items'})
         </h3>
         <div className="text-sm text-gray-400">
-          Subtotal: <span className="text-green-400 font-semibold">LKR {subTotal.toFixed(2)}</span>
+          Subtotal: <span className="text-green-400 font-semibold">{formatAmount(subTotal)}</span>
         </div>
       </div>
 
       <div className="space-y-3">
         {items.map((item) => {
-          const inventoryItem = inventoryItems.find(inv => inv._id === item.item);
+          const inventoryItem = inventoryItems.find((inv) => inv._id === item.item);
           const hasDiscount = (item.discountAmount && item.discountAmount > 0) || (item.discountValue && item.discountValue > 0);
+          const discountType = item.discountType || 'percentage';
+          const discountScope = item.discountScope || 'per_unit';
 
           return (
             <div key={item.id} className="bg-[#0f172a] p-4 rounded-xl border border-[#334155]">
@@ -128,12 +134,9 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h4 className="font-semibold text-gray-100">
+                      <h4 className="font-semibold text-gray-100 text-sm">
                         {item.itemName || inventoryItem?.product_name || `Item ${item.item ? item.item.substring(0, 8) : 'Unknown'}...`}
                       </h4>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        Code: <span className="text-blue-400 font-mono">{item.product_code || inventoryItem?.product_code || 'N/A'}</span>
-                      </div>
                     </div>
                     <button
                       type="button"
@@ -146,116 +149,139 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm mt-3 pt-3 border-t border-[#334155]/60">
-                    <div className="text-gray-400">
-                      <div className="text-[11px] font-medium uppercase mb-1">Quantity</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm mt-3 pt-3 border-t border-[#334155]/60 items-start">
+                    {/* Quantity */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
+                        Quantity
+                      </label>
                       <input
                         type="number"
                         min="1"
                         value={editingValues[item.id]?.quantity ?? item.quantity}
                         onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                         onBlur={() => handleQuantityBlur(item.id, item.quantity)}
-                        className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 h-[38px]"
                         aria-label={`Quantity for ${item.itemName || 'item'}`}
                       />
                     </div>
 
-                    <div className="text-gray-400">
-                      <div className="text-[11px] font-medium uppercase mb-1">Selling Price</div>
-                      <div className="w-full bg-[#1e293b]/60 border border-[#334155] rounded-lg px-2.5 py-1.5 text-emerald-400 font-mono font-bold text-sm">
-                        LKR {item.unitPrice.toFixed(2)}
+                    {/* Selling Price */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
+                        Unit Price (LKR)
+                      </label>
+                      <div className="w-full bg-[#1e293b]/60 border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono font-bold text-emerald-400 h-[38px] flex items-center">
+                        {formatAmount(item.unitPrice)}
                       </div>
                     </div>
 
-                    {/* Interactive Item Discount */}
-                    <div className="text-gray-400">
-                      <div className="flex items-center justify-between text-[11px] font-medium uppercase mb-1">
-                        <span className="flex items-center gap-1">
-                          <Tag size={11} className="text-amber-400" /> Discount
-                        </span>
-                        {onUpdateItem && (
-                          <div className="flex items-center gap-0.5 bg-[#0b1120] p-0.5 rounded border border-[#334155]">
-                            <button
-                              type="button"
-                              onClick={() => handleItemDiscountChange(item.id, { discountType: 'percentage' })}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${
-                                item.discountType !== 'amount'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'text-gray-400 hover:text-white'
-                              }`}
-                              title="Percentage discount"
-                            >
-                              %
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleItemDiscountChange(item.id, { discountType: 'amount' })}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition ${
-                                item.discountType === 'amount'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'text-gray-400 hover:text-white'
-                              }`}
-                              title="Fixed amount discount"
-                            >
-                              LKR
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            max={item.discountType === 'amount' ? undefined : 100}
-                            value={
-                              editingValues[item.id]?.discount !== undefined
-                                ? editingValues[item.id]?.discount
-                                : item.discountValue !== undefined && item.discountValue > 0
-                                ? item.discountValue
-                                : ''
-                            }
-                            placeholder="0"
-                            onChange={(e) => {
-                              const strVal = e.target.value;
-                              setEditingValues((prev) => ({
-                                ...prev,
-                                [item.id]: { ...prev[item.id], discount: strVal },
-                              }));
-                              const val = Math.max(0, parseFloat(strVal) || 0);
-                              handleItemDiscountChange(item.id, { discountValue: val });
-                            }}
-                            onBlur={() => {
-                              setEditingValues((prev) => {
-                                const next = { ...prev };
-                                if (next[item.id]) {
-                                  delete next[item.id].discount;
-                                  if (Object.keys(next[item.id]).length === 0) delete next[item.id];
-                                }
-                                return next;
-                              });
-                            }}
-                            className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs text-right"
-                          />
-                          <span className="text-xs text-gray-400 font-mono shrink-0">
-                            {item.discountType === 'amount' ? 'LKR' : '%'}
-                          </span>
+                    {/* Discount Value with % / Rs. Toggle */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] flex items-center justify-between">
+                        <span>Discount</span>
+                        <div className="flex gap-1 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => handleItemDiscountChange(item.id, { discountType: 'percentage' })}
+                            className={`px-1.5 py-0.5 rounded font-bold transition ${
+                              discountType === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white bg-[#1e293b]'
+                            }`}
+                          >
+                            %
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleItemDiscountChange(item.id, { discountType: 'amount' })}
+                            className={`px-1.5 py-0.5 rounded font-bold transition ${
+                              discountType === 'amount' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white bg-[#1e293b]'
+                            }`}
+                          >
+                            Rs.
+                          </button>
                         </div>
-
-                        {hasDiscount && (
-                          <div className="flex items-center justify-between text-[11px] text-amber-400 font-mono">
-                            <span>Discount:</span>
-                            <span className="font-semibold">- LKR {(item.discountAmount || 0).toFixed(2)}</span>
-                          </div>
-                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max={discountType === 'amount' ? undefined : 100}
+                          value={
+                            editingValues[item.id]?.discount !== undefined
+                              ? editingValues[item.id]?.discount
+                              : item.discountValue !== undefined && item.discountValue > 0
+                              ? item.discountValue
+                              : ''
+                          }
+                          placeholder="0"
+                          onChange={(e) => {
+                            const strVal = e.target.value;
+                            setEditingValues((prev) => ({
+                              ...prev,
+                              [item.id]: { ...prev[item.id], discount: strVal },
+                            }));
+                            const val = Math.max(0, parseFloat(strVal) || 0);
+                            handleItemDiscountChange(item.id, { discountValue: val });
+                          }}
+                          onBlur={() => {
+                            setEditingValues((prev) => {
+                              const next = { ...prev };
+                              if (next[item.id]) {
+                                delete next[item.id].discount;
+                                if (Object.keys(next[item.id]).length === 0) delete next[item.id];
+                              }
+                              return next;
+                            });
+                          }}
+                          className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-7 h-[38px]"
+                        />
+                        <div className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-500 pointer-events-none">
+                          {discountType === 'percentage' ? '%' : 'Rs'}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-gray-400">
-                      <div className="text-[11px] font-medium uppercase mb-1">Line Total</div>
-                      <div className="text-green-400 font-mono font-bold text-base mt-1">
-                        LKR {item.total.toFixed(2)}
+                    {/* Apply Discount Scope: Per Unit / Total Qty */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
+                        Apply Discount
+                      </label>
+                      <div className="grid grid-cols-2 gap-1 bg-[#1e293b] p-1 border border-[#334155] rounded-lg h-[38px] items-center">
+                        <button
+                          type="button"
+                          onClick={() => handleItemDiscountChange(item.id, { discountScope: 'per_unit' })}
+                          className={`h-full text-xs rounded font-medium transition flex items-center justify-center ${
+                            discountScope === 'per_unit' ? 'bg-purple-600 text-white shadow-sm font-semibold' : 'text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          Per Unit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleItemDiscountChange(item.id, { discountScope: 'total_qty' })}
+                          className={`h-full text-xs rounded font-medium transition flex items-center justify-center ${
+                            discountScope === 'total_qty' ? 'bg-purple-600 text-white shadow-sm font-semibold' : 'text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          Total Qty
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Line Total */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase h-[18px] leading-[18px]">
+                        Line Total (LKR)
+                      </label>
+                      <div className="w-full bg-[#1e293b]/60 border border-[#334155] rounded-lg px-3 py-1.5 h-[38px] flex items-center justify-between">
+                        <span className="text-emerald-400 font-mono font-bold text-sm">
+                          {formatAmount(item.total)}
+                        </span>
+                        {hasDiscount && (
+                          <span className="text-[10px] text-amber-400 font-mono">
+                            -{formatAmount(item.discountAmount || 0)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

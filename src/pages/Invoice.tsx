@@ -1314,7 +1314,7 @@ const Invoice: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span>Items: <strong className="text-white">{invoiceData.items.length}</strong></span>
                         <span className="text-gray-600">•</span>
-                        <span>Total: <span className="text-emerald-400 font-mono font-bold text-sm">LKR {invoiceData.totalAmount.toFixed(2)}</span></span>
+                        <span>Total: <span className="text-emerald-400 font-mono font-bold text-sm">LKR {Math.round(invoiceData.totalAmount).toLocaleString()}/=</span></span>
                       </div>
                     ) : (
                       <span>Add products to generate invoice</span>
