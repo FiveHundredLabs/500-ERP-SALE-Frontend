@@ -343,13 +343,13 @@ const DashboardOverview: React.FC = () => {
                   className="flex items-center justify-between p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 hover:bg-[#0f172a] transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <div>
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                    <div className="min-w-0 truncate">
                       <span className="text-xs font-bold text-white">{item.name}</span>
-                      <span className="text-[11px] text-slate-400 ml-1.5">({item.label})</span>
+                      <span className="text-[11px] text-slate-400 ml-1.5 font-normal">({item.label})</span>
                     </div>
                   </div>
-                  <span className="text-xs font-mono font-bold text-slate-100 bg-[#1e293b] px-2 py-0.5 rounded border border-[#334155]">
+                  <span className="text-xs font-mono font-bold text-slate-100 bg-[#1e293b] px-2 py-0.5 rounded border border-[#334155] flex-shrink-0 ml-2">
                     {item.count}
                   </span>
                 </div>

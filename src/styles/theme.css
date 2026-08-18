@@ -428,75 +428,220 @@ html.light .hover\:bg-\[\#243244\]:hover {
 /* ====================================================
    TABLES — .erp-table and DataTable
    ==================================================== */
-html.light .erp-table {
+/* ====================================================
+   TABLES & TABLE DATA — Comprehensive Light Mode System
+   ==================================================== */
+html.light table {
   background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-collapse: collapse !important;
 }
 
-html.light .erp-table thead th {
-  background-color: #f8fafc !important;
-  color: #374151 !important;
-  border-color: #e2e8f0 !important;
-}
-
-html.light .erp-table tbody tr {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-}
-
-html.light .erp-table tbody tr:nth-child(even) {
-  background-color: #f8fafc !important;
-}
-
-html.light .erp-table tbody tr:hover {
-  background-color: #f1f5f9 !important;
-}
-
-html.light .erp-table tbody td {
-  color: #334155 !important;
-}
-
-html.light .erp-table-container {
+html.light .erp-table,
+html.light .erp-table-container,
+html.light .overflow-x-auto.bg-\[\#0f172a\],
+html.light .overflow-x-auto.rounded-xl.border,
+html.light .overflow-x-auto.rounded-lg.border,
+html.light .overflow-x-auto.border,
+html.light .overflow-hidden.border {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* DataTable component */
-html.light .overflow-x-auto.rounded-xl.border.border-\[\#334155\].bg-\[\#1e293b\] {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-}
-
+/* Table Headers */
+html.light table thead,
+html.light table thead tr,
+html.light table th,
+html.light .erp-table thead th,
+html.light thead.bg-\[\#0f172a\],
+html.light thead.bg-\[\#1e293b\],
+html.light tr.bg-\[\#1e293b\],
 html.light tr.bg-\[\#0f172a\],
-html.light tr.bg-\[\#111b2d\] {
-  background-color: #ffffff !important;
-}
-
-html.light tr:nth-child(even).bg-\[\#111b2d\] {
+html.light tr.bg-\[\#0f172a\]\/90,
+html.light tr.bg-\[\#0f172a\]\/60 {
   background-color: #f8fafc !important;
+  color: #334155 !important;
+  border-color: #e2e8f0 !important;
+  font-weight: 700 !important;
 }
 
-html.light .hover\:bg-\[\#1e293b\]:hover {
-  background-color: #f1f5f9 !important;
-}
-
-html.light th.bg-\[\#1e293b\],
-html.light tr.bg-\[\#1e293b\] {
-  background-color: #f8fafc !important;
-}
-
-html.light th.text-gray-200 {
-  color: #374151 !important;
-}
-
-html.light td.text-gray-200 {
+html.light table th .text-gray-200,
+html.light table th .text-gray-300,
+html.light table th .text-gray-400,
+html.light table th .text-slate-300,
+html.light table th .text-slate-400 {
   color: #334155 !important;
 }
 
-html.light .border-\[\#334155\]\/60 {
+/* Table Rows & Cells */
+html.light table tbody tr {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light table tbody tr:nth-child(even),
+html.light table tr.bg-\[\#111b2d\],
+html.light table tr.bg-\[\#1e293b\]\/30,
+html.light table tr.bg-\[\#1e293b\]\/10 {
+  background-color: #f8fafc !important;
+}
+
+html.light table tbody tr:hover,
+html.light table tr.hover\:bg-\[\#1e293b\]:hover,
+html.light table tr.hover\:bg-\[\#1e293b\]\/70:hover,
+html.light table tr.hover\:bg-\[\#1e293b\]\/40:hover,
+html.light table tr.hover\:bg-\[\#0f172a\]\/50:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light table td,
+html.light .erp-table tbody td {
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Specific text elements inside table cells */
+html.light table td .text-white,
+html.light table td .text-slate-100,
+html.light table td .text-slate-200,
+html.light table td .text-gray-100,
+html.light table td .text-gray-200,
+html.light table td .text-gray-300,
+html.light table td .text-slate-300,
+html.light table td p.font-semibold,
+html.light table td span.font-semibold,
+html.light table td span.font-bold {
+  color: #0f172a !important;
+}
+
+html.light table td .text-slate-400,
+html.light table td .text-gray-400 {
+  color: #475569 !important;
+}
+
+html.light table td .text-slate-500,
+html.light table td .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* High-Contrast Data Highlights inside Tables */
+html.light table td .text-blue-400,
+html.light table td .text-blue-300 {
+  color: #1d4ed8 !important;
+}
+
+html.light table td .text-emerald-400,
+html.light table td .text-emerald-300,
+html.light table td .text-green-400,
+html.light table td .text-green-300 {
+  color: #15803d !important;
+}
+
+html.light table td .text-amber-400,
+html.light table td .text-amber-300,
+html.light table td .text-yellow-400,
+html.light table td .text-yellow-300 {
+  color: #b45309 !important;
+}
+
+html.light table td .text-purple-400,
+html.light table td .text-purple-300 {
+  color: #7e22ce !important;
+}
+
+html.light table td .text-cyan-400,
+html.light table td .text-cyan-300 {
+  color: #0369a1 !important;
+}
+
+html.light table td .text-red-400,
+html.light table td .text-red-300,
+html.light table td .text-rose-400,
+html.light table td .text-rose-300 {
+  color: #be123c !important;
+}
+
+/* Table Pill / Badge Backgrounds in Light Mode */
+html.light table .bg-blue-500\/10,
+html.light table .bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+html.light table .bg-emerald-500\/10,
+html.light table .bg-emerald-500\/15,
+html.light table .bg-emerald-500\/20,
+html.light table .bg-green-500\/10,
+html.light table .bg-green-500\/20 {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+html.light table .bg-amber-500\/10,
+html.light table .bg-amber-500\/15,
+html.light table .bg-amber-500\/20,
+html.light table .bg-yellow-500\/10,
+html.light table .bg-yellow-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+html.light table .bg-purple-500\/10,
+html.light table .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+  color: #7e22ce !important;
+}
+
+html.light table .bg-cyan-500\/10,
+html.light table .bg-cyan-500\/20 {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0369a1 !important;
+}
+
+html.light table .bg-red-500\/10,
+html.light table .bg-red-500\/15,
+html.light table .bg-red-500\/20,
+html.light table .bg-red-950\/15,
+html.light table .bg-rose-500\/10,
+html.light table .bg-rose-500\/20 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #be123c !important;
+}
+
+/* Inputs & Form Controls inside Tables */
+html.light table input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light table input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+}
+
+html.light table select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Dividers & Borders in Tables */
+html.light .divide-\[\#334155\]\/60 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-\[\#334155\]\/40 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-\[\#334155\] > :not([hidden]) ~ :not([hidden]) {
   border-color: #e2e8f0 !important;
 }
 
-/* Pagination */
+/* Pagination in Tables */
 html.light .bg-\[\#1e293b\].border.border-\[\#334155\].text-gray-200 {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
@@ -511,12 +656,13 @@ html.light span.text-white.font-semibold {
   color: #0f172a !important;
 }
 
-/* ====================================================
-   FILTER BAR
-   ==================================================== */
-html.light .w-full.bg-\[\#1e293b\]\/70.border-b.border-\[\#334155\] {
-  background-color: rgba(248,250,252,0.95) !important;
-  border-color: #e2e8f0 !important;
+/* Empty Table States */
+html.light table td[colspan] {
+  color: #64748b !important;
+}
+
+html.light table td[colspan] svg {
+  color: #94a3b8 !important;
 }
 
 /* Search dropdown */
@@ -774,3 +920,174 @@ html.light .bg-\[\#0f172a\].border-\[\#334155\] {
   background-color: #ffffff !important;
   border-color: #cbd5e1 !important;
 }
+
+/* ====================================================
+   TARGETED FIXES: DASHBOARD, FORMS, CARDS & STATUS BADGES
+   ==================================================== */
+
+/* 1. Dashboard "Orders by Status" Donut & List */
+html.light .bg-\[\#0f172a\]\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .hover\:bg-\[\#0f172a\]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .space-y-2\.5 .bg-\[\#0f172a\]\/60 span.text-white {
+  color: #0f172a !important;
+}
+
+html.light .space-y-2\.5 .bg-\[\#0f172a\]\/60 span.text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .space-y-2\.5 .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 2. Top-Selling Products Ranked Circle & Progress Bar */
+html.light .bg-slate-800,
+html.light .bg-slate-800\/80 {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-gray-800 {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-\[\#0f172a\].rounded-full.h-2 {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 3. Invoice / Quotation "Total Discount" Row & Action Bar */
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 span.text-gray-300 {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 .bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .py-2\.5.px-3.bg-\[\#0f172a\]\/60 input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Sticky Action Footer */
+html.light .sticky.bottom-4.bg-\[\#1e293b\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .bg-gray-700 {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+html.light .hover\:bg-gray-600:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* 4. Finance KPI Cards, Overdue Banner, & Filter Tabs */
+html.light .bg-gradient-to-r.from-red-950\/20 {
+  background: #ffffff !important;
+  border-color: #fca5a5 !important;
+}
+
+html.light .bg-gradient-to-r.from-amber-950\/20 {
+  background: #ffffff !important;
+  border-color: #fcd34d !important;
+}
+
+html.light .border-green-500\/30 {
+  border-color: #86efac !important;
+}
+
+html.light .text-red-300 {
+  color: #991b1b !important;
+}
+
+html.light .text-red-400 {
+  color: #dc2626 !important;
+}
+
+html.light .text-red-400\/80,
+html.light .text-red-400\/90 {
+  color: #b91c1c !important;
+}
+
+html.light .text-amber-300 {
+  color: #92400e !important;
+}
+
+html.light .text-amber-400 {
+  color: #d97706 !important;
+}
+
+html.light .text-amber-400\/80 {
+  color: #b45309 !important;
+}
+
+html.light .text-green-400 {
+  color: #15803d !important;
+}
+
+html.light .text-green-500 {
+  color: #16a34a !important;
+}
+
+html.light .text-emerald-400 {
+  color: #15803d !important;
+}
+
+/* Credit Expiry Alert Banner in Light Mode */
+html.light .bg-red-500\/10.border-red-500\/30 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
+/* Filter Tabs in Finance Table */
+html.light .border-b.border-\[\#334155\] button.text-gray-400 {
+  color: #475569 !important;
+}
+
+html.light .border-b.border-\[\#334155\] button.text-gray-400:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 5. Status Column Badges (Outstanding, Due Soon, Paid, etc.) */
+html.light span.bg-slate-800,
+html.light span.bg-gray-800 {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+html.light span.text-slate-300.bg-slate-800,
+html.light span.text-gray-300.bg-gray-800 {
+  color: #475569 !important;
+}
+
