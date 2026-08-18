@@ -9,7 +9,7 @@
  *       "070-578-7818"    -> "94705787818" (Sri Lanka default)
  */
 export const cleanWhatsAppNumber = (phone?: string): string => {
-  if (!phone) return '94705787818'; // Fallback to sample default
+  if (!phone) return '94705787818'; // Fallback to default
   
   // Remove all spaces, hyphens, parentheses, and other non-digit characters
   let cleaned = phone.replace(/[^0-9+]/g, '');
@@ -21,7 +21,7 @@ export const cleanWhatsAppNumber = (phone?: string): string => {
     cleaned = '94' + cleaned.substring(1);
   }
 
-  // If already standard 9-12 digit number without +
+  // If already standard 9-digit number without country code
   if (!cleaned.startsWith('94') && cleaned.length === 9) {
     cleaned = '94' + cleaned;
   }
@@ -46,6 +46,20 @@ export const formatPhoneDisplay = (phone?: string): string => {
 };
 
 /**
+ * Formats a date string into readable long format (e.g. "18 August 2026")
+ */
+export const formatLongDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+/**
  * Builds a direct WhatsApp chat URL with pre-composed text.
  */
 export const getWhatsAppUrl = (phone: string, text: string): string => {
@@ -64,26 +78,30 @@ export const generateQuotationWhatsAppMessage = (params: {
   itemsCount: number;
   shareUrl?: string;
 }): string => {
-  const formattedAmount = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'LKR',
+  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
-  }).format(params.totalAmount);
+    maximumFractionDigits: 2,
+  })}`;
 
-  return [
-    `*500Core ERP — QUOTATION ${params.quotationId}*`,
-    `━━━━━━━━━━━━━━━━━━━━━━━━`,
-    `👤 *Customer:* ${params.customerName}`,
-    `📅 *Date:* ${params.issueDate}`,
-    `📦 *Items:* ${params.itemsCount} ${params.itemsCount === 1 ? 'Item' : 'Items'}`,
-    `💰 *Total Amount:* ${formattedAmount}`,
-    params.shareUrl ? `\n🔗 *View / Verify Online:*\n${params.shareUrl}` : '',
-    `\n📎 _The official Quotation PDF document has been generated for your record._`,
-    `\nPlease review and let us know if you would like to proceed with this order.`,
-    `Thank you for choosing 500Core!`,
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const formattedIssueDate = formatLongDate(params.issueDate) || params.issueDate;
+
+  const lines: string[] = [
+    `500Core ERP — QUOTATION ${params.quotationId}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `Customer: ${params.customerName}`,
+    `Quotation Date: ${formattedIssueDate}`,
+    `Items: ${params.itemsCount}`,
+    `Total Amount: ${formattedAmount}`,
+  ];
+
+  if (params.shareUrl) {
+    lines.push(`\n --View / Download Quotation:\n${params.shareUrl}`);
+  }
+
+  lines.push(`\n --The official Quotation PDF is attached for your records and review.`);
+  lines.push(`Thank you for your business. We appreciate your continued support.`);
+
+  return lines.join('\n');
 };
 
 /**
@@ -99,27 +117,34 @@ export const generateInvoiceWhatsAppMessage = (params: {
   itemsCount: number;
   shareUrl?: string;
 }): string => {
-  const formattedAmount = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'LKR',
+  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
-  }).format(params.totalAmount);
+    maximumFractionDigits: 2,
+  })}`;
 
-  const statusEmoji = params.paymentStatus === 'Completed' ? '✅ Paid' : '⏳ Pending Payment';
+  const formattedIssueDate = formatLongDate(params.issueDate) || params.issueDate;
+  const formattedDueDate = formatLongDate(params.dueDate) || params.dueDate;
 
-  return [
-    `*500Core ERP — INVOICE ${params.invoiceId}*`,
-    `━━━━━━━━━━━━━━━━━━━━━━━━`,
-    `👤 *Customer:* ${params.customerName}`,
-    `📅 *Date:* ${params.issueDate}`,
-    params.dueDate ? `⏰ *Due Date:* ${params.dueDate}` : '',
-    `📦 *Items:* ${params.itemsCount} ${params.itemsCount === 1 ? 'Item' : 'Items'}`,
-    `💰 *Total Amount:* ${formattedAmount}`,
-    `💳 *Status:* ${statusEmoji}`,
-    params.shareUrl ? `\n🔗 *View / Download Invoice:*\n${params.shareUrl}` : '',
-    `\n📎 _The official Tax Invoice PDF is attached for your records and payment processing._`,
-    `\nThank you for your business!`,
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const lines: string[] = [
+    `500Core ERP — INVOICE ${params.invoiceId}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `Customer: ${params.customerName}`,
+    `Invoice Date: ${formattedIssueDate}`,
+  ];
+
+  if (formattedDueDate) {
+    lines.push(`Due Date: ${formattedDueDate}`);
+  }
+
+  lines.push(`Items: ${params.itemsCount}`);
+  lines.push(`Total Amount: ${formattedAmount}`);
+
+  if (params.shareUrl) {
+    lines.push(`\n -- View / Download Invoice:\n${params.shareUrl}`);
+  }
+
+  lines.push(`\n -- The official Tax Invoice PDF is attached for your records and payment processing.`);
+  lines.push(`Thank you for your business. We appreciate your continued support.`);
+
+  return lines.join('\n');
 };
