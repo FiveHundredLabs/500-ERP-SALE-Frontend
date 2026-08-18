@@ -491,28 +491,26 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       />
 
       {invoiceData.items.length > 0 && (
-        <div className="bg-[#1e293b] rounded-lg border border-[#334155]">
-          <div className="p-4 sm:p-6">
-            <InvoiceItemsList
-              items={invoiceData.items}
-              inventoryItems={inventoryItems}
-              onUpdateQuantity={handleUpdateItemQuantity}
-              onUpdateItem={onUpdateItem}
-              onRemoveItem={onRemoveItem}
-            />
+        <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-5 space-y-4">
+          <InvoiceItemsList
+            items={invoiceData.items}
+            inventoryItems={inventoryItems}
+            onUpdateQuantity={handleUpdateItemQuantity}
+            onUpdateItem={onUpdateItem}
+            onRemoveItem={onRemoveItem}
+          />
 
-            <InvoiceSummary
-              subTotal={subTotal}
-              totalDiscountType={invoiceData.totalDiscountType}
-              totalDiscountValue={invoiceData.totalDiscountValue}
-              discountPercentage={invoiceData.discountPercentage}
-              discountAmount={discountAmount}
-              taxAmount={taxAmount}
-              totalAmount={totalAmount}
-              applyVat={invoiceData.applyVat}
-              onTotalDiscountChange={onTotalDiscountChange}
-            />
-          </div>
+          <InvoiceSummary
+            subTotal={subTotal}
+            totalDiscountType={invoiceData.totalDiscountType}
+            totalDiscountValue={invoiceData.totalDiscountValue}
+            discountPercentage={invoiceData.discountPercentage}
+            discountAmount={discountAmount}
+            taxAmount={taxAmount}
+            totalAmount={totalAmount}
+            applyVat={invoiceData.applyVat}
+            onTotalDiscountChange={onTotalDiscountChange}
+          />
         </div>
       )}
     </div>

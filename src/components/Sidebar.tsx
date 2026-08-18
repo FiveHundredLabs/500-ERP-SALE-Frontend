@@ -119,15 +119,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   return (
     <aside
       className={`
-        ${isOpen ? "w-64" : "w-16"}
+        ${isOpen ? "w-[236px]" : "w-[60px]"}
         h-screen transition-all duration-200
         bg-[#0b1120] border-r border-[#334155]
         text-slate-300 shadow-xl
         flex flex-col flex-shrink-0 z-30 select-none
       `}
     >
-      {/* Brand Header with Collapse / Expand button on top */}
-      <div className={`flex items-center ${isOpen ? 'justify-between px-3.5' : 'justify-center px-2'} py-3 border-b border-[#334155] h-16 bg-[#0b1120] flex-shrink-0`}>
+      {/* Brand Header */}
+      <div className={`flex items-center ${isOpen ? 'justify-between px-3.5' : 'justify-center px-2'} py-3 border-b border-[#334155] h-[68px] bg-[#0b1120] flex-shrink-0`}>
         {isOpen ? (
           <>
             <div
@@ -136,11 +136,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
               title="500Core Dashboard"
             >
               <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
-                <ShieldCheck size={18} />
+                <ShieldCheck size={19} />
               </div>
               <div className="overflow-hidden">
-                <h1 className="text-sm font-bold text-white tracking-tight truncate">500Core</h1>
-                <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
+                <h1 className="text-[0.95rem] font-bold text-white tracking-tight truncate">500Core</h1>
+                <p className="text-[0.68rem] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
               </div>
             </div>
 
@@ -172,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       </div>
 
       {/* Navigation List */}
-      <div className="sidebar-nav flex-1 overflow-y-auto px-2.5 py-3 space-y-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="sidebar-nav flex-1 overflow-y-auto px-2 py-3 space-y-0.5" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {/* Single Navigation Items */}
         {singleNavItems
           .filter((item) => item.roles.includes(currentRole))
@@ -183,7 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                 key={item.name}
                 onClick={() => handleNavClick(item.path)}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer font-medium
                   transition-colors duration-150
                   ${
                     active
@@ -191,6 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                       : "text-slate-300 hover:bg-[#1e293b] hover:text-white"
                   }
                 `}
+                style={{ fontSize: '0.9rem' }}
                 title={!isOpen ? item.name : undefined}
               >
                 <item.icon size={18} className={`flex-shrink-0 ${active ? "text-blue-400" : "text-slate-400"}`} />
@@ -212,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
               {isOpen ? (
                 <div
                   onClick={() => toggleGroup(group.title)}
-                  className="flex items-center justify-between px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 cursor-pointer hover:text-slate-200 transition-colors"
+                  className="flex items-center justify-between px-3 py-1.5 text-[0.7rem] font-bold uppercase tracking-widest text-slate-500 cursor-pointer hover:text-slate-300 transition-colors"
                 >
                   <span>{group.title}</span>
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -223,7 +224,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
               {/* Group Children */}
               {(isExpanded || !isOpen) && (
-                <div className="space-y-0.5 mt-1">
+                <div className="space-y-0.5 mt-0.5">
                   {filteredItems.map((item) => {
                     const active = isActive(item.path);
                     return (
@@ -231,7 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                         key={item.name}
                         onClick={() => handleNavClick(item.path)}
                         className={`
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium
+                          flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer font-medium
                           transition-colors duration-150
                           ${
                             active
@@ -239,6 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                               : "text-slate-300 hover:bg-[#1e293b] hover:text-white"
                           }
                         `}
+                        style={{ fontSize: '0.9rem' }}
                         title={!isOpen ? item.name : undefined}
                       >
                         <item.icon size={17} className={`flex-shrink-0 ${active ? "text-blue-400" : "text-slate-400"}`} />
@@ -255,7 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
       {/* Footer Status */}
       {isOpen && (
-        <div className="p-3 border-t border-[#334155] text-[11px] text-slate-400 flex justify-between items-center bg-[#0b1120]">
+        <div className="p-3 border-t border-[#334155] flex justify-between items-center bg-[#0b1120]" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
           <span>500Core v2.4</span>
           <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
         </div>

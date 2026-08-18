@@ -49,9 +49,9 @@ const KpiCard: React.FC<KpiCardProps> = ({
       </div>
 
       <div>
-        <p className="text-gray-400 text-sm font-medium mb-1">{title}</p>
-        <p className="text-2xl font-bold text-white leading-tight">{value}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        <p className="text-gray-400 font-medium mb-1.5" style={{ fontSize: '0.875rem' }}>{title}</p>
+        <p className="font-bold text-white leading-tight" style={{ fontSize: '1.7rem' }}>{value}</p>
+        {subtitle && <p className="text-gray-400 mt-1" style={{ fontSize: '0.8rem' }}>{subtitle}</p>}
       </div>
     </div>
   );

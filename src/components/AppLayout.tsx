@@ -14,7 +14,7 @@ interface AppLayoutProps {
 
 /**
  * AppLayout — Shared page shell for all ERP pages.
- * Harmonized with Invoice, Quotation, and Inventory layout & header styling.
+ * Redesigned: wider content, bigger header text, less wasted side space.
  */
 const AppLayout: React.FC<AppLayoutProps> = ({
   headerIcon,
@@ -74,8 +74,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* Top Header Bar (Matching Inventory/Quotation h-16 bg-[#1e293b]/80) */}
-        <header className="h-16 bg-[#1e293b]/80 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-6 shadow-lg flex-shrink-0 z-50">
+        {/* Top Header Bar — taller (h-[68px]) for bigger font readability */}
+        <header className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-5 shadow-lg flex-shrink-0 z-50">
 
           {/* Left Side Header */}
           <div className="flex items-center gap-3 min-w-0">
@@ -85,7 +85,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors flex-shrink-0"
               aria-label="Open menu"
             >
-              <Menu size={18} />
+              <Menu size={20} />
             </button>
 
             {/* Desktop sidebar toggle */}
@@ -94,7 +94,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               className="hidden lg:flex p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors flex-shrink-0"
               aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             >
-              <Menu size={18} />
+              <Menu size={20} />
             </button>
 
             {headerIcon && (
@@ -104,11 +104,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             )}
 
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-gray-200 leading-tight truncate">
+              <h1 className="text-[1.2rem] font-bold text-gray-100 leading-tight truncate tracking-tight">
                 {headerTitle}
               </h1>
               {headerSubtitle && (
-                <p className="text-xs text-gray-400 hidden sm:block truncate">
+                <p className="text-[0.8rem] text-gray-400 hidden sm:block truncate mt-0.5">
                   {headerSubtitle}
                 </p>
               )}
@@ -116,10 +116,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
 
           {/* Right Side Header */}
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-shrink-0">
             {showBell && (
               <button className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors relative">
-                <Bell size={18} />
+                <Bell size={20} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500" />
               </button>
             )}
@@ -128,8 +128,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
         </header>
 
-        {/* Scrollable Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 min-w-0 space-y-4">
+        {/* Scrollable Content Area — reduced side padding to use more horizontal space */}
+        <main className="flex-1 overflow-y-auto min-w-0 space-y-5" style={{ padding: '1.25rem 1.5rem' }}>
           {children}
         </main>
       </div>

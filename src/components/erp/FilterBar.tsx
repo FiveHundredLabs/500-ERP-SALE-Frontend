@@ -157,15 +157,16 @@ const FilterBar: React.FC<FilterBarProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#1e293b]/70 border-b border-[#334155] p-4 flex flex-wrap items-center gap-3 relative z-30">
+    <div className="w-full bg-[#1e293b]/70 border-b border-[#334155] px-4 py-3 flex flex-wrap items-center gap-3 relative z-30">
 
       {/* Search Input with Instant Popover */}
-      <div ref={containerRef} className="relative flex-1 min-w-[240px]">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+      <div ref={containerRef} className="relative flex-1 min-w-[260px]">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         <input
           ref={inputRef}
           type="text"
-          className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-9 pr-8 py-2 text-sm text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
+          className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-8 py-2.5 text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
+          style={{ fontSize: '0.9rem', height: '42px' }}
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={e => {
@@ -253,15 +254,17 @@ const FilterBar: React.FC<FilterBarProps> = ({
         <div className="flex items-center gap-2 flex-shrink-0">
           <input
             type="date"
-            className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            style={{ fontSize: '0.9rem', height: '42px', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
             value={dateFrom || ''}
             onChange={e => onDateFromChange(e.target.value)}
             title="From date"
           />
-          <span className="text-gray-400 text-xs font-semibold">–</span>
+          <span className="text-gray-400 font-semibold" style={{ fontSize: '0.85rem' }}>–</span>
           <input
             type="date"
-            className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            style={{ fontSize: '0.9rem', height: '42px', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
             value={dateTo || ''}
             onChange={e => onDateToChange?.(e.target.value)}
             title="To date"
@@ -273,7 +276,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
       {selects.map((sel, idx) => (
         <select
           key={idx}
-          className={`bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${sel.width || 'w-40'}`}
+          className={`bg-[#0f172a] border border-[#334155] rounded-lg px-3 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${sel.width || 'w-44'}`}
+          style={{ fontSize: '0.9rem', height: '42px' }}
           value={sel.value}
           onChange={e => sel.onChange(e.target.value)}
         >

@@ -61,12 +61,12 @@ function DataTable<T>({
       <div className="overflow-x-auto rounded-xl border border-[#334155] bg-[#1e293b]">
         <table className="min-w-full border-collapse">
           <thead>
-            <tr className="bg-[#1e293b] text-gray-200 text-sm border-b border-[#334155]">
+            <tr className="bg-[#1e293b] border-b border-[#334155]">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  style={{ width: col.width, minWidth: col.minWidth }}
-                  className={`p-3 font-semibold ${getAlignClass(col.align)} ${
+                  style={{ fontSize: '0.78rem', letterSpacing: '0.05em', width: col.width, minWidth: col.minWidth }}
+                  className={`px-4 py-3.5 font-bold uppercase tracking-wide text-gray-200 ${getAlignClass(col.align)} ${
                     col.sortable ? 'cursor-pointer select-none hover:text-white hover:bg-[#334155]' : ''
                   }`}
                   onClick={() => col.sortable && onSort && onSort(col.key)}
@@ -95,7 +95,7 @@ function DataTable<T>({
               Array.from({ length: 5 }).map((_, idx) => (
                 <tr key={idx} className="bg-[#0f172a]">
                   {columns.map((col) => (
-                    <td key={col.key} className="p-3">
+                    <td key={col.key} className="px-4 py-3.5">
                       <div className="skeleton-text rounded w-3/4 h-4" />
                     </td>
                   ))}
@@ -103,10 +103,10 @@ function DataTable<T>({
               ))
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center py-12 text-gray-400">
-                  <div className="flex flex-col items-center gap-2">
-                    <Inbox size={36} className="text-slate-500 stroke-[1.5]" />
-                    <p className="text-sm font-medium text-gray-300">{emptyMessage}</p>
+                <td colSpan={columns.length} className="text-center py-16 text-gray-400">
+                  <div className="flex flex-col items-center gap-3">
+                    <Inbox size={40} className="text-slate-500 stroke-[1.5]" />
+                    <p className="font-medium text-gray-300" style={{ fontSize: '0.95rem' }}>{emptyMessage}</p>
                   </div>
                 </td>
               </tr>
@@ -120,7 +120,7 @@ function DataTable<T>({
                   } ${onRowClick ? 'cursor-pointer hover:bg-[#1e293b]' : 'hover:bg-[#1e293b]'}`}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={`p-3 text-sm text-gray-300 ${getAlignClass(col.align)}`}>
+                    <td key={col.key} className={`px-4 py-3.5 text-gray-200 ${getAlignClass(col.align)}`} style={{ fontSize: '0.9rem' }}>
                       {col.render ? col.render(row, idx) : (row as any)[col.key]}
                     </td>
                   ))}
@@ -133,21 +133,22 @@ function DataTable<T>({
 
       {/* Pagination Footer */}
       {totalPages && totalPages > 1 && onPageChange && currentPage && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-gray-400" style={{ fontSize: '0.88rem' }}>
           <div>
             Showing{' '}
-            <span className="text-white font-medium">
+            <span className="text-white font-semibold">
               {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, totalItems || 0)}
             </span>{' '}
             of{' '}
-            <span className="text-white font-medium">{totalItems || 0}</span>{' '}
+            <span className="text-white font-semibold">{totalItems || 0}</span>{' '}
             entries
           </div>
           <div className="flex items-center gap-2">
             <button
               disabled={currentPage === 1}
               onClick={() => onPageChange(currentPage - 1)}
-              className="px-3 py-1.5 rounded-lg text-sm bg-[#1e293b] border border-[#334155] text-gray-200 hover:bg-[#334155] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3.5 py-1.5 rounded-lg bg-[#1e293b] border border-[#334155] text-gray-200 hover:bg-[#334155] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              style={{ fontSize: '0.875rem' }}
             >
               Previous
             </button>
@@ -163,11 +164,12 @@ function DataTable<T>({
                   <button
                     key={pageNum}
                     onClick={() => onPageChange(pageNum)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-9 h-9 flex items-center justify-center rounded-lg font-medium transition-colors ${
                       currentPage === pageNum
                         ? 'bg-blue-600 text-white font-semibold'
                         : 'bg-[#1e293b] text-gray-300 border border-[#334155] hover:bg-[#334155]'
                     }`}
+                    style={{ fontSize: '0.875rem' }}
                   >
                     {pageNum}
                   </button>
@@ -184,7 +186,8 @@ function DataTable<T>({
             <button
               disabled={currentPage === totalPages}
               onClick={() => onPageChange(currentPage + 1)}
-              className="px-3 py-1.5 rounded-lg text-sm bg-[#1e293b] border border-[#334155] text-gray-200 hover:bg-[#334155] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3.5 py-1.5 rounded-lg bg-[#1e293b] border border-[#334155] text-gray-200 hover:bg-[#334155] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              style={{ fontSize: '0.875rem' }}
             >
               Next
             </button>

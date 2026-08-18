@@ -1331,7 +1331,7 @@ const Invoice: React.FC = () => {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto bg-[#0f172a] p-4 sm:p-6">
-              <div className="max-w-4xl mx-auto space-y-6">
+              <div className="w-full space-y-6">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>

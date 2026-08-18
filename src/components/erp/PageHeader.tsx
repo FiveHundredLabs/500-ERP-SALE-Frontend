@@ -25,22 +25,23 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   const navigate = useNavigate();
 
   return (
-    <div className={`mb-4 ${className}`}>
+    <div className={`mb-5 ${className}`}>
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1.5 mb-2" aria-label="Breadcrumb">
+        <nav className="flex items-center gap-1.5 mb-2.5" aria-label="Breadcrumb">
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={idx}>
-              {idx > 0 && <ChevronRight size={12} className="text-gray-500" />}
+              {idx > 0 && <ChevronRight size={13} className="text-gray-500" />}
               {crumb.path ? (
                 <button
                   onClick={() => navigate(crumb.path!)}
-                  className="text-xs text-gray-400 hover:text-blue-400 transition-colors font-medium"
+                  className="text-gray-400 hover:text-blue-400 transition-colors font-medium"
+                  style={{ fontSize: '0.82rem' }}
                 >
                   {crumb.label}
                 </button>
               ) : (
-                <span className="text-xs text-gray-200 font-semibold">{crumb.label}</span>
+                <span className="text-gray-200 font-semibold" style={{ fontSize: '0.82rem' }}>{crumb.label}</span>
               )}
             </React.Fragment>
           ))}
@@ -50,9 +51,9 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       {/* Main Header Title Row */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-200 leading-tight">{title}</h1>
+          <h1 className="font-bold text-gray-100 leading-tight" style={{ fontSize: '1.4rem' }}>{title}</h1>
           {description && (
-            <p className="text-sm text-gray-400 mt-1">{description}</p>
+            <p className="text-gray-400 mt-1" style={{ fontSize: '0.9rem' }}>{description}</p>
           )}
         </div>
         {actions && (
