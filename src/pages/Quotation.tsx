@@ -778,38 +778,45 @@ const Quotation: React.FC = () => {
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={() => handleConvertQuotationToPO(quotationData)}
-                  disabled={quotationData.items.length === 0}
-                  className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                  title="Convert to Purchase Order"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  <span className="hidden sm:inline">Convert to PO</span>
-                </button>
+                {(() => {
+                  const isQuotationSaved = Boolean(quotationData._id);
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleConvertQuotationToPO(quotationData)}
+                        disabled={!isQuotationSaved || quotationData.items.length === 0}
+                        className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!isQuotationSaved ? "Save quotation first to convert to PO" : "Convert to Purchase Order"}
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        <span className="hidden sm:inline">Convert to PO</span>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={handleOpenPreview}
-                  disabled={quotationData.items.length === 0}
-                  className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                  title="Preview Quotation"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>Preview</span>
-                </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenPreview}
+                        disabled={!isQuotationSaved || quotationData.items.length === 0}
+                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!isQuotationSaved ? "Save quotation first to enable preview" : "Preview Quotation"}
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>Preview</span>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={handleShareQuotation}
-                  disabled={quotationData.items.length === 0}
-                  className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                  title="Share Quotation"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Share</span>
-                </button>
+                      <button
+                        type="button"
+                        onClick={handleShareQuotation}
+                        disabled={!isQuotationSaved || quotationData.items.length === 0}
+                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!isQuotationSaved ? "Save quotation first to enable sharing" : "Share Quotation"}
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Share</span>
+                      </button>
+                    </>
+                  );
+                })()}
 
                 <button
                   type="button"

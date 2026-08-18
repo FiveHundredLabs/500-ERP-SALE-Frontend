@@ -1025,27 +1025,34 @@ const Invoice: React.FC = () => {
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={handleOpenPreview}
-                  disabled={invoiceData.items.length === 0}
-                  className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                  title="Preview Invoice"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>Preview</span>
-                </button>
+                {(() => {
+                  const isInvoiceSaved = Boolean(invoiceData._id);
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleOpenPreview}
+                        disabled={!isInvoiceSaved || invoiceData.items.length === 0}
+                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!isInvoiceSaved ? "Save invoice first to enable preview" : "Preview Invoice"}
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>Preview</span>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={handleShareInvoice}
-                  disabled={invoiceData.items.length === 0}
-                  className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                  title="Share Invoice"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Share</span>
-                </button>
+                      <button
+                        type="button"
+                        onClick={handleShareInvoice}
+                        disabled={!isInvoiceSaved || invoiceData.items.length === 0}
+                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!isInvoiceSaved ? "Save invoice first to enable sharing" : "Share Invoice"}
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Share</span>
+                      </button>
+                    </>
+                  );
+                })()}
 
                 <button
                   type="button"
