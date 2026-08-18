@@ -16,8 +16,8 @@ html {
 }
 
 html, body {
-  background-color: #0f172a;
-  color: #f8fafc;
+  background-color: var(--bg-page, #0f172a);
+  color: var(--text-primary, #f8fafc);
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
@@ -187,18 +187,18 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .erp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;      /* was 0.8125rem — bigger table text */
-  background-color: #1e293b;
+  font-size: 0.9rem;
+  background-color: var(--bg-card, #1e293b);
 }
 
 .erp-table thead th {
-  padding: 0.875rem 1.125rem;   /* was 0.75 / 1 */
+  padding: 0.875rem 1.125rem;
   text-align: left;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #e2e8f0;
-  background-color: #1e293b;
-  border-bottom: 1px solid #334155;
+  color: var(--text-secondary, #e2e8f0);
+  background-color: var(--bg-table-header, #1e293b);
+  border-bottom: 1px solid var(--border-color, #334155);
   white-space: nowrap;
   user-select: none;
   letter-spacing: 0.04em;
@@ -209,23 +209,23 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .erp-table thead th:last-child  { padding-right: 1.25rem; }
 
 .erp-table tbody tr {
-  border-bottom: 1px solid #334155;
-  background-color: #0f172a;
+  border-bottom: 1px solid var(--border-color, #334155);
+  background-color: var(--bg-table-row-odd, #0f172a);
   transition: background-color 150ms ease;
-  height: 56px;          /* was 52px */
+  height: 56px;
 }
 
 .erp-table tbody tr:nth-child(even) {
-  background-color: #111b2d;
+  background-color: var(--bg-table-row-even, #111b2d);
 }
 
 .erp-table tbody tr:hover {
-  background-color: #1e293b;
+  background-color: var(--bg-table-row-hover, #1e293b);
 }
 
 .erp-table tbody td {
-  padding: 0.875rem 1.125rem;   /* was 0.75 / 1 */
-  color: #cbd5e1;
+  padding: 0.875rem 1.125rem;
+  color: var(--text-secondary, #cbd5e1);
   vertical-align: middle;
   white-space: nowrap;
   font-size: 0.9rem;
@@ -239,8 +239,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .erp-table-container {
   overflow-x: auto;
   border-radius: var(--radius-lg);
-  border: 1px solid #334155;
-  background-color: #1e293b;
+  border: 1px solid var(--border-color, #334155);
+  background-color: var(--bg-card, #1e293b);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -253,16 +253,16 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* ============= Cards ============= */
 .erp-card {
-  background-color: #1e293b;
-  border: 1px solid #334155;
+  background-color: var(--bg-card, #1e293b);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;      /* was 1.25rem */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card, 0 4px 6px -1px rgba(0,0,0,0.1));
 }
 
 .erp-card-sm {
-  background-color: #1e293b;
-  border: 1px solid #334155;
+  background-color: var(--bg-card, #1e293b);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-md);
   padding: 1.125rem;
 }
@@ -270,13 +270,13 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* ============= Form Controls ============= */
 .erp-input {
   width: 100%;
-  background-color: #0f172a;
-  border: 1px solid #334155;
+  background-color: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-md);
-  color: #f8fafc;
-  padding: 0.625rem 0.875rem;  /* was 0.5 / 0.75 */
-  font-size: 0.9375rem;        /* ~15px — was 0.875rem */
-  height: 44px;                /* was 40px */
+  color: var(--text-primary, #f8fafc);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  height: 44px;
   transition: border-color 150ms ease, box-shadow 150ms ease;
   outline: none;
 }
@@ -287,20 +287,20 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .erp-input::placeholder {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 
 .erp-input:disabled {
-  background-color: #0b1120;
-  color: #64748b;
+  background-color: var(--bg-card-inner, #0b1120);
+  color: var(--text-muted, #64748b);
   cursor: not-allowed;
 }
 
 .erp-select {
-  background-color: #0f172a;
-  border: 1px solid #334155;
+  background-color: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-color, #334155);
   border-radius: var(--radius-md);
-  color: #f8fafc;
+  color: var(--text-primary, #f8fafc);
   padding: 0.625rem 0.875rem;
   font-size: 0.9375rem;
   height: 44px;
@@ -315,8 +315,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .erp-select option {
-  background-color: #1e293b;
-  color: #f8fafc;
+  background-color: var(--bg-card, #1e293b);
+  color: var(--text-primary, #f8fafc);
 }
 
 /* ============= Buttons ============= */
@@ -351,15 +351,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* Secondary / Outline Button */
 .erp-btn-secondary,
 .erp-btn-outline {
-  background-color: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
+  background-color: var(--bg-card, #1e293b);
+  border-color: var(--border-color, #334155);
+  color: var(--text-secondary, #e2e8f0);
 }
 .erp-btn-secondary:hover,
 .erp-btn-outline:hover {
-  background-color: #334155;
-  color: #ffffff;
-  border-color: #475569;
+  background-color: var(--bg-card-hover, #334155);
+  color: var(--text-primary, #ffffff);
+  border-color: var(--text-muted, #475569);
 }
 
 /* Success Button */
@@ -387,11 +387,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* Ghost Button */
 .erp-btn-ghost {
   background-color: transparent;
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
 }
 .erp-btn-ghost:hover {
-  background-color: #334155;
-  color: #ffffff;
+  background-color: var(--bg-card-inner, #334155);
+  color: var(--text-primary, #ffffff);
 }
 
 /* Small Button */

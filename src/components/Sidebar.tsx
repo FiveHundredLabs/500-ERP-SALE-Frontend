@@ -155,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                 <ShieldCheck size={19} />
               </div>
               <div className="overflow-hidden">
-                <h1 className="text-[0.95rem] font-bold text-white tracking-tight truncate">500Core</h1>
+                <h1 className="text-[0.95rem] font-bold text-white tracking-tight truncate">SNK Enterprise</h1>
                 <p className="text-[0.68rem] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
               </div>
             </div>

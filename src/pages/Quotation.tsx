@@ -43,6 +43,7 @@ import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
+import ThemeToggle from "../components/ThemeToggle";
 import { mockPurchaseOrders } from "../data/mockPurchaseOrders";
 import type { PurchaseOrder } from "../types/purchaseOrders";
 import CreatePOModal, { type POInitialData, type POConversionItem } from "../components/orders/CreatePOModal";
@@ -762,24 +763,28 @@ const Quotation: React.FC = () => {
           onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
         />
 
-        <div className="h-16 bg-[#0f172a]/70 backdrop-blur-sm border-b border-[#1f2937] flex items-center justify-between px-4 md:px-6 relative z-40">
-          <div className="flex items-center gap-3">
+        <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 md:px-6 shadow-lg relative z-40 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             {viewMode === 'manage' ? (
-              <button onClick={() => setViewMode('edit')} className="p-2 rounded-lg hover:bg-[#15202b] transition">
+              <button onClick={() => setViewMode('edit')} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
                 <ChevronLeft className="w-5 h-5" />
               </button>
             ) : (
               isMobileView && (
-                <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg hover:bg-[#15202b] transition">
+                <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
                   {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
               )
             )}
 
-            <FileText className="text-blue-400 w-5 h-5 md:w-6 md:h-6" />
-            <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-semibold text-gray-200">Quotation Management</h1>
-              <div className="text-sm text-gray-400">
+            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-[1.15rem] font-bold text-gray-100 leading-tight truncate tracking-tight">
+                Quotation Management
+              </h1>
+              <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
                 {viewMode === 'manage'
                   ? 'View Quotations'
                   : quotationData._id
@@ -787,7 +792,9 @@ const Quotation: React.FC = () => {
                     : 'Create New Quotation'}
               </div>
             </div>
-          </div>          <div className="flex items-center gap-2 md:gap-3">
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {viewMode === "manage" ? (
               <>
                 <div className="relative">
@@ -798,13 +805,13 @@ const Quotation: React.FC = () => {
                       setCurrentPage(1);
                     }}
                     placeholder="Search by ID or customer"
-                    className="pl-9 pr-3 py-2 rounded-md bg-[#061425] text-sm placeholder:text-gray-500 text-gray-200 border border-[#16324a] focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
+                    className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
                   />
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
                 <button
                   onClick={() => setViewMode('edit')}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition"
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
                 >
                   <FileText className="w-4 h-4" />
                   <span>+ New Quotation</span>
@@ -820,7 +827,7 @@ const Quotation: React.FC = () => {
                         type="button"
                         onClick={() => handleConvertQuotationToPO(quotationData)}
                         disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         title={!isQuotationSaved ? "Please save quotation first" : "Convert to Purchase Order"}
                       >
                         <ShoppingCart className="w-4 h-4" />
@@ -831,7 +838,7 @@ const Quotation: React.FC = () => {
                         type="button"
                         onClick={handleOpenPreview}
                         disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
                       >
                         <Eye className="w-4 h-4" />
@@ -842,7 +849,7 @@ const Quotation: React.FC = () => {
                         type="button"
                         onClick={handleShareQuotation}
                         disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
                       >
                         <Share2 className="w-4 h-4" />
@@ -856,7 +863,7 @@ const Quotation: React.FC = () => {
                   type="button"
                   onClick={handleSaveChanges}
                   disabled={isLoading || isSaving}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSaving ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -872,7 +879,7 @@ const Quotation: React.FC = () => {
                   type="button"
                   onClick={handleCancelEdit}
                   title="Clear quotation"
-                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Clear</span>
@@ -881,7 +888,7 @@ const Quotation: React.FC = () => {
                 <button
                   onClick={handleOpenManageModal}
                   title="Manage quotations"
-                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white hover:bg-[#334155] px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
                 >
                   <List className="w-4 h-4" />
                   <span className="hidden sm:inline">Manage</span>
@@ -889,7 +896,8 @@ const Quotation: React.FC = () => {
               </>
             )}
 
-            <div className="flex items-center gap-4 ml-1">
+            <div className="flex items-center gap-2.5 ml-1">
+              <ThemeToggle />
               <UserProfileDropdown />
             </div>
           </div>

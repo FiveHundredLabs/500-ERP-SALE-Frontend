@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import UserProfileDropdown from './UserProfileDropdown';
+import ThemeToggle from './ThemeToggle';
 import { Bell, Menu } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -82,7 +83,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Mobile hamburger */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors flex-shrink-0"
+              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors flex-shrink-0 cursor-pointer"
               aria-label="Open menu"
             >
               <Menu size={20} />
@@ -91,7 +92,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Desktop sidebar toggle */}
             <button
               onClick={() => setSidebarOpen((v) => !v)}
-              className="hidden lg:flex p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors flex-shrink-0"
+              className="hidden lg:flex p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors flex-shrink-0 cursor-pointer"
               aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             >
               <Menu size={20} />
@@ -117,8 +118,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
           {/* Right Side Header */}
           <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Theme Toggle (Light / Dark Mode) */}
+            <ThemeToggle />
+
             {showBell && (
-              <button className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors relative">
+              <button className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors relative cursor-pointer">
                 <Bell size={20} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500" />
               </button>

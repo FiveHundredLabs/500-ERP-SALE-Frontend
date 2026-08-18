@@ -17,6 +17,7 @@ import type { AlertType } from "../components/CustomAlert";
 import CustomConfirm from "../components/CustomConfirm";
 import InvoiceCanvas from "../components/InvoiceCanvas";
 import UserProfileDropdown from "../components/UserProfileDropdown";
+import ThemeToggle from "../components/ThemeToggle";
 import { mockSystemUsers } from "../data/mockSystemUsers";
 
 const Finance: React.FC = () => {
@@ -497,13 +498,16 @@ const Finance: React.FC = () => {
         />
 
         {/* Header */}
-        <div className="h-16 bg-[#1e293b]/80 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 sm:px-6 shadow-lg relative z-40">
+        <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 sm:px-6 shadow-lg relative z-40 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <DollarSign className="text-blue-400 w-6 h-6" />
-            <h1 className="text-lg sm:text-xl font-semibold text-gray-200">Finance</h1>
+            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <h1 className="text-[1.15rem] font-bold text-gray-100 leading-tight tracking-tight">Finance & Accounts</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <ThemeToggle />
             <UserProfileDropdown />
           </div>
         </div>
