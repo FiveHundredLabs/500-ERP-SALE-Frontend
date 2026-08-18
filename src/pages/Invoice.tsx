@@ -22,7 +22,9 @@ import {
   Share2,
   MessageCircle,
   RotateCcw,
+  UserCheck,
 } from "lucide-react";
+import { mockSystemUsers } from "../data/mockSystemUsers";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
 import PaymentModal from "../components/PaymentModal";
@@ -743,7 +745,7 @@ const Invoice: React.FC = () => {
         return dateB - dateA;
       });
 
-      // Map invoices with customer details
+      // Map invoices with customer & salesman details
       const normalized = sortedInvoices.map((invoice: any) => {
         let customer = invoice.customer;
         let customerName = '';
@@ -757,11 +759,26 @@ const Invoice: React.FC = () => {
           }
         }
 
+        let salesmanName = '';
+        if (invoice.salesman) {
+          if (typeof invoice.salesman === 'object') {
+            salesmanName = invoice.salesman.name || invoice.salesman.fullName || '';
+          } else if (typeof invoice.salesman === 'string') {
+            const foundUser = mockSystemUsers.find(u => u._id === invoice.salesman || u.fullName === invoice.salesman);
+            salesmanName = foundUser ? foundUser.fullName : invoice.salesman;
+          }
+        }
+        if (!salesmanName && invoice.salesmanName) {
+          salesmanName = invoice.salesmanName;
+        }
+
         return {
           _id: invoice._id,
           invoiceId: invoice.invoiceId,
           customer: customer,
           customerName: customerName,
+          salesman: invoice.salesman || null,
+          salesmanName: salesmanName,
           items: invoice.items.map((item: any) => ({
             item: item.item?._id || item.item || '',
             quantity: item.quantity,
@@ -783,7 +800,7 @@ const Invoice: React.FC = () => {
           taxRate: invoice.taxRate || 0.18,
           created_at: invoice.created_at,
           updated_at: invoice.updated_at
-        } as BackendInvoiceData & { customerName: string };
+        } as BackendInvoiceData & { customerName: string; salesmanName?: string };
       });
 
       setAllInvoices(normalized);
@@ -795,6 +812,19 @@ const Invoice: React.FC = () => {
     } finally {
       setIsLoadingInvoices(false);
     }
+  };
+
+  const getSalesmanDisplay = (invoice: any): string => {
+    if (!invoice) return '';
+    if (invoice.salesmanName) return invoice.salesmanName;
+    if (typeof invoice.salesman === 'object' && invoice.salesman !== null) {
+      return invoice.salesman.name || invoice.salesman.fullName || '';
+    }
+    if (typeof invoice.salesman === 'string' && invoice.salesman.trim()) {
+      const foundUser = mockSystemUsers.find(u => u._id === invoice.salesman || u.fullName === invoice.salesman);
+      return foundUser ? foundUser.fullName : invoice.salesman;
+    }
+    return '';
   };
 
   const getCustomerDisplay = (invoice: any): string => {
@@ -866,6 +896,22 @@ const Invoice: React.FC = () => {
         }
       }
 
+      let loadedSalesman = undefined;
+      if (fullInvoiceData.salesman) {
+        if (typeof fullInvoiceData.salesman === 'object') {
+          loadedSalesman = {
+            _id: fullInvoiceData.salesman._id || fullInvoiceData.salesman.id || '',
+            name: fullInvoiceData.salesman.name || fullInvoiceData.salesman.fullName || ''
+          };
+        } else if (typeof fullInvoiceData.salesman === 'string') {
+          const found = mockSystemUsers.find(u => u._id === fullInvoiceData.salesman || u.fullName === fullInvoiceData.salesman);
+          loadedSalesman = {
+            _id: fullInvoiceData.salesman,
+            name: found ? found.fullName : fullInvoiceData.salesman
+          };
+        }
+      }
+
       const loadedData: InvoiceData = {
         _id: fullInvoiceData._id,
         invoiceId: fullInvoiceData.invoiceId,
@@ -873,6 +919,7 @@ const Invoice: React.FC = () => {
           ? (fullInvoiceData.customer as any)?._id || ''
           : fullInvoiceData.customer || '',
         customerDetails: customerDetails,
+        salesman: loadedSalesman,
         items: mappedItems,
         subTotal: fullInvoiceData.subTotal,
         discount: fullInvoiceData.discount,
@@ -984,7 +1031,9 @@ const Invoice: React.FC = () => {
       const idMatch = String(q.invoiceId).toLowerCase().includes(manageSearch.toLowerCase());
       const customerName = getCustomerDisplay(q);
       const customerMatch = customerName.toLowerCase().includes(manageSearch.toLowerCase());
-      return idMatch || customerMatch;
+      const salesmanName = getSalesmanDisplay(q);
+      const salesmanMatch = salesmanName.toLowerCase().includes(manageSearch.toLowerCase());
+      return idMatch || customerMatch || salesmanMatch;
     })
     : allInvoices;
 
@@ -1225,6 +1274,7 @@ const Invoice: React.FC = () => {
                             <tr>
                               <th className="p-3">Invoice ID</th>
                               <th className="p-3">Customer</th>
+                              <th className="p-3">Sales Officer</th>
                               <th className="p-3">Total Amount</th>
                               <th className="p-3">Payment</th>
                               <th className="p-3">Date</th>
@@ -1234,6 +1284,7 @@ const Invoice: React.FC = () => {
                           <tbody className="divide-y divide-[#334155] text-sm">
                             {currentInvoices.map((inv) => {
                               const badge = getStatusBadge(inv.paymentStatus || 'Pending');
+                              const salesmanName = getSalesmanDisplay(inv);
                               return (
                                 <tr key={inv._id || inv.invoiceId} className="hover:bg-[#0f172a]/50 transition">
                                   <td className="p-3 font-mono font-medium text-blue-400">
@@ -1242,8 +1293,18 @@ const Invoice: React.FC = () => {
                                   <td className="p-3 font-medium text-white">
                                     {getCustomerDisplay(inv)}
                                   </td>
-                                  <td className="p-3 font-mono text-emerald-400 font-semibold">
-                                    LKR {(inv.totalAmount || 0).toFixed(2)}
+                                  <td className="p-3">
+                                    {salesmanName ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium">
+                                        <UserCheck size={12} className="text-purple-400 shrink-0" />
+                                        <span>{salesmanName}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-500 text-xs font-mono">—</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-mono text-emerald-400 font-bold">
+                                    {Math.round(inv.totalAmount || 0).toLocaleString()}/=
                                   </td>
                                   <td className="p-3">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badge.cls}`}>
@@ -1251,7 +1312,7 @@ const Invoice: React.FC = () => {
                                       {inv.paymentStatus || 'Pending'}
                                     </span>
                                   </td>
-                                  <td className="p-3 text-gray-400">
+                                  <td className="p-3 text-gray-400 text-xs font-mono">
                                     {formatDate(inv.issueDate)}
                                   </td>
                                   <td className="p-3 text-right">

@@ -1,11 +1,16 @@
 import type { Order, Salesman } from '../types/orders';
 
 export const mockSalesmen: Salesman[] = [
-  { id: 'SM001', name: 'Kasun Perera', employeeId: 'EMP-001', phone: '077-123-4567', area: 'Colombo Central', email: 'kasun.p@hardtrade.lk' },
-  { id: 'SM002', name: 'Nuwan Silva', employeeId: 'EMP-002', phone: '076-234-5678', area: 'Colombo South', email: 'nuwan.s@hardtrade.lk' },
-  { id: 'SM003', name: 'Dinesh Fernando', employeeId: 'EMP-003', phone: '071-345-6789', area: 'Kandy Region', email: 'dinesh.f@hardtrade.lk' },
-  { id: 'SM004', name: 'Ruwan Jayasinghe', employeeId: 'EMP-004', phone: '070-456-7890', area: 'Gampaha District', email: 'ruwan.j@hardtrade.lk' },
-  { id: 'SM005', name: 'Sachith Kumara', employeeId: 'EMP-005', phone: '078-567-8901', area: 'Matara & Galle', email: 'sachith.k@hardtrade.lk' },
+  { id: 'SM001', name: 'Kasun Perera', employeeId: 'SO-001', phone: '+94771234567', area: 'Colombo Central & Pettah', email: 'kasun.p@500core.lk' },
+  { id: 'SM002', name: 'Nuwan Silva', employeeId: 'SO-002', phone: '+94712345678', area: 'Gampaha & Negombo District', email: 'nuwan.s@500core.lk' },
+  { id: 'SM003', name: 'Dinesh Fernando', employeeId: 'SO-003', phone: '+94763456789', area: 'Kalutara & South Coast', email: 'dinesh.f@500core.lk' },
+  { id: 'SM004', name: 'Ruwan Jayasinghe', employeeId: 'SO-004', phone: '+94704567890', area: 'Kandy & Central Hills', email: 'ruwan.j@500core.lk' },
+  { id: 'SM005', name: 'Sachith Kumara', employeeId: 'SO-005', phone: '+94785678901', area: 'Galle & Matara District', email: 'sachith.k@500core.lk' },
+  { id: 'SM006', name: 'Chaminda Bandara', employeeId: 'SO-006', phone: '+94726789012', area: 'Kurunegala & Wayamba', email: 'chaminda.b@500core.lk' },
+  { id: 'SM007', name: 'Tharindu Wickramasinghe', employeeId: 'SO-007', phone: '+94757890123', area: 'Anuradhapura & North Central', email: 'tharindu.w@500core.lk' },
+  { id: 'SM008', name: 'Lahiru Senanayake', employeeId: 'SO-008', phone: '+94748901234', area: 'Ratnapura & Sabaragamuwa', email: 'lahiru.s@500core.lk' },
+  { id: 'SM009', name: 'Roshan Abeykoon', employeeId: 'SO-009', phone: '+94779012345', area: 'Nuwara Eliya & Badulla', email: 'roshan.a@500core.lk' },
+  { id: 'SM010', name: 'Manjula Dissanaike', employeeId: 'SO-010', phone: '+94710123456', area: 'Avissawella & Homagama', email: 'manjula.d@500core.lk' },
 ];
 
 export const mockOrders: Order[] = [

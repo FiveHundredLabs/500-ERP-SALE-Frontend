@@ -133,6 +133,8 @@ export interface InvoiceResponse {
   totalAmount: number;
   paymentStatus: PaymentStatusType;
   paymentMethod: PaymentMethodType;
+  salesman?: { _id: string; name: string } | string | null;
+  salesmanName?: string;
   bankDepositDate?: string;
   issueDate: string;
   dueDate: string;

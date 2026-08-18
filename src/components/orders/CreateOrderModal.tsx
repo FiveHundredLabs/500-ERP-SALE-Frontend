@@ -247,7 +247,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!selectedCustomerId) errs.customer = 'Please select a customer';
-    if (!selectedSalesmanId) errs.salesman = 'Please select a salesman';
     if (products.length === 0) errs.products = 'Add at least one product';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
@@ -275,7 +274,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       orderDate,
       createdAt: now,
       updatedAt: now,
-      salesman: selectedSalesman!,
+      salesman: selectedSalesman || null,
       customerId: selectedCustomer!.customerId,
       customerName: selectedCustomer!.businessName,
       contactPerson: selectedCustomer!.contactPerson,

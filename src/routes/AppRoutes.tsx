@@ -22,6 +22,7 @@ import Customers from "../pages/Customers";
 import Suppliers from "../pages/Suppliers";
 import CustomerDetails from "../pages/CustomerDetails";
 import SupplierDetails from "../pages/SupplierDetails";
+import SalesOfficers from "../pages/SalesOfficers";
 
 const AppRoutes: React.FC = () => {
   return (
@@ -79,6 +80,20 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* SALES OFFICERS (NEW) */}
+        <Route
+          path="/sales-officers"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <SalesOfficers />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/salesmen" element={<Navigate to="/sales-officers" replace />} />
+        <Route path="/sales-officer" element={<Navigate to="/sales-officers" replace />} />
 
         {/* PURCHASE ORDERS (NEW) */}
         <Route

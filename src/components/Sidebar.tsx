@@ -17,6 +17,7 @@ import {
   DollarSign,
   PanelLeftClose,
   PanelLeftOpen,
+  UserCheck,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -87,6 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       icon: Users,
       items: [
         { name: "Customers", icon: Users, path: "/customers", roles: ['admin'] },
+        { name: "Sales Officers", icon: UserCheck, path: "/sales-officers", roles: ['admin'] },
         { name: "Suppliers", icon: Truck, path: "/suppliers", roles: ['admin'] },
       ],
     },
@@ -102,6 +104,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   const isActive = (path: string) => {
     if (path === "/customers") {
       return location.pathname === "/customers" || location.pathname.startsWith("/customers/") || location.pathname.startsWith("/users/customers");
+    }
+    if (path === "/sales-officers") {
+      return location.pathname === "/sales-officers" || location.pathname.startsWith("/sales-officers/") || location.pathname === "/salesmen";
     }
     if (path === "/suppliers") {
       return location.pathname === "/suppliers" || location.pathname.startsWith("/suppliers/") || location.pathname.startsWith("/users/suppliers");

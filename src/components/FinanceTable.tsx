@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FileText, Building, Eye, Download, CheckCircle, X, AlertTriangle, Clock, Calendar, ShieldAlert } from "lucide-react";
+import { FileText, Building, Eye, Download, CheckCircle, X, AlertTriangle, Clock, Calendar, ShieldAlert, UserCheck } from "lucide-react";
 import { Button } from "./common";
 import type { InvoiceResponse } from "../types/invoice";
 import type { FinanceTransaction } from "../types/finance";
@@ -407,7 +407,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#334155] bg-[#1e293b]/80">
-                  {["Invoice ID", "Customer", "Due Date", "Credit Tracking", "Amount", "Status", "Actions"].map((title) => (
+                  {["Invoice ID", "Customer", "Sales Officer", "Due Date", "Credit Tracking", "Amount", "Status", "Actions"].map((title) => (
                     <th key={title} className="text-left py-4 px-4 xl:px-6 text-gray-300 font-semibold whitespace-nowrap">
                       {title}
                     </th>
@@ -436,6 +436,21 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         <span className="font-medium text-gray-200 truncate block max-w-[150px] xl:max-w-[200px]">
                           {invoice.customer?.fullName || "N/A"}
                         </span>
+                      </td>
+                      <td className="py-4 px-4 xl:px-6 whitespace-nowrap">
+                        {(() => {
+                          const sName = typeof invoice.salesman === 'object' && invoice.salesman !== null
+                            ? invoice.salesman.name || (invoice.salesman as any).fullName
+                            : (invoice.salesmanName || (typeof invoice.salesman === 'string' ? invoice.salesman : ''));
+                          return sName ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium">
+                              <UserCheck size={12} className="text-purple-400 shrink-0" />
+                              <span>{sName}</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-500 text-xs font-mono">—</span>
+                          );
+                        })()}
                       </td>
                       <td className="py-4 px-4 xl:px-6 text-gray-200 whitespace-nowrap">{formatDate(invoice.dueDate)}</td>
                       <td className="py-4 px-4 xl:px-6 whitespace-nowrap">
@@ -589,8 +604,20 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                       <p className="text-gray-200 font-medium text-sm truncate">{invoice.customer?.fullName || "N/A"}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 text-xs mb-1">Vehicle</p>
-                      <p className="text-gray-200 text-sm truncate">{invoice.vehicleNumber || "—"}</p>
+                      <p className="text-gray-400 text-xs mb-1">Sales Officer</p>
+                      {(() => {
+                        const sName = typeof invoice.salesman === 'object' && invoice.salesman !== null
+                          ? invoice.salesman.name || (invoice.salesman as any).fullName
+                          : (invoice.salesmanName || (typeof invoice.salesman === 'string' ? invoice.salesman : ''));
+                        return sName ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium truncate">
+                            <UserCheck size={11} className="text-purple-400 shrink-0" />
+                            <span className="truncate">{sName}</span>
+                          </span>
+                        ) : (
+                          <p className="text-gray-500 text-sm">—</p>
+                        );
+                      })()}
                     </div>
                   </div>
 

@@ -45,7 +45,7 @@ const Orders: React.FC = () => {
   }, []);
 
   const salesmenOptions = useMemo(() => {
-    const names = Array.from(new Set(orders.map((o) => o.salesman.name)));
+    const names = Array.from(new Set(orders.map((o) => o.salesman?.name).filter(Boolean))) as string[];
     return names.map((name) => ({ value: name, label: name }));
   }, [orders]);
 
@@ -95,7 +95,7 @@ const Orders: React.FC = () => {
 
       const matchesStatus = statusFilter === '' || ord.status === statusFilter;
       const matchesPayment = paymentFilter === '' || ord.paymentStatus === paymentFilter;
-      const matchesSalesman = salesmanFilter === '' || ord.salesman.name === salesmanFilter;
+      const matchesSalesman = salesmanFilter === '' || ord.salesman?.name === salesmanFilter;
 
       const ordDate = ord.orderDate;
       const matchesDateFrom = dateFrom === '' || ordDate >= dateFrom;
@@ -135,7 +135,7 @@ const Orders: React.FC = () => {
     const headers = ['Order ID', 'Order Date', 'Customer', 'Contact Phone', 'Salesman', 'Items', 'Total', 'Payment Status', 'Status'];
     const rows = sortedOrders.map((o) => [
       o.orderId, o.orderDate, `"${o.customerName}"`, o.contactPhone,
-      `"${o.salesman.name}"`, o.numberOfProducts, o.grandTotal, o.paymentStatus, o.status,
+      `"${o.salesman?.name || 'Unassigned'}"`, o.numberOfProducts, o.grandTotal, o.paymentStatus, o.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -193,8 +193,8 @@ const Orders: React.FC = () => {
       minWidth: '140px',
       render: (row) => (
         <div>
-          <p className="text-xs font-semibold text-gray-300">{row.salesman.name}</p>
-          <p className="text-[11px] text-gray-400">{row.salesman.area}</p>
+          <p className="text-xs font-semibold text-gray-300">{row.salesman?.name || '—'}</p>
+          {row.salesman?.area && <p className="text-[11px] text-gray-400">{row.salesman.area}</p>}
         </div>
       ),
     },

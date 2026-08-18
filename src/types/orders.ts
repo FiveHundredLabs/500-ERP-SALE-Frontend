@@ -59,8 +59,8 @@ export interface Order {
   createdAt: string;        // ISO datetime
   updatedAt: string;
 
-  // Salesman
-  salesman: Salesman;
+  // Salesman (Optional)
+  salesman?: Salesman | null;
 
   // Customer
   customerId: string;
