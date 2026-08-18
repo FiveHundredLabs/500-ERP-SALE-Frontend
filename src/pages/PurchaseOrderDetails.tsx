@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, StatusBadge, useToast, ConfirmDialog } from '../components/erp';
+import { PageHeader, useToast } from '../components/erp';
 import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import {
   ShoppingCart,
   Truck,
-  Calendar,
   ArrowLeft,
-  CheckCircle,
   Printer,
   MessageCircle,
-  CreditCard,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 
@@ -24,7 +21,6 @@ const PurchaseOrderDetails: React.FC = () => {
 
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [confirmApproveModal, setConfirmApproveModal] = useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -77,18 +73,6 @@ const PurchaseOrderDetails: React.FC = () => {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
-  const handleApprovePO = () => {
-    const updated: PurchaseOrder = {
-      ...po,
-      status: 'Approved',
-      approvedByName: 'Admin User',
-      approvedAt: new Date().toISOString(),
-    };
-    setPo(updated);
-    setConfirmApproveModal(false);
-    success('PO Approved Successfully!', `Purchase Order ${po.poNumber} has been approved.`);
-  };
-
   return (
     <AppLayout
       headerIcon={<ShoppingCart size={20} className="text-purple-400" />}
@@ -108,7 +92,7 @@ const PurchaseOrderDetails: React.FC = () => {
         {/* Page Header */}
         <PageHeader
           title={`PURCHASE ORDER — ${po.poNumber}`}
-          description={`Created by ${po.createdByName} on ${po.poDate}`}
+          description={`Issued on ${po.poDate}`}
           breadcrumbs={[
             { label: 'Dashboard', path: '/dashboard' },
             { label: 'Purchase Orders', path: '/purchase-orders' },
@@ -141,123 +125,35 @@ const PurchaseOrderDetails: React.FC = () => {
               >
                 <MessageCircle size={14} /> Send via WhatsApp
               </button>
-
-              {(po.status === 'Draft' || po.status === 'Pending Approval') && (
-                <button
-                  onClick={() => setConfirmApproveModal(true)}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
-                >
-                  <CheckCircle size={14} /> Approve PO
-                </button>
-              )}
             </div>
           }
         />
 
-        {/* Status Bar */}
-        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">PO Status:</span>
-            <StatusBadge status={po.status} />
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider ml-3">Payment:</span>
-            <StatusBadge status={po.paymentStatus} />
+        {/* Supplier Card */}
+        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg w-full">
+          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-indigo-400 font-semibold text-xs uppercase tracking-wider">
+            <Truck size={15} /> Supplier Information
           </div>
-
-          {po.referenceOrderNum && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-gray-400">Reference Order:</span>
-              <button
-                onClick={() => navigate('/orders')}
-                className="font-mono text-blue-400 hover:text-blue-300 hover:underline font-semibold transition-colors"
-              >
-                {po.referenceOrderNum}
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 text-xs">
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Company:</span>
+              <span className="font-semibold text-gray-200">{po.supplierName}</span>
             </div>
-          )}
-        </div>
-
-        {/* 3 Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Supplier Card */}
-          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-indigo-400 font-semibold text-xs uppercase tracking-wider">
-              <Truck size={15} /> Supplier Information
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Supplier ID:</span>
+              <span className="font-mono text-gray-300">{po.supplierId}</span>
             </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Company:</span>
-                <span className="font-semibold text-gray-200 text-right">{po.supplierName}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Supplier ID:</span>
-                <span className="font-mono text-gray-300">{po.supplierId}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Contact Person:</span>
-                <span className="text-gray-300 text-right">{po.supplierContact}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Phone:</span>
-                <span className="font-mono text-gray-300">{po.supplierPhone}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Address:</span>
-                <span className="text-gray-300 text-right truncate max-w-[180px]">{po.supplierAddress}, {po.supplierCity}</span>
-              </div>
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Contact Person:</span>
+              <span className="text-gray-300">{po.supplierContact}</span>
             </div>
-          </div>
-
-          {/* Dates & Delivery Card */}
-          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-cyan-400 font-semibold text-xs uppercase tracking-wider">
-              <Calendar size={15} /> Dates & Delivery
+            <div className="flex justify-between md:justify-start gap-4">
+              <span className="text-gray-400 min-w-[100px]">Phone:</span>
+              <span className="font-mono text-gray-300">{po.supplierPhone}</span>
             </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">PO Issue Date:</span>
-                <span className="font-semibold text-gray-200">{po.poDate}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Expected Date:</span>
-                <span className="text-gray-300">{po.expectedDate}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Delivery Terms:</span>
-                <span className="text-gray-300 text-right">{po.deliveryTerms || 'Standard Warehouse Delivery'}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Created By:</span>
-                <span className="text-gray-300">{po.createdByName}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Approved By:</span>
-                <span className={po.approvedByName ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
-                  {po.approvedByName || 'Pending Approval'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Terms & Notes Card */}
-          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#334155] text-purple-400 font-semibold text-xs uppercase tracking-wider">
-              <CreditCard size={15} /> Terms & Notes
-            </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Payment Terms:</span>
-                <span className="font-semibold text-gray-200">{po.paymentTerms}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400">Customer Ref:</span>
-                <span className="text-gray-300 text-right">{po.customerName || 'Central Warehouse'}</span>
-              </div>
-              {po.notes && (
-                <div className="pt-2 border-t border-[#334155] text-gray-400">
-                  <span className="text-gray-400 font-medium block mb-1">Notes:</span>
-                  <p className="text-[11px] leading-snug text-gray-300">{po.notes}</p>
-                </div>
-              )}
+            <div className="flex justify-between md:justify-start gap-4 md:col-span-2">
+              <span className="text-gray-400 min-w-[100px]">Address:</span>
+              <span className="text-gray-300">{po.supplierAddress}, {po.supplierCity}</span>
             </div>
           </div>
         </div>
@@ -332,16 +228,6 @@ const PurchaseOrderDetails: React.FC = () => {
         </div>
       </div>
 
-      <ConfirmDialog
-        isOpen={confirmApproveModal}
-        title="Approve Purchase Order"
-        message={`Are you sure you want to approve Purchase Order ${po.poNumber} for ${po.supplierName}?`}
-        confirmText="Approve PO"
-        cancelText="Cancel"
-        type="info"
-        onConfirm={handleApprovePO}
-        onCancel={() => setConfirmApproveModal(false)}
-      />
     </AppLayout>
   );
 };

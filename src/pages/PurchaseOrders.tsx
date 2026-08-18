@@ -258,9 +258,10 @@ const PurchaseOrders: React.FC = () => {
               setSelectedPOToUpdate(row);
             }}
             className="erp-btn erp-btn-secondary erp-btn-sm p-2"
+            style={{color: "#f4af38ff"}}
             title="Edit Purchase Order"
           >
-            <Edit size={13} />
+            <Edit size={13} /> Edit
           </button>
         </div>
       ),
