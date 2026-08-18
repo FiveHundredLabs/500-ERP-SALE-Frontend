@@ -21,6 +21,7 @@ interface QuotationFormProps {
   onAddItem: (item: Omit<QuotationItem, 'id' | 'total'> & { total?: number }) => void;
   onRemoveItem: (id: string) => void;
   onUpdateItem: (id: string, updates: Partial<QuotationItem>) => void;
+  onTotalDiscountChange?: (discountType: 'percentage' | 'amount', discountValue: number) => void;
   inventoryItems: InventoryItem[];
 }
 
@@ -31,6 +32,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   onAddItem,
   onRemoveItem,
   onUpdateItem,
+  onTotalDiscountChange,
   inventoryItems,
 }) => {
   const {
@@ -164,22 +166,10 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     setShowCustomerSuggestions(false);
     setCustomerModalMode(null);
 
-    // Auto-detect customer's agreed credit payment terms (e.g. Net 30, Net 15)
-    const terms = (customer as any).paymentTerms || '';
-    if (terms && !terms.toLowerCase().includes('cash')) {
-      onFieldChange('paymentMethod', PaymentMethod.CREDIT);
-      if (terms.includes('15')) {
-        handleCreditPeriodChange('15');
-      } else if (terms.includes('45')) {
-        handleCreditPeriodChange('45');
-      } else if (terms.includes('60')) {
-        handleCreditPeriodChange('60');
-      } else if (terms.includes('7')) {
-        handleCreditPeriodChange('7');
-      } else {
-        handleCreditPeriodChange('30');
-      }
-    }
+    // Auto-set payment method to Credit and credit period to customer's default period
+    const defaultPeriod = customer.creditPeriod ?? 30;
+    onFieldChange('paymentMethod', PaymentMethod.CREDIT);
+    handleCreditPeriodChange(String(defaultPeriod));
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange]);
 
   const handleClearCustomer = useCallback(() => {
@@ -411,6 +401,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
               </div>
             )}
 
+            {/* Valid Until (Always editable) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Valid Until*
@@ -418,11 +409,11 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
               <input
                 type="date"
                 value={quotationData.validUntil}
-                onChange={(e) => onFieldChange('validUntil', e.target.value)}
-                readOnly={(quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit') && creditPeriod !== 'custom'}
-                className={`w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  (quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit') && creditPeriod !== 'custom' ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                onChange={(e) => {
+                  setCreditPeriod('custom');
+                  onFieldChange('validUntil', e.target.value);
+                }}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                 required
               />
             </div>
@@ -460,22 +451,24 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       />
 
       {quotationData.items.length > 0 && (
-        <div className="bg-[#1e293b] rounded-lg border border-[#334155]">
-          <div className="p-6">
-            <QuotationItemsList
-              items={quotationData.items}
-              inventoryItems={inventoryItems}
-              onUpdateQuantity={handleUpdateItemQuantity}
-              onRemoveItem={onRemoveItem}
-            />
+        <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-5 space-y-4">
+          <QuotationItemsList
+            items={quotationData.items}
+            inventoryItems={inventoryItems}
+            onUpdateQuantity={handleUpdateItemQuantity}
+            onUpdateItem={onUpdateItem}
+            onRemoveItem={onRemoveItem}
+          />
 
-            <QuotationSummary
-              subTotal={subTotal}
-              discountPercentage={quotationData.discountPercentage}
-              discountAmount={discountAmount}
-              totalAmount={totalAmount}
-            />
-          </div>
+          <QuotationSummary
+            subTotal={subTotal}
+            totalDiscountType={quotationData.totalDiscountType}
+            totalDiscountValue={quotationData.totalDiscountValue}
+            discountPercentage={quotationData.discountPercentage}
+            discountAmount={discountAmount}
+            totalAmount={totalAmount}
+            onTotalDiscountChange={onTotalDiscountChange}
+          />
         </div>
       )}
     </div>

@@ -422,67 +422,119 @@ const CustomersTab: React.FC = () => {
 
       {/* Add / Edit Customer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
-          <div className="relative erp-card w-full max-w-lg animate-slideIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-semibold text-slate-100">
-                {editCustomer ? 'Edit Customer' : 'Add New Customer'}
-              </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-300">
+        <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0b132b] border border-[#1e293b] rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl relative text-slate-100 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#1e293b]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editCustomer ? 'Edit Customer Profile' : 'Add New Customer'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Set business details, credit terms, and contact phone numbers
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitForm} className="space-y-3 mt-4 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Business / Shop Name *</label>
-                <input
-                  required
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. Nirosha Enterprise"
-                  value={formData.businessName}
-                  onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                />
-              </div>
+            <form onSubmit={handleSubmitForm} className="space-y-4 text-xs">
+              {/* General Info */}
+              <div className="bg-[#111c3a]/80 border border-[#1e2e54] rounded-xl p-4 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">Business / Shop Name *</label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
+                      placeholder="e.g. Nirosha Enterprise"
+                      value={formData.businessName}
+                      onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                    />
+                  </div>
 
-              {/* Contact Person */}
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Contact Person *</label>
-                <input
-                  required
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. Nirosha Bandara"
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                />
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">Contact Person *</label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
+                      placeholder="e.g. Nirosha Bandara"
+                      value={formData.contactPerson}
+                      onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">Email Address</label>
+                    <input
+                      type="email"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
+                      placeholder="info@shop.lk"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 mb-1 font-semibold">City / Location *</label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
+                      placeholder="e.g. Colombo 09"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Street Address</label>
+                  <input
+                    type="text"
+                    className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
+                    placeholder="e.g. 145, Baseline Road"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  />
+                </div>
               </div>
 
               {/* Phone Numbers Section (Up to 3) */}
-              <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+              <div className="p-3.5 rounded-xl bg-[#0f2324]/60 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center justify-between pb-1.5 border-b border-emerald-500/20">
                   <div className="flex items-center gap-1.5">
                     <Phone size={13} className="text-emerald-400" />
-                    <span className="text-xs font-semibold text-slate-200">Phone Numbers (Up to 3)</span>
+                    <span className="text-xs font-bold text-emerald-300">Contact Numbers</span>
                   </div>
-                  <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40 flex items-center gap-1">
-                    <MessageCircle size={10} /> 1st = WhatsApp
+                  <span className="text-[10px] text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1">
+                    <MessageCircle size={10} /> 1st Phone = WhatsApp Direct
                   </span>
                 </div>
 
                 <div>
-                  <label className="flex items-center justify-between text-slate-400 mb-1 font-medium">
-                    <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                      <MessageCircle size={12} className="text-emerald-400" /> WhatsApp Number * (Required)
+                  <label className="flex items-center justify-between text-slate-300 mb-1 font-semibold">
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <MessageCircle size={12} /> WhatsApp Number * (Required)
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">Primary WhatsApp</span>
+                    <span className="text-[10px] text-slate-400 font-mono">Chat & Invoicing Target</span>
                   </label>
                   <input
                     required
-                    type="text"
-                    className="erp-input border-emerald-500/30 focus:border-emerald-500 font-mono text-emerald-300"
+                    type="tel"
+                    className="w-full bg-[#071518] border border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-emerald-300 placeholder-slate-500 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     placeholder="e.g. +94705787818"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -491,24 +543,24 @@ const CustomersTab: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-medium">
-                      Phone 2 <span className="text-slate-500 text-[10px]">(Optional - Landline / Alt)</span>
+                    <label className="block text-slate-300 mb-1 font-semibold">
+                      Phone 2 <span className="text-slate-500 text-[10px]">(Landline / Office)</span>
                     </label>
                     <input
-                      type="text"
-                      className="erp-input font-mono"
+                      type="tel"
+                      className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3.5 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       placeholder="e.g. 011-255-4321"
                       value={formData.phone2 || ''}
                       onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 mb-1 font-medium">
-                      Phone 3 <span className="text-slate-500 text-[10px]">(Optional - Secondary Mobile)</span>
+                    <label className="block text-slate-300 mb-1 font-semibold">
+                      Phone 3 <span className="text-slate-500 text-[10px]">(Secondary Mobile)</span>
                     </label>
                     <input
-                      type="text"
-                      className="erp-input font-mono"
+                      type="tel"
+                      className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3.5 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       placeholder="e.g. 077-123-4567"
                       value={formData.phone3 || ''}
                       onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
@@ -517,46 +569,69 @@ const CustomersTab: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Email Address</label>
-                  <input
-                    type="email"
-                    className="erp-input"
-                    placeholder="info@shop.lk"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+              {/* Credit Terms & Limit */}
+              <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/40 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-1.5 border-b border-purple-500/20">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Default Credit & Trade Terms</span>
+                  <span className="text-[10px] text-purple-400">Auto-applies to Invoices & Quotations</span>
                 </div>
+
+                {/* Preset Days */}
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">City / Location *</label>
-                  <input
-                    required
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Colombo 09"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  />
+                  <label className="block text-purple-200 mb-1.5 font-semibold">Default Credit Period (Days)</label>
+                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                    {[7, 14, 15, 30, 45, 60, 90].map((days) => (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ 
+                            ...formData, 
+                            creditPeriod: days, 
+                            paymentTerms: `Net ${days}` 
+                          });
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                          formData.creditPeriod === days
+                            ? 'bg-purple-600 text-white shadow-md shadow-purple-600/40'
+                            : 'bg-[#0a1024] text-slate-300 border border-[#2e265c] hover:bg-[#1a1740]'
+                        }`}
+                      >
+                        {days} Days
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-purple-200 mb-1 font-semibold">Credit Limit (LKR)</label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      value={formData.creditLimit}
+                      onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-purple-200 mb-1 font-semibold">Payment Terms Label</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
+                      placeholder="e.g. Net 30, COD"
+                      value={formData.paymentTerms}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Street Address</label>
-                <input
-                  type="text"
-                  className="erp-input"
-                  placeholder="e.g. 145, Baseline Road"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
-
+              {/* Type & Status */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">Customer Type</label>
                   <select
-                    className="erp-select w-full"
+                    className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     value={formData.customerType}
                     onChange={(e) => setFormData({ ...formData, customerType: e.target.value as CustomerTypeValue })}
                   >
@@ -569,7 +644,7 @@ const CustomersTab: React.FC = () => {
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">Status</label>
                   <select
-                    className="erp-select w-full"
+                    className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
                   >
@@ -579,37 +654,19 @@ const CustomersTab: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Credit Limit (LKR)</label>
-                  <input
-                    type="number"
-                    className="erp-input"
-                    value={formData.creditLimit}
-                    onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Payment Terms</label>
-                  <input
-                    type="text"
-                    className="erp-input"
-                    placeholder="e.g. Net 30, COD"
-                    value={formData.paymentTerms}
-                    onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+              {/* Actions */}
+              <div className="pt-3 border-t border-[#1e293b] flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="erp-btn erp-btn-outline"
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-xl transition"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="erp-btn erp-btn-primary">
+                <button 
+                  type="submit" 
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30"
+                >
                   {editCustomer ? 'Save Changes' : 'Create Customer'}
                 </button>
               </div>

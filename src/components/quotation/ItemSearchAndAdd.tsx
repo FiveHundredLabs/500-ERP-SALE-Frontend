@@ -343,11 +343,11 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
         <div className="flex items-center gap-3 text-xs">
           <span className="text-gray-400">Line Total:</span>
           <span className="font-mono text-base font-bold text-green-400">
-            LKR {finalLineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            LKR {Math.round(finalLineTotal).toLocaleString()}/=
           </span>
           {calculatedDiscountAmount > 0 && (
             <span className="text-red-400 font-mono text-xs">
-              (Disc: -LKR {calculatedDiscountAmount.toFixed(2)})
+              (Disc: -LKR {Math.round(calculatedDiscountAmount).toLocaleString()}/=)
             </span>
           )}
         </div>
@@ -359,7 +359,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={14} />
-          {isItemAlreadyAdded ? 'Update Line Item' : 'Add Item'}
+          {isItemAlreadyAdded ? 'Update Line Item' : 'Add Item to Quotation'}
         </button>
       </div>
     </div>

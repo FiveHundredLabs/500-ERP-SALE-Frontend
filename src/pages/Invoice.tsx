@@ -148,6 +148,8 @@ const Invoice: React.FC = () => {
       const nextId = await invoiceService.getNextId();
 
       const convertFromPO = location.state?.convertFromPO as PurchaseOrder | undefined;
+      // salesman can be explicitly passed in location.state, e.g. from an order conversion
+      const convertFromSalesman = location.state?.salesman as { _id: string; name: string } | undefined;
 
       let initialInvoiceItems: InvoiceItem[] = [];
       let initialNotes = "";
@@ -179,6 +181,7 @@ const Invoice: React.FC = () => {
         subTotal,
         totalAmount: subTotal,
         notes: initialNotes,
+        salesman: convertFromSalesman || null,
       };
       setInvoiceData(initialInvoiceData);
       lastSavedRef.current = null;
@@ -193,9 +196,10 @@ const Invoice: React.FC = () => {
 
       if (initialInvoiceItems.length > 0) {
         setViewMode('edit');
+        const salesmanNote = convertFromSalesman ? ` Salesman: ${convertFromSalesman.name}.` : '';
         setAlert({
           type: 'info',
-          message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.`,
+          message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.${salesmanNote}`,
         });
       }
 
@@ -451,6 +455,7 @@ const Invoice: React.FC = () => {
     const backendData: BackendInvoiceData = {
       invoiceId: data.invoiceId,
       customer: data.customer,
+      salesman: data.salesman?._id || null,
       items: data.items.map(item => ({
         item: item.item,
         quantity: item.quantity,

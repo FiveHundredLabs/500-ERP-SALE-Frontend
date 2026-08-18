@@ -15,10 +15,13 @@ export interface Customer {
     country?: string;
     zip?: string;
   };
+  customerCode?: string;
+  creditPeriod?: number;      // Default credit period in days
+  paymentTerms?: string;      // e.g. "Net 30", "Net 60", "Cash"
+  creditLimit?: number;
   vehicle_number?: string;
   vehicle_model?: string;
   year_of_manufacture?: number;
-  customerCode?: string;
 }
 
 export const useCustomerSearch = () => {

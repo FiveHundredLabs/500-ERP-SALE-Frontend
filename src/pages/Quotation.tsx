@@ -94,6 +94,8 @@ const Quotation: React.FC = () => {
     subTotal: 0,
     discount: 0,
     discountPercentage: 0,
+    totalDiscountType: 'percentage',
+    totalDiscountValue: 0,
     totalAmount: 0,
     paymentMethod: PaymentMethod.CASH,
     status: QuotationStatus.PENDING,
@@ -153,55 +155,62 @@ const Quotation: React.FC = () => {
     );
 
     let newItems: QuotationItem[];
+    const total = item.total !== undefined ? item.total : (item.quantity * item.unitPrice);
 
     if (existingItemIndex !== -1) {
       newItems = [...quotationData.items];
       const existingItem = newItems[existingItemIndex];
       const newQty = existingItem.quantity + item.quantity;
-      const baseSub = newQty * existingItem.unitPrice;
-      let discAmount = 0;
-      
-      if (item.discountType === 'percentage' || existingItem.discountType === 'percentage') {
-        const pct = item.discountValue !== undefined ? item.discountValue : (existingItem.discountValue || 0);
-        discAmount = (baseSub * pct) / 100;
-      } else if (item.discountType === 'amount' || existingItem.discountType === 'amount') {
-        const val = item.discountValue !== undefined ? item.discountValue : (existingItem.discountValue || 0);
-        const scope = item.discountScope || existingItem.discountScope || 'per_unit';
-        discAmount = scope === 'total_qty' ? Math.min(baseSub, val) : Math.min(baseSub, val * newQty);
-      } else {
-        discAmount = (existingItem.discountAmount || 0) + (item.discountAmount || 0);
+      let newDiscount = 0;
+      if (item.discountValue !== undefined) {
+        if (item.discountType === 'percentage') {
+          const pct = Math.min(100, Math.max(0, Number(item.discountValue)));
+          newDiscount = (newQty * item.unitPrice) * (pct / 100);
+        } else {
+          newDiscount = item.discountScope === 'total_qty'
+            ? Math.min(newQty * item.unitPrice, Number(item.discountValue))
+            : Math.min(item.unitPrice, Number(item.discountValue)) * newQty;
+        }
       }
-
-      const updatedTotal = Math.max(0, baseSub - discAmount);
+      const newTotal = Math.max(0, (newQty * item.unitPrice) - newDiscount);
 
       const updatedItem: QuotationItem = {
         ...existingItem,
         ...item,
         quantity: newQty,
-        discountAmount: discAmount,
-        total: updatedTotal
+        discountAmount: newDiscount,
+        total: newTotal
       };
       newItems[existingItemIndex] = updatedItem;
     } else {
-      const lineTotal = item.total !== undefined ? item.total : (item.quantity * item.unitPrice);
       const newItem: QuotationItem = {
         ...item,
         id: Date.now().toString(),
-        total: lineTotal
+        total
       };
       newItems = [...quotationData.items, newItem];
     }
 
-    const subTotal = newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
-    const totalDiscount = newItems.reduce((sum, it) => sum + (it.discountAmount || 0), 0);
-    const totalAmount = newItems.reduce((sum, it) => sum + it.total, 0);
+    const subTotal = newItems.reduce((sum, it) => sum + it.total, 0);
+    const discType = quotationData.totalDiscountType || 'percentage';
+    const discVal = quotationData.totalDiscountValue || 0;
+    let totalDiscount = 0;
+    if (discVal > 0) {
+      if (discType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discVal));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discVal);
+      }
+    }
+    const totalAmount = Math.max(0, subTotal - totalDiscount);
 
     setQuotationData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
       discount: totalDiscount,
-      totalAmount: totalAmount > 0 ? totalAmount : 0
+      totalAmount
     }));
     setIsDirty(true);
   };
@@ -348,16 +357,26 @@ const Quotation: React.FC = () => {
 
   const handleRemoveItem = (id: string) => {
     const newItems = quotationData.items.filter(item => item.id !== id);
-    const subTotal = newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
-    const totalDiscount = newItems.reduce((sum, it) => sum + (it.discountAmount || 0), 0);
-    const totalAmount = newItems.reduce((sum, it) => sum + it.total, 0);
+    const subTotal = newItems.reduce((sum, it) => sum + it.total, 0);
+    const discType = quotationData.totalDiscountType || 'percentage';
+    const discVal = quotationData.totalDiscountValue || 0;
+    let totalDiscount = 0;
+    if (discVal > 0) {
+      if (discType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discVal));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discVal);
+      }
+    }
+    const totalAmount = Math.max(0, subTotal - totalDiscount);
 
     setQuotationData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
       discount: totalDiscount,
-      totalAmount: totalAmount > 0 ? totalAmount : 0
+      totalAmount
     }));
     setIsDirty(true);
   };
@@ -366,20 +385,27 @@ const Quotation: React.FC = () => {
     const newItems = quotationData.items.map(item => {
       if (item.id === id) {
         const updatedItem = { ...item, ...updates };
-        if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
+        if (
+          updates.quantity !== undefined ||
+          updates.unitPrice !== undefined ||
+          updates.discountValue !== undefined ||
+          updates.discountType !== undefined ||
+          updates.discountScope !== undefined
+        ) {
           const qty = updatedItem.quantity;
           const baseSub = qty * updatedItem.unitPrice;
           let discAmount = 0;
+          const discVal = Number(updatedItem.discountValue) || 0;
 
-          if (updatedItem.discountType === 'percentage') {
-            const pct = updatedItem.discountValue || 0;
-            discAmount = (baseSub * pct) / 100;
-          } else if (updatedItem.discountType === 'amount') {
-            const val = updatedItem.discountValue || 0;
-            const scope = updatedItem.discountScope || 'per_unit';
-            discAmount = scope === 'total_qty' ? Math.min(baseSub, val) : Math.min(baseSub, val * qty);
-          } else {
-            discAmount = updatedItem.discountAmount || 0;
+          if (discVal > 0) {
+            if (updatedItem.discountType === 'percentage') {
+              const pct = Math.min(100, Math.max(0, discVal));
+              discAmount = (baseSub * pct) / 100;
+            } else {
+              discAmount = updatedItem.discountScope === 'total_qty'
+                ? Math.min(baseSub, discVal)
+                : Math.min(updatedItem.unitPrice, discVal) * qty;
+            }
           }
 
           updatedItem.discountAmount = discAmount;
@@ -390,16 +416,52 @@ const Quotation: React.FC = () => {
       return item;
     });
 
-    const subTotal = newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
-    const totalDiscount = newItems.reduce((sum, it) => sum + (it.discountAmount || 0), 0);
-    const totalAmount = newItems.reduce((sum, it) => sum + it.total, 0);
+    const subTotal = newItems.reduce((sum, it) => sum + it.total, 0);
+    const discType = quotationData.totalDiscountType || 'percentage';
+    const discVal = quotationData.totalDiscountValue || 0;
+    let totalDiscount = 0;
+    if (discVal > 0) {
+      if (discType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discVal));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discVal);
+      }
+    }
+    const totalAmount = Math.max(0, subTotal - totalDiscount);
 
     setQuotationData(prev => ({
       ...prev,
       items: newItems,
       subTotal,
       discount: totalDiscount,
-      totalAmount: totalAmount > 0 ? totalAmount : 0
+      totalAmount
+    }));
+    setIsDirty(true);
+  };
+
+  const handleTotalDiscountChange = (discountType: 'percentage' | 'amount', discountValue: number) => {
+    const subTotal = quotationData.items.reduce((sum, item) => sum + item.total, 0);
+    let totalDiscount = 0;
+
+    if (discountValue > 0) {
+      if (discountType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, discountValue));
+        totalDiscount = subTotal * (pct / 100);
+      } else {
+        totalDiscount = Math.min(subTotal, discountValue);
+      }
+    }
+
+    const totalAmount = Math.max(0, subTotal - totalDiscount);
+
+    setQuotationData(prev => ({
+      ...prev,
+      totalDiscountType: discountType,
+      totalDiscountValue: discountValue,
+      discount: totalDiscount,
+      discountPercentage: discountType === 'percentage' ? discountValue : (subTotal > 0 ? (totalDiscount / subTotal) * 100 : 0),
+      totalAmount,
     }));
     setIsDirty(true);
   };
@@ -1034,6 +1096,7 @@ const Quotation: React.FC = () => {
                       onAddItem={handleAddItem}
                       onRemoveItem={handleRemoveItem}
                       onUpdateItem={handleUpdateItem}
+                      onTotalDiscountChange={handleTotalDiscountChange}
                       inventoryItems={inventoryItems}
                     />
                   </ErrorBoundary>
@@ -1046,7 +1109,7 @@ const Quotation: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span>Items: <strong className="text-white">{quotationData.items.length}</strong></span>
                         <span className="text-gray-600">•</span>
-                        <span>Total: <span className="text-emerald-400 font-mono font-bold text-sm">LKR {quotationData.totalAmount.toFixed(2)}</span></span>
+                        <span>Total: <span className="text-emerald-400 font-mono font-bold text-sm">LKR {Math.round(quotationData.totalAmount).toLocaleString()}/=</span></span>
                       </div>
                     ) : (
                       <span>Add products to generate quotation</span>

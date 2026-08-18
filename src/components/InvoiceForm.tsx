@@ -13,7 +13,9 @@ import { InvoiceSummary } from "./invoice/InvoiceSummary";
 import PaymentModal from "../components/PaymentModal";
 import POPickerModal from "./common/POPickerModal";
 import type { PurchaseOrder } from "../types/purchaseOrders";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, UserCheck } from "lucide-react";
+import userService from "../services/UserService";
+import type { User } from "../types/users";
 
 interface InvoiceFormProps {
   invoiceData: InvoiceData;
@@ -86,6 +88,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
+  // Salesman list (users with role === 'salesman')
+  const [salesmen, setSalesmen] = useState<User[]>([]);
+  useEffect(() => {
+    userService.getUsers().then(users => setSalesmen(users.filter(u => u.role === 'salesman')));
+  }, []);
+
   const handleOrderImport = useCallback((po: PurchaseOrder) => {
     po.items.forEach(p => {
       const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
@@ -151,11 +159,41 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }));
   }, []);
 
+  // Credit period state in days (e.g. 30, 60, custom)
+  const [creditPeriod, setCreditPeriod] = useState<string>('30');
+
+  const handleCreditPeriodChange = useCallback((days: string) => {
+    setCreditPeriod(days);
+    if (days !== 'custom') {
+      const numDays = parseInt(days, 10);
+      const baseDate = invoiceData.issueDate ? new Date(invoiceData.issueDate) : new Date();
+      if (!isNaN(baseDate.getTime())) {
+        const dueDate = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        onFieldChange('dueDate', dueDate);
+        onFieldChange('creditPeriod', numDays);
+      }
+    }
+  }, [invoiceData.issueDate, onFieldChange]);
+
+  const handleBillingDateChange = (newDate: string) => {
+    onFieldChange('issueDate', newDate);
+    if (creditPeriod !== 'custom') {
+      const numDays = parseInt(creditPeriod, 10) || 0;
+      const baseDate = new Date(newDate);
+      if (!isNaN(baseDate.getTime())) {
+        const dueDate = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        onFieldChange('dueDate', dueDate);
+      }
+    }
+  };
+
   // When payment method changes: If Credit -> Pending, else -> Completed
   const handlePaymentMethodChange = (method: string) => {
     onFieldChange('paymentMethod', method);
     if (method === PaymentMethod.CREDIT || method === 'Credit') {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
+      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      handleCreditPeriodChange(periodToUse);
     } else {
       onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
     }
@@ -168,15 +206,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     setShowCustomerSuggestions(false);
     setCustomerModalMode(null);
 
-    const terms = (customer as any).paymentTerms || '';
-    if (terms && !terms.toLowerCase().includes('cash')) {
-      onFieldChange('paymentMethod', PaymentMethod.CREDIT);
-      onFieldChange('paymentStatus', PaymentStatus.PENDING);
-    } else {
-      onFieldChange('paymentMethod', PaymentMethod.CASH);
-      onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
-    }
-  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange]);
+    // Auto-set payment method to Credit and credit period to customer's default period
+    const defaultPeriod = customer.creditPeriod ?? 30;
+    onFieldChange('paymentMethod', PaymentMethod.CREDIT);
+    onFieldChange('paymentStatus', PaymentStatus.PENDING);
+    handleCreditPeriodChange(String(defaultPeriod));
+  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -427,15 +462,36 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         />
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Salesman Selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Salesman</span>
+              </label>
+              <select
+                value={invoiceData.salesman?._id || ''}
+                onChange={(e) => {
+                  const selected = salesmen.find(s => s._id === e.target.value);
+                  onFieldChange('salesman', selected ? { _id: selected._id, name: selected.fullName } as any : null as any);
+                }}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+              >
+                <option value="">— Select Salesman —</option>
+                {salesmen.map(s => (
+                  <option key={s._id} value={s._id}>{s.fullName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                 Payment Method*
               </label>
               <select
                 value={invoiceData.paymentMethod}
                 onChange={(e) => handlePaymentMethodChange(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
                 required
               >
                 {Object.values(PaymentMethod).map(method => (
@@ -444,33 +500,76 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               </select>
             </div>
 
+            {/* Billing Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                 Billing Date*
               </label>
               <input
                 type="date"
                 value={invoiceData.issueDate}
-                onChange={(e) => onFieldChange('issueDate', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                onChange={(e) => handleBillingDateChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium font-mono"
                 required
               />
             </div>
+
+            {/* Credit Period & Due Date (Visible and editable) */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Credit Period
+              </label>
+              <select
+                value={creditPeriod}
+                onChange={(e) => handleCreditPeriodChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+              >
+                <option value="custom">Custom Due Date</option>
+                <option value="0">Immediate (0 Days)</option>
+                <option value="7">7 Days</option>
+                <option value="14">14 Days</option>
+                <option value="15">15 Days</option>
+                <option value="30">30 Days</option>
+                <option value="45">45 Days</option>
+                <option value="60">60 Days</option>
+                <option value="90">90 Days</option>
+              </select>
+            </div>
           </div>
 
-          {invoiceData.paymentMethod === PaymentMethod.BANK_DEPOSIT && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Due Date (Always editable) */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Bank Deposit Date
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Due Date
               </label>
-              <input
-                type="date"
-                value={invoiceData.bankDepositDate || ''}
-                onChange={(e) => onFieldChange('bankDepositDate', e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={invoiceData.dueDate || ''}
+                  onChange={(e) => {
+                    setCreditPeriod('custom');
+                    onFieldChange('dueDate', e.target.value);
+                  }}
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs font-medium font-mono"
+                />
+              </div>
             </div>
-          )}
+
+            {invoiceData.paymentMethod === PaymentMethod.BANK_DEPOSIT && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Bank Deposit Date
+                </label>
+                <input
+                  type="date"
+                  value={invoiceData.bankDepositDate || ''}
+                  onChange={(e) => onFieldChange('bankDepositDate', e.target.value)}
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium font-mono"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

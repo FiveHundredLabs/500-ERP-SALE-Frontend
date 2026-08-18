@@ -31,6 +31,9 @@ export interface InvoiceCustomer {
     zip?: string;
   };
   customerCode: string;
+  creditPeriod?: number;      // Default credit period in days
+  paymentTerms?: string;
+  creditLimit?: number;
   vehicle_number?: string;
   vehicle_model?: string;
   year_of_manufacture?: number;
@@ -65,6 +68,7 @@ export interface InvoiceData {
   invoiceId: string;
   customer: string;
   customerDetails?: InvoiceCustomer;
+  salesman?: { _id: string; name: string } | null;
   items: InvoiceItem[];
   subTotal: number;
   discount: number;
@@ -74,6 +78,7 @@ export interface InvoiceData {
   totalAmount: number;
   paymentStatus: PaymentStatusType;
   paymentMethod: PaymentMethodType;
+  creditPeriod?: number;
   bankDepositDate?: string;
   issueDate: string;
   dueDate: string;
@@ -89,6 +94,7 @@ export interface InvoiceData {
 export interface BackendInvoiceData {
   invoiceId: string;
   customer: string;
+  salesman?: string | null;
   items: Array<{
     item: string;
     quantity: number;

@@ -45,6 +45,9 @@ export const invoiceService = {
       phone3: c.phone3 || '',
       vatNumber: `LKR-${(100000000 + (idx + 1) * 98765).toString().substring(0, 9)}-VAT`,
       customerCode: c.customerId,
+      creditPeriod: c.creditPeriod || (c.paymentTerms?.includes('60') ? 60 : c.paymentTerms?.includes('45') ? 45 : c.paymentTerms?.includes('15') ? 15 : c.paymentTerms?.includes('90') ? 90 : 30),
+      paymentTerms: c.paymentTerms || 'Net 30',
+      creditLimit: c.creditLimit || 500000,
       address: {
         street: c.address,
         city: c.city,

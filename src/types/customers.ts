@@ -39,6 +39,7 @@ export interface Customer {
   status: CustomerStatusValue;
 
   creditLimit: number;
+  creditPeriod?: number;      // Default credit period in days (e.g. 30)
   paymentTerms: string;       // e.g., "Net 30", "Cash on Delivery"
 
   // Statistics
@@ -65,6 +66,7 @@ export interface CustomerCreateDto {
   customerType: CustomerTypeValue;
   status: CustomerStatusValue;
   creditLimit: number;
+  creditPeriod?: number;
   paymentTerms: string;
   notes?: string;
 }

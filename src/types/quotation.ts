@@ -22,6 +22,9 @@ export interface QuotationCustomer {
     zip?: string;
   };
   customerCode: string;
+  creditPeriod?: number;      // Default credit period in days
+  paymentTerms?: string;
+  creditLimit?: number;
   vehicle_number?: string;
   vehicle_model?: string;
   year_of_manufacture?: number;
@@ -59,8 +62,11 @@ export interface QuotationData {
   subTotal: number;
   discount: number;
   discountPercentage: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
   totalAmount: number;
   paymentMethod: string;
+  creditPeriod?: number;
   issueDate: string;
   validUntil: string;
   status: QuotationStatusType;
