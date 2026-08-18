@@ -757,9 +757,9 @@ const Quotation: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleConvertQuotationToPO(quotationData)}
-                        disabled={!isQuotationSaved || quotationData.items.length === 0}
+                        disabled={!isQuotationSaved || isLoading || isSaving}
                         className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={!isQuotationSaved ? "Save quotation first to convert to PO" : "Convert to Purchase Order"}
+                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Purchase Order"}
                       >
                         <ShoppingCart className="w-4 h-4" />
                         <span className="hidden sm:inline">Convert to PO</span>
@@ -768,9 +768,9 @@ const Quotation: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleOpenPreview}
-                        disabled={!isQuotationSaved || quotationData.items.length === 0}
+                        disabled={!isQuotationSaved || isLoading || isSaving}
                         className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={!isQuotationSaved ? "Save quotation first to enable preview" : "Preview Quotation"}
+                        title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
                       >
                         <Eye className="w-4 h-4" />
                         <span>Preview</span>
@@ -779,9 +779,9 @@ const Quotation: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleShareQuotation}
-                        disabled={!isQuotationSaved || quotationData.items.length === 0}
+                        disabled={!isQuotationSaved || isLoading || isSaving}
                         className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={!isQuotationSaved ? "Save quotation first to enable sharing" : "Share Quotation"}
+                        title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
                       >
                         <Share2 className="w-4 h-4" />
                         <span className="hidden sm:inline">Share</span>
@@ -1066,66 +1066,73 @@ const Quotation: React.FC = () => {
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleConvertQuotationToPO(quotationData)}
-                      disabled={isLoading || isSaving || quotationData.items.length === 0}
-                      className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                      title="Convert Quotation to Purchase Order"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      <span>Convert to PO</span>
-                    </button>
+                    {(() => {
+                      const isQuotationSaved = Boolean(quotationData._id);
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleConvertQuotationToPO(quotationData)}
+                            disabled={!isQuotationSaved || isLoading || isSaving}
+                            className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Convert Quotation to Purchase Order"}
+                          >
+                            <ShoppingCart className="w-4 h-4" />
+                            <span>Convert to PO</span>
+                          </button>
 
-                    <button
-                      type="button"
-                      onClick={handleShareQuotation}
-                      disabled={isLoading || isSaving || quotationData.items.length === 0}
-                      className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                      title="Share Quotation"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      <span>Share</span>
-                    </button>
+                          <button
+                            type="button"
+                            onClick={handleShareQuotation}
+                            disabled={!isQuotationSaved || isLoading || isSaving}
+                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
+                          >
+                            <Share2 className="w-4 h-4" />
+                            <span>Share</span>
+                          </button>
 
-                    <button
-                      type="button"
-                      onClick={handleOpenPreview}
-                      disabled={isLoading || isSaving || quotationData.items.length === 0}
-                      className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                      title="Download PDF via Preview"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>PDF</span>
-                    </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenPreview}
+                            disabled={!isQuotationSaved || isLoading || isSaving}
+                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Download PDF via Preview"}
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>PDF</span>
+                          </button>
 
-                    <button
-                      type="button"
-                      onClick={handleOpenPreview}
-                      disabled={isLoading || isSaving || quotationData.items.length === 0}
-                      className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                      title="Print Quotation via Preview"
-                    >
-                      <Printer className="w-4 h-4" />
-                      <span>Print</span>
-                    </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenPreview}
+                            disabled={!isQuotationSaved || isLoading || isSaving}
+                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Print Quotation via Preview"}
+                          >
+                            <Printer className="w-4 h-4" />
+                            <span>Print</span>
+                          </button>
 
-                    <button
-                      type="button"
-                      onClick={handleOpenPreview}
-                      disabled={isLoading || isSaving || quotationData.items.length === 0}
-                      className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                      title="Preview Quotation"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>Preview</span>
-                    </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenPreview}
+                            disabled={!isQuotationSaved || isLoading || isSaving}
+                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Preview</span>
+                          </button>
+                        </>
+                      );
+                    })()}
 
                     <button
                       type="button"
                       onClick={handleSaveChanges}
-                      disabled={isLoading || isSaving || quotationData.items.length === 0}
-                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
+                      disabled={isLoading || isSaving}
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md"
                     >
                       {isSaving ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
