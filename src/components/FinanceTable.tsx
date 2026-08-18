@@ -151,7 +151,16 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
   );
 };
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: string; isOverdue?: boolean }> = ({ status, isOverdue }) => {
+  if (status === "Pending" && isOverdue) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+        Pending
+      </span>
+    );
+  }
+
   const statusMap: Record<string, { bg: string; text: string; dot: string }> = {
     Completed: { bg: "bg-green-500/20 border-green-500/30", text: "text-green-400", dot: "bg-green-400" },
     Pending: { bg: "bg-yellow-500/20 border-yellow-500/30", text: "text-yellow-400", dot: "bg-yellow-400" },
@@ -160,8 +169,8 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const { bg, text, dot } = statusMap[status] || { bg: "bg-gray-500/20 border-gray-500/30", text: "text-gray-400", dot: "bg-gray-400" };
 
   return (
-    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${bg} ${text} border`}>
-      <span className={`w-2 h-2 rounded-full ${dot}`} />
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${bg} ${text} border whitespace-nowrap`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       {status}
     </span>
   );
@@ -189,7 +198,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   };
   
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", minimumFractionDigits: 2 }).format(amount);
+    `LKR ${Math.round(amount || 0).toLocaleString()}/=`;
 
   // Auto-track Credit Period & Due Date Statuses
   const now = new Date();
@@ -302,71 +311,69 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
 
       <div className="space-y-5">
         {/* Credit Period & Due Date Tracking Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 flex items-center gap-3 shadow-md">
-            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-3.5 flex items-center gap-3 shadow-md hover:border-[#475569] transition-colors">
+            <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 flex-shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-xs text-gray-400 font-medium">Pending Credit Total</p>
-              <p className="text-lg font-bold text-white">{formatCurrency(totalPendingAmount)}</p>
-              <p className="text-[11px] text-gray-500">{trackedInvoices.filter(i => i.paymentStatus === 'Pending').length} pending invoices</p>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400 font-medium truncate">Outstanding Total</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-white tracking-tight truncate">{formatCurrency(totalPendingAmount)}</p>
+              <p className="text-[11px] text-gray-500 truncate">{trackedInvoices.filter(i => i.paymentStatus === 'Pending').length} pending invoices</p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-red-500/30 rounded-xl p-4 flex items-center gap-3 shadow-md bg-gradient-to-r from-red-950/20 to-transparent">
-            <div className="p-3 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20">
+          <div className="bg-[#1e293b] border border-red-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md bg-gradient-to-r from-red-950/20 to-transparent hover:border-red-500/50 transition-colors">
+            <div className="p-2.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 flex-shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-xs text-red-300 font-medium flex items-center gap-1">
-                Overdue Credit Period
-              </p>
-              <p className="text-lg font-bold text-red-400">{formatCurrency(totalOverdueAmount)}</p>
-              <p className="text-[11px] text-red-400/80 font-medium">{overdueInvoices.length} invoices passed due date</p>
+            <div className="min-w-0">
+              <p className="text-xs text-red-300 font-medium truncate">Overdue Payments</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-red-400 tracking-tight truncate">{formatCurrency(totalOverdueAmount)}</p>
+              <p className="text-[11px] text-red-400/80 font-medium truncate">{overdueInvoices.length} invoices passed due date</p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-amber-500/30 rounded-xl p-4 flex items-center gap-3 shadow-md bg-gradient-to-r from-amber-950/20 to-transparent">
-            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+          <div className="bg-[#1e293b] border border-amber-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md bg-gradient-to-r from-amber-950/20 to-transparent hover:border-amber-500/50 transition-colors">
+            <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20 flex-shrink-0">
               <Clock className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-xs text-amber-300 font-medium">Near Credit Expiry (7d)</p>
-              <p className="text-lg font-bold text-amber-400">{formatCurrency(totalNearDueAmount)}</p>
-              <p className="text-[11px] text-amber-400/80 font-medium">{nearDueInvoices.length} invoices due within 7 days</p>
+            <div className="min-w-0">
+              <p className="text-xs text-amber-300 font-medium truncate">Near Expiry (7d)</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-amber-400 tracking-tight truncate">{formatCurrency(totalNearDueAmount)}</p>
+              <p className="text-[11px] text-amber-400/80 font-medium truncate">{nearDueInvoices.length} invoices due in 7d</p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-green-500/30 rounded-xl p-4 flex items-center gap-3 shadow-md">
-            <div className="p-3 bg-green-500/10 text-green-400 rounded-lg border border-green-500/20">
+          <div className="bg-[#1e293b] border border-green-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md hover:border-green-500/50 transition-colors">
+            <div className="p-2.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/20 flex-shrink-0">
               <CheckCircle className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-xs text-gray-400 font-medium">Settled / Completed</p>
-              <p className="text-lg font-bold text-green-400">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400 font-medium truncate">Settled / Completed</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-green-400 tracking-tight truncate">
                 {formatCurrency(completedInvoices.reduce((sum, i) => sum + i.totalAmount, 0))}
               </p>
-              <p className="text-[11px] text-green-500">{completedInvoices.length} invoices fully paid</p>
+              <p className="text-[11px] text-green-500 truncate">{completedInvoices.length} invoices fully paid</p>
             </div>
           </div>
         </div>
 
         {/* Overdue Alert Banner if overdue invoices exist */}
         {overdueInvoices.length > 0 && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
               <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-              <div>
-                <h4 className="text-sm font-semibold text-red-300">Credit Expiry Alert: {overdueInvoices.length} Overdue Invoice(s)</h4>
-                <p className="text-xs text-red-400/80">
-                  Total {formatCurrency(totalOverdueAmount)} has exceeded agreed credit period. Please follow up with customers immediately.
+              <div className="min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-red-300 truncate">Credit Expiry Alert: {overdueInvoices.length} Overdue Invoice(s)</h4>
+                <p className="text-[11px] text-red-400/90 truncate">
+                  Total {formatCurrency(totalOverdueAmount)} has exceeded agreed credit period.
                 </p>
               </div>
             </div>
             <button
               onClick={() => setActiveTab('overdue')}
-              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex-shrink-0 transition-colors"
+              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex-shrink-0 transition-colors shadow-sm"
             >
               View Overdue ({overdueInvoices.length})
             </button>
@@ -374,7 +381,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
         )}
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#334155] pb-2 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#334155] pb-2.5">
           {[
             { id: 'all', label: 'All Invoices', count: trackedInvoices.length, color: 'text-gray-300' },
             { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
@@ -387,162 +394,156 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                 setActiveTab(tab.id as any);
                 setCurrentPage(1);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold'
-                  : 'text-gray-400 hover:bg-[#1e293b] hover:text-gray-200'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold shadow-sm'
+                  : 'text-gray-400 hover:bg-[#1e293b] hover:text-gray-200 border border-transparent'
               }`}
             >
               <span>{tab.label}</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tab.badge || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono border ${tab.badge || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
                 {tab.count}
               </span>
             </button>
           ))}
         </div>
 
-        {/* Desktop Table */}
+        {/* Desktop Table (Full-width, auto-responsive, no scroll needed) */}
         <div className="hidden lg:block bg-[#1e293b]/50 backdrop-blur-sm border border-[#334155] rounded-xl overflow-hidden shadow-lg">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#334155] bg-[#1e293b]/80">
-                  {["Invoice ID", "Customer", "Sales Officer", "Due Date", "Credit Tracking", "Amount", "Status", "Actions"].map((title) => (
-                    <th key={title} className="text-left py-4 px-4 xl:px-6 text-gray-300 font-semibold whitespace-nowrap">
-                      {title}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedInvoices.map((invoice, idx) => {
-                  const transaction = getTransactionForInvoice(invoice.invoiceId);
-                  const hasTransaction = invoice.paymentStatus === "Completed" && transaction;
-                  
-                  return (
-                    <tr
-                      key={invoice._id}
-                      className={`border-b border-[#334155]/50 transition-colors hover:bg-[#1e293b]/50 ${
-                        idx % 2 === 0 ? "bg-[#1e293b]/30" : "bg-[#1e293b]/10"
-                      }`}
-                    >
-                      <td className="py-4 px-4 xl:px-6">
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-semibold text-gray-200 truncate">{invoice.invoiceId}</span>
-                          <span className="text-xs text-gray-500 truncate">{formatDate(invoice.issueDate)}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 xl:px-6">
-                        <span className="font-medium text-gray-200 truncate block max-w-[150px] xl:max-w-[200px]">
-                          {invoice.customer?.fullName || "N/A"}
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-[#334155] bg-[#1e293b]">
+                <th className="py-3 px-3 text-gray-400 font-semibold text-xs uppercase tracking-wider">Invoice ID</th>
+                <th className="py-3 px-3 text-gray-400 font-semibold text-xs uppercase tracking-wider">Customer</th>
+                <th className="py-3 px-2.5 text-gray-400 font-semibold text-xs uppercase tracking-wider">Sales Officer</th>
+                <th className="py-3 px-2.5 text-gray-400 font-semibold text-xs uppercase tracking-wider">Due Date</th>
+                <th className="py-3 px-2.5 text-gray-400 font-semibold text-xs uppercase tracking-wider">Days</th>
+                <th className="py-3 px-3 text-gray-400 font-semibold text-xs uppercase tracking-wider text-right">Amount</th>
+                <th className="py-3 px-2.5 text-gray-400 font-semibold text-xs uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-3 text-gray-400 font-semibold text-xs uppercase tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#334155]/60 text-xs">
+              {paginatedInvoices.map((invoice, idx) => {
+                const transaction = getTransactionForInvoice(invoice.invoiceId);
+                const hasTransaction = invoice.paymentStatus === "Completed" && transaction;
+                const isOverdue = invoice.creditState === 'overdue';
+                
+                return (
+                  <tr
+                    key={invoice._id}
+                    className={`transition-colors hover:bg-[#1e293b] ${
+                      isOverdue ? "bg-red-950/15" : (idx % 2 === 0 ? "bg-[#1e293b]/30" : "bg-[#1e293b]/10")
+                    }`}
+                  >
+                    <td className="py-3 px-3">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold font-mono text-blue-400 truncate">{invoice.invoiceId}</span>
+                        <span className="text-[11px] text-gray-400 truncate">{formatDate(invoice.issueDate)}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-medium text-white truncate block max-w-[130px] xl:max-w-[160px] text-xs">
+                        {invoice.customer?.fullName || "N/A"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2.5">
+                      {(() => {
+                        const sName = typeof invoice.salesman === 'object' && invoice.salesman !== null
+                          ? invoice.salesman.name || (invoice.salesman as any).fullName
+                          : (invoice.salesmanName || (typeof invoice.salesman === 'string' ? invoice.salesman : ''));
+                        return sName ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[11px] font-medium truncate max-w-[120px]">
+                            <UserCheck size={11} className="text-blue-400 shrink-0" />
+                            <span className="truncate">{sName}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 text-xs font-mono">—</span>
+                        );
+                      })()}
+                    </td>
+                    <td className="py-3 px-2.5 text-gray-300 font-mono text-xs whitespace-nowrap">{formatDate(invoice.dueDate)}</td>
+                    <td className="py-3 px-2.5 whitespace-nowrap">
+                      {invoice.creditState === 'overdue' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                          <ShieldAlert className="w-3 h-3 flex-shrink-0" />
+                          Overdue ({Math.abs(invoice.diffDays)}d)
                         </span>
-                      </td>
-                      <td className="py-4 px-4 xl:px-6 whitespace-nowrap">
-                        {(() => {
-                          const sName = typeof invoice.salesman === 'object' && invoice.salesman !== null
-                            ? invoice.salesman.name || (invoice.salesman as any).fullName
-                            : (invoice.salesmanName || (typeof invoice.salesman === 'string' ? invoice.salesman : ''));
-                          return sName ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium">
-                              <UserCheck size={12} className="text-purple-400 shrink-0" />
-                              <span>{sName}</span>
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 text-xs font-mono">—</span>
-                          );
-                        })()}
-                      </td>
-                      <td className="py-4 px-4 xl:px-6 text-gray-200 whitespace-nowrap">{formatDate(invoice.dueDate)}</td>
-                      <td className="py-4 px-4 xl:px-6 whitespace-nowrap">
-                        {invoice.creditState === 'overdue' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                            <ShieldAlert className="w-3 h-3" />
-                            Overdue ({Math.abs(invoice.diffDays)}d)
-                          </span>
+                      )}
+                      {invoice.creditState === 'near_due' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          Due in {invoice.diffDays}d
+                        </span>
+                      )}
+                      {invoice.creditState === 'normal' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700">
+                          On Track ({invoice.diffDays}d)
+                        </span>
+                      )}
+                      {invoice.creditState === 'settled' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                          <CheckCircle className="w-3 h-3 flex-shrink-0" />
+                          Settled
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 font-mono text-emerald-400 font-bold text-xs text-right whitespace-nowrap">{formatCurrency(invoice.totalAmount)}</td>
+                    <td className="py-3 px-2.5 text-center">
+                      <StatusBadge status={invoice.paymentStatus} isOverdue={isOverdue} />
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Eye className="w-3.5 h-3.5" />}
+                          onClick={() => onViewInvoice(invoice)}
+                          aria-label="View Invoice"
+                          title="View Invoice"
+                          className="p-1.5"
+                        />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Download className="w-3.5 h-3.5" />}
+                          onClick={() => onDownloadInvoice(invoice)}
+                          aria-label="Download Invoice"
+                          title="Download PDF"
+                          className="p-1.5"
+                        />
+                        {invoice.paymentStatus === "Pending" || invoice.paymentStatus === "Rejected" ? (
+                          <button 
+                            onClick={() => onMarkAsPaid(invoice)}
+                            className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-[11px] font-semibold flex-shrink-0 transition-colors"
+                            title="Mark as Paid"
+                          >
+                            Pay
+                          </button>
+                        ) : hasTransaction ? (
+                          <button
+                            onClick={() => handlePaidClick(invoice)}
+                            className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 border border-green-500/30 rounded text-[11px] font-semibold flex items-center gap-1"
+                            title="View Payment Details"
+                          >
+                            <CheckCircle className="w-3 h-3" /> Paid
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-green-400 bg-green-500/10 border border-green-500/30 rounded">
+                            <CheckCircle className="w-3 h-3 flex-shrink-0" /> Paid
+                          </div>
                         )}
-                        {invoice.creditState === 'near_due' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                            <Clock className="w-3 h-3" />
-                            Due in {invoice.diffDays}d
-                          </span>
-                        )}
-                        {invoice.creditState === 'normal' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-gray-800 text-gray-400 border border-gray-700">
-                            On Track ({invoice.diffDays}d left)
-                          </span>
-                        )}
-                        {invoice.creditState === 'settled' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-                            Settled
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-4 xl:px-6 text-blue-400 font-bold whitespace-nowrap">{formatCurrency(invoice.totalAmount)}</td>
-                      <td className="py-4 px-4 xl:px-6">
-                        <StatusBadge status={invoice.paymentStatus} />
-                      </td>
-                      <td className="py-4 px-4 xl:px-6">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={<Eye className="w-3 h-3" />}
-                            onClick={() => onViewInvoice(invoice)}
-                            aria-label="View Invoice"
-                            title="View Invoice"
-                            className="flex-shrink-0"
-                          />
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={<Download className="w-3 h-3" />}
-                            onClick={() => onDownloadInvoice(invoice)}
-                            aria-label="Download Invoice"
-                            title="Download PDF"
-                            className="flex-shrink-0"
-                          />
-                          {invoice.paymentStatus === "Pending" || invoice.paymentStatus === "Rejected" ? (
-                            <Button 
-                              variant="primary" 
-                              size="sm" 
-                              onClick={() => onMarkAsPaid(invoice)}
-                              className="bg-green-600 hover:bg-green-700 flex-shrink-0 whitespace-nowrap"
-                              title="Mark as Paid"
-                            >
-                              <span className="hidden xl:inline">Mark Paid</span>
-                              <span className="xl:hidden">Pay</span>
-                            </Button>
-                          ) : hasTransaction ? (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              icon={<CheckCircle className="w-3 h-3" />}
-                              onClick={() => handlePaidClick(invoice)}
-                              className="bg-green-600 hover:bg-green-700 flex-shrink-0"
-                              title="View Payment Details"
-                            >
-                              <span className="hidden xl:inline">Paid</span>
-                              <span className="xl:hidden">
-                                <CheckCircle className="w-3 h-3" />
-                              </span>
-                            </Button>
-                          ) : (
-                            <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded-md whitespace-nowrap">
-                              <CheckCircle className="w-3 h-3 flex-shrink-0" /> Paid
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row justify-between items-center p-4 text-gray-300 gap-3">
+            <div className="flex flex-col sm:flex-row justify-between items-center p-4 text-gray-300 gap-3 border-t border-[#334155]">
               <span className="text-sm">
                 Page {currentPage} of {totalPages}
               </span>
@@ -589,7 +590,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         <span className="font-semibold text-gray-200 truncate">{invoice.invoiceId}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <StatusBadge status={invoice.paymentStatus} />
+                        <StatusBadge status={invoice.paymentStatus} isOverdue={invoice.creditState === 'overdue'} />
                       </div>
                     </div>
                     <div className="text-right">
@@ -736,7 +737,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                       <p className="text-xs text-gray-500 truncate">{formatDate(invoice.issueDate)}</p>
                     </div>
                   </div>
-                  <StatusBadge status={invoice.paymentStatus} />
+                  <StatusBadge status={invoice.paymentStatus} isOverdue={invoice.creditState === 'overdue'} />
                 </div>
 
                 {/* Customer & Vehicle */}
