@@ -12,14 +12,15 @@ import {
   ArrowLeft,
   CheckCircle,
   Printer,
-  Mail,
+  MessageCircle,
   CreditCard,
 } from 'lucide-react';
+import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 
 const PurchaseOrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { success, info } = useToast();
+  const { success } = useToast();
 
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -123,10 +124,22 @@ const PurchaseOrderDetails: React.FC = () => {
               </button>
 
               <button
-                onClick={() => info('Email Sent', `Purchase Order ${po.poNumber} sent to ${po.supplierEmail || po.supplierName}`)}
-                className="px-3 py-2 border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+                onClick={() => {
+                  const message = generatePOWhatsAppMessage({
+                    poNumber: po.poNumber,
+                    supplierName: po.supplierName,
+                    totalAmount: po.grandTotal,
+                    poDate: po.poDate,
+                    itemsCount: po.items.length,
+                    shareUrl: `${window.location.origin}/purchase-orders/view/${po.id || po.poNumber}`,
+                  });
+                  const waUrl = getWhatsAppUrl(po.supplierPhone, message);
+                  window.open(waUrl, '_blank');
+                  success('WhatsApp Shared', `Opened chat for ${po.supplierName} (${po.supplierPhone})`);
+                }}
+                className="px-3 py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
               >
-                <Mail size={14} /> Send to Supplier
+                <MessageCircle size={14} /> Send via WhatsApp
               </button>
 
               {(po.status === 'Draft' || po.status === 'Pending Approval') && (
@@ -309,10 +322,6 @@ const PurchaseOrderDetails: React.FC = () => {
               <div className="flex justify-between text-gray-400">
                 <span>Total Discount:</span>
                 <span className="font-mono text-amber-400">- {formatCurrency(po.totalDiscount)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400">
-                <span>Shipping & Handling:</span>
-                <span className="font-mono text-gray-200">{formatCurrency(po.shippingCharges)}</span>
               </div>
               <div className="pt-3 border-t border-[#334155] flex justify-between items-center">
                 <span className="font-bold text-gray-100">Grand Total:</span>

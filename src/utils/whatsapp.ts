@@ -148,3 +148,40 @@ export const generateInvoiceWhatsAppMessage = (params: {
 
   return lines.join('\n');
 };
+
+/**
+ * Generates formatted WhatsApp text message for Purchase Orders.
+ */
+export const generatePOWhatsAppMessage = (params: {
+  poNumber: string;
+  supplierName: string;
+  totalAmount: number;
+  poDate: string;
+  itemsCount: number;
+  shareUrl?: string;
+}): string => {
+  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+  const formattedPoDate = formatLongDate(params.poDate) || params.poDate;
+
+  const lines: string[] = [
+    `500Core ERP — PURCHASE ORDER ${params.poNumber}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `Supplier: ${params.supplierName}`,
+    `PO Date: ${formattedPoDate}`,
+    `Items: ${params.itemsCount}`,
+    `Total Amount: ${formattedAmount}`,
+  ];
+
+  if (params.shareUrl) {
+    lines.push(`\n -- View / Download Purchase Order:\n${params.shareUrl}`);
+  }
+
+  lines.push(`\n -- The official Purchase Order PDF is attached for your records.`);
+  lines.push(`Thank you for your business. We appreciate your continued support.`);
+
+  return lines.join('\n');
+};

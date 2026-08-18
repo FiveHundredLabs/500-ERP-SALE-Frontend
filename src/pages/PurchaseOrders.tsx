@@ -1,19 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
+import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
-import { Eye, Download, ShoppingCart } from 'lucide-react';
+import { Eye, Download, ShoppingCart, Plus } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
+import CreatePOModal from '../components/orders/CreatePOModal';
 
 const PurchaseOrders: React.FC = () => {
   const navigate = useNavigate();
   const { success } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -23,38 +23,39 @@ const PurchaseOrders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchPOs = async () => {
+    setLoading(true);
+    try {
+      const data = await purchaseOrderService.getAll();
+      setPurchaseOrders(data);
+    } catch {
+      setPurchaseOrders(initialPOs);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   React.useEffect(() => {
-    const fetchPOs = async () => {
-      setLoading(true);
-      try {
-        const data = await purchaseOrderService.getAll();
-        setPurchaseOrders(data);
-      } catch {
-        setPurchaseOrders(initialPOs);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPOs();
   }, []);
+
+  const handleCreatePO = async (newPO: PurchaseOrder) => {
+    await purchaseOrderService.create(newPO);
+    setShowCreateModal(false);
+    fetchPOs();
+  };
 
   const supplierOptions = useMemo(() => {
     const names = Array.from(new Set(purchaseOrders.map((p) => p.supplierName)));
     return names.map((name) => ({ value: name, label: name }));
   }, [purchaseOrders]);
 
-  const statusOptions = [
-    { value: 'Draft', label: 'Draft' },
-    { value: 'Pending Approval', label: 'Pending Approval' },
-    { value: 'Approved', label: 'Approved' },
-    { value: 'Processing', label: 'Processing' },
-    { value: 'Partially Received', label: 'Partially Received' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Cancelled', label: 'Cancelled' },
-  ];
+
 
   // Dynamic suggestions for FilterBar instant dropdown
   const searchSuggestions = useMemo(() => {
@@ -111,16 +112,15 @@ const PurchaseOrders: React.FC = () => {
         (po.referenceOrderNum && po.referenceOrderNum.toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesStatus = statusFilter === '' || po.status === statusFilter;
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
 
       const poDate = po.poDate;
       const matchesDateFrom = dateFrom === '' || poDate >= dateFrom;
       const matchesDateTo = dateTo === '' || poDate <= dateTo;
 
-      return matchesSearch && matchesStatus && matchesSupplier && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesSupplier && matchesDateFrom && matchesDateTo;
     });
-  }, [purchaseOrders, searchQuery, statusFilter, supplierFilter, dateFrom, dateTo]);
+  }, [purchaseOrders, searchQuery, supplierFilter, dateFrom, dateTo]);
 
   const sortedPOs = useMemo(() => {
     return [...filteredPOs].sort((a, b) => {
@@ -193,23 +193,11 @@ const PurchaseOrders: React.FC = () => {
       ),
     },
     {
-      key: 'createdByName',
-      header: 'Created By',
-      minWidth: '110px',
-      render: (row) => <span className="text-xs text-[#CBD5E1]">{row.createdByName}</span>,
-    },
-    {
       key: 'poDate',
-      header: 'PO Date',
+      header: 'Created Date',
       sortable: true,
-      minWidth: '95px',
+      minWidth: '110px',
       render: (row) => <span className="text-xs text-[#CBD5E1]">{row.poDate}</span>,
-    },
-    {
-      key: 'expectedDate',
-      header: 'Expected',
-      minWidth: '95px',
-      render: (row) => <span className="text-xs text-[#94A3B8]">{row.expectedDate}</span>,
     },
     {
       key: 'numberOfItems',
@@ -231,13 +219,6 @@ const PurchaseOrders: React.FC = () => {
       render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.grandTotal)}</span>,
     },
     {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      minWidth: '120px',
-      render: (row) => <StatusBadge status={row.status} />,
-    },
-    {
       key: 'actions',
       header: '',
       align: 'right',
@@ -254,10 +235,10 @@ const PurchaseOrders: React.FC = () => {
   ];
 
   const hasActiveFilters =
-    searchQuery !== '' || statusFilter !== '' || supplierFilter !== '' || dateFrom !== '' || dateTo !== '';
+    searchQuery !== '' || supplierFilter !== '' || dateFrom !== '' || dateTo !== '';
 
   const clearAllFilters = () => {
-    setSearchQuery(''); setStatusFilter(''); setSupplierFilter('');
+    setSearchQuery(''); setSupplierFilter('');
     setDateFrom(''); setDateTo('');
     setCurrentPage(1);
   };
@@ -278,8 +259,19 @@ const PurchaseOrders: React.FC = () => {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <button onClick={handleExportCSV} className="erp-btn erp-btn-secondary erp-btn-sm gap-1.5 text-xs">
-              <Download size={13} /> Export CSV
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e293b]/80 hover:bg-[#334155] text-slate-300 hover:text-white border border-[#334155] rounded-xl text-xs font-semibold shadow-md transition-all duration-200"
+            >
+              <Download size={13} className="text-slate-400" />
+              <span>Export CSV</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-purple-600/20 transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <Plus size={14} />
+              <span>New PO</span>
             </button>
           </div>
         }
@@ -296,13 +288,6 @@ const PurchaseOrders: React.FC = () => {
           onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
           onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
           selects={[
-            {
-              value: statusFilter,
-              onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
-              options: statusOptions,
-              placeholder: 'All PO Statuses',
-              width: 'w-40',
-            },
             {
               value: supplierFilter,
               onChange: (val) => { setSupplierFilter(val); setCurrentPage(1); },
@@ -332,6 +317,12 @@ const PurchaseOrders: React.FC = () => {
           onPageChange={setCurrentPage}
         />
       </div>
+
+      <CreatePOModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreatePO}
+      />
     </AppLayout>
   );
 };
