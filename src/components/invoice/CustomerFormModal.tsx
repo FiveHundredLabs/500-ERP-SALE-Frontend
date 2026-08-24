@@ -24,6 +24,7 @@ export interface CustomerFormData {
   address: string;
   city?: string;
   creditLimit: number;
+  creditPeriod?: number;
   salesRep?: string;
   salesRepName?: string;
   notes?: string;
@@ -60,6 +61,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
         phone2: initialData.phone2 || '',
         phone3: initialData.phone3 || '',
         creditLimit: initialData.creditLimit ?? 1000000,
+        creditPeriod: (initialData as any).creditPeriod ?? 30,
         salesRep: typeof (initialData as any).salesRep === 'object' ? (initialData as any).salesRep?.name : ((initialData as any).salesRep || ''),
         salesRepName: (initialData as any).salesRepName || (typeof (initialData as any).salesRep === 'object' ? (initialData as any).salesRep?.name : ''),
         address: initialAddress,
@@ -76,6 +78,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
       phone2: prefillData?.phone2 || '',
       phone3: prefillData?.phone3 || '',
       creditLimit: prefillData?.creditLimit ?? 1000000,
+      creditPeriod: prefillData?.creditPeriod ?? 30,
       salesRep: prefillData?.salesRep || 'Kasun Perera',
       salesRepName: prefillData?.salesRepName || 'Kasun Perera',
       address: prefillAddr,
@@ -224,12 +227,12 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Sales Representative & Credit Limit */}
+          {/* Section 2: Sales Representative, Credit Limit & Credit Period */}
           <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/40 rounded-xl p-4.5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between pb-2.5 border-b border-purple-500/20">
               <div className="flex items-center gap-2 text-xs font-bold text-purple-300 uppercase tracking-wider">
                 <CreditCard size={15} className="text-purple-400" />
-                <span>Credit Standing & Assigned Sales Rep</span>
+                <span>Credit Terms & Assigned Sales Rep</span>
               </div>
             </div>
 
@@ -251,32 +254,72 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-purple-200 mb-1.5">
-                  Assigned Sales Representative
+                  Credit Period <span className="text-purple-400 font-normal text-[11px]">({formData.creditPeriod || 30} Days)</span>
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-purple-400">
-                    <UserCheck size={14} />
+                <div className="grid grid-cols-6 gap-1">
+                  {[15, 30, 45, 60, 90].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => updateField('creditPeriod', days)}
+                      className={`py-2 rounded-lg text-xs font-bold border transition ${
+                        formData.creditPeriod === days
+                          ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-600/30'
+                          : 'bg-[#0a1024] border-[#2e265c] text-slate-300 hover:border-purple-500/50 hover:bg-purple-900/20'
+                      }`}
+                    >
+                      {days}d
+                    </button>
+                  ))}
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Cust"
+                      title="Custom Days"
+                      className={`w-full py-2 px-1 bg-[#0a1024] border rounded-lg text-xs font-mono text-center text-white focus:outline-none ${
+                        ![15, 30, 45, 60, 90].includes(Number(formData.creditPeriod))
+                          ? 'border-purple-400 bg-purple-950/40 text-purple-200 font-bold'
+                          : 'border-[#2e265c] placeholder:text-slate-500'
+                      }`}
+                      value={![15, 30, 45, 60, 90].includes(Number(formData.creditPeriod)) ? (formData.creditPeriod || '') : ''}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        updateField('creditPeriod', isNaN(val) ? 0 : val);
+                      }}
+                    />
                   </div>
-                  <select
-                    value={formData.salesRepName || formData.salesRep || ''}
-                    onChange={(e) => {
-                      const sel = e.target.value;
-                      setFormData(prev => ({
-                        ...prev,
-                        salesRep: sel,
-                        salesRepName: sel,
-                      }));
-                    }}
-                    className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-inner"
-                  >
-                    <option value="">Unassigned</option>
-                    {mockSalesOfficers.map((so) => (
-                      <option key={so.id} value={so.fullName}>
-                        {so.fullName} ({so.assignedTerritory})
-                      </option>
-                    ))}
-                  </select>
                 </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-purple-200 mb-1.5">
+                Assigned Sales Representative
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-purple-400">
+                  <UserCheck size={14} />
+                </div>
+                <select
+                  value={formData.salesRepName || formData.salesRep || ''}
+                  onChange={(e) => {
+                    const sel = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      salesRep: sel,
+                      salesRepName: sel,
+                    }));
+                  }}
+                  className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-inner"
+                >
+                  <option value="">Unassigned</option>
+                  {mockSalesOfficers.map((so) => (
+                    <option key={so.id} value={so.fullName}>
+                      {so.fullName} ({so.assignedTerritory})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

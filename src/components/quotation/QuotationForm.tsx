@@ -246,19 +246,22 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         setSelectedCustomer(updated);
         onCustomerIdChange(updated._id, updated);
         setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
-        alert("Customer updated successfully!");
+        const defaultPeriod = (updated as any).creditPeriod ?? 30;
+        handleCreditPeriodChange(String(defaultPeriod));
       } else {
         const created = await createCustomer(formData as Omit<Customer, '_id'>);
         setSelectedCustomer(created);
         onCustomerIdChange(created._id, created);
         setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
-        alert("Customer created successfully!");
+        const defaultPeriod = (created as any).creditPeriod ?? 30;
+        onFieldChange('paymentMethod', PaymentMethod.CREDIT);
+        handleCreditPeriodChange(String(defaultPeriod));
       }
       setCustomerModalMode(null);
     } catch (error) {
       throw error;
     }
-  }, [customerModalMode, selectedCustomer, updateCustomer, createCustomer, onCustomerIdChange, setCustomerSearchTerm]);
+  }, [customerModalMode, selectedCustomer, updateCustomer, createCustomer, onCustomerIdChange, setCustomerSearchTerm, handleCreditPeriodChange, onFieldChange]);
 
   const getCustomerPrefillData = useCallback(() => {
     if (!customerSearchTerm) return undefined;

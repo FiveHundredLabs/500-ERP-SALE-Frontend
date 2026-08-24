@@ -336,6 +336,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       totalAmount: target.grandTotal,
       orderDate: target.orderDate,
       itemsCount: target.products.length,
+      remarks: target.notes || notes,
     });
     const url = getWhatsAppUrl(phone, text);
     window.open(url, '_blank');

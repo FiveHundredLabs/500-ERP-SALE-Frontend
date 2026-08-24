@@ -246,6 +246,7 @@ const Orders: React.FC = () => {
                 totalAmount: row.grandTotal,
                 orderDate: row.orderDate,
                 itemsCount: row.numberOfProducts || row.products?.length || 0,
+                remarks: row.notes,
               });
               const url = getWhatsAppUrl(row.contactPhone || '', text);
               window.open(url, '_blank');

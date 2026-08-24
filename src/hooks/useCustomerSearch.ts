@@ -18,6 +18,7 @@ export interface Customer {
   city?: string;
   customerCode?: string;
   creditLimit?: number;
+  creditPeriod?: number;
   salesRep?: { id: string; name: string } | string;
   salesRepName?: string;
   vehicle_number?: string;
