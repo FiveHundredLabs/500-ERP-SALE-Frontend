@@ -67,7 +67,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     item: "", 
     itemName: "",
     product_code: "",
-    quantity: "1", 
+    quantity: "0", 
     unitPrice: "0", 
     costPrice: 0,
     discountType: 'percentage',
@@ -129,7 +129,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       item: (inventoryItem as any)._id || (inventoryItem as any).id || inventoryItem.product_code, 
       itemName: inventoryItem.product_name, 
       product_code: inventoryItem.product_code,
-      quantity: "1", 
+      quantity: "0", 
       unitPrice: (inventoryItem.sell_price || 0).toString(),
       costPrice: inventoryItem.purchase_price || 0,
       discountValue: "0"
@@ -184,7 +184,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       item: "",
       itemName: "",
       product_code: "",
-      quantity: "1",
+      quantity: "0",
       unitPrice: "0",
       costPrice: 0,
       discountType: 'percentage',
@@ -246,19 +246,22 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         setSelectedCustomer(updated);
         onCustomerIdChange(updated._id, updated);
         setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
-        alert("Customer updated successfully!");
+        const defaultPeriod = (updated as any).creditPeriod ?? 30;
+        handleCreditPeriodChange(String(defaultPeriod));
       } else {
         const created = await createCustomer(formData as Omit<Customer, '_id'>);
         setSelectedCustomer(created);
         onCustomerIdChange(created._id, created);
         setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
-        alert("Customer created successfully!");
+        const defaultPeriod = (created as any).creditPeriod ?? 30;
+        onFieldChange('paymentMethod', PaymentMethod.CREDIT);
+        handleCreditPeriodChange(String(defaultPeriod));
       }
       setCustomerModalMode(null);
     } catch (error) {
       throw error;
     }
-  }, [customerModalMode, selectedCustomer, updateCustomer, createCustomer, onCustomerIdChange, setCustomerSearchTerm]);
+  }, [customerModalMode, selectedCustomer, updateCustomer, createCustomer, onCustomerIdChange, setCustomerSearchTerm, handleCreditPeriodChange, onFieldChange]);
 
   const getCustomerPrefillData = useCallback(() => {
     if (!customerSearchTerm) return undefined;

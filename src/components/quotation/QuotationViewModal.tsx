@@ -119,6 +119,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
       totalAmount: quotationData.totalAmount,
       issueDate: quotationData.issueDate || new Date().toISOString().split('T')[0],
       itemsCount: quotationData.items.length,
+      remarks: quotationData.notes,
       shareUrl: quotationShareUrl,
     });
 

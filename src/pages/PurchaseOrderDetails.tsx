@@ -137,6 +137,7 @@ const PurchaseOrderDetails: React.FC = () => {
                     totalAmount: po.grandTotal,
                     poDate: po.poDate,
                     itemsCount: po.items.length,
+                    remarks: po.notes,
                     shareUrl: `${window.location.origin}/purchase-orders/view/${po.id || po.poNumber}`,
                   });
                   const waUrl = getWhatsAppUrl(po.supplierPhone, message);

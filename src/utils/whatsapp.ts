@@ -1,5 +1,5 @@
 /**
- * WhatsApp integration utility for 500Core ERP.
+ * WhatsApp integration utility for S & K Enterprices ERP.
  * Handles phone number normalization, message formatting, and direct WhatsApp URL generation.
  */
 
@@ -76,6 +76,8 @@ export const generateQuotationWhatsAppMessage = (params: {
   totalAmount: number;
   issueDate: string;
   itemsCount: number;
+  remarks?: string;
+  notes?: string;
   shareUrl?: string;
 }): string => {
   const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
@@ -84,15 +86,20 @@ export const generateQuotationWhatsAppMessage = (params: {
   })}`;
 
   const formattedIssueDate = formatLongDate(params.issueDate) || params.issueDate;
+  const remarksText = (params.remarks || params.notes || '').trim();
 
   const lines: string[] = [
-    `500Core ERP — QUOTATION ${params.quotationId}`,
+    `S & K Enterprices — QUOTATION ${params.quotationId}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `Customer: ${params.customerName}`,
     `Quotation Date: ${formattedIssueDate}`,
     `Items: ${params.itemsCount}`,
     `Total Amount: ${formattedAmount}`,
   ];
+
+  if (remarksText) {
+    lines.push(`Remarks: ${remarksText}`);
+  }
 
   if (params.shareUrl) {
     lines.push(`\n --View / Download Quotation:\n${params.shareUrl}`);
@@ -115,6 +122,8 @@ export const generateInvoiceWhatsAppMessage = (params: {
   issueDate: string;
   dueDate?: string;
   itemsCount: number;
+  remarks?: string;
+  notes?: string;
   shareUrl?: string;
 }): string => {
   const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
@@ -124,9 +133,10 @@ export const generateInvoiceWhatsAppMessage = (params: {
 
   const formattedIssueDate = formatLongDate(params.issueDate) || params.issueDate;
   const formattedDueDate = formatLongDate(params.dueDate) || params.dueDate;
+  const remarksText = (params.remarks || params.notes || '').trim();
 
   const lines: string[] = [
-    `500Core ERP — INVOICE ${params.invoiceId}`,
+    `S & K Enterprices — INVOICE ${params.invoiceId}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `Customer: ${params.customerName}`,
     `Invoice Date: ${formattedIssueDate}`,
@@ -138,6 +148,10 @@ export const generateInvoiceWhatsAppMessage = (params: {
 
   lines.push(`Items: ${params.itemsCount}`);
   lines.push(`Total Amount: ${formattedAmount}`);
+
+  if (remarksText) {
+    lines.push(`Remarks: ${remarksText}`);
+  }
 
   if (params.shareUrl) {
     lines.push(`\n -- View / Download Invoice:\n${params.shareUrl}`);
@@ -158,6 +172,8 @@ export const generatePOWhatsAppMessage = (params: {
   totalAmount: number;
   poDate: string;
   itemsCount: number;
+  remarks?: string;
+  notes?: string;
   shareUrl?: string;
 }): string => {
   const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
@@ -166,9 +182,10 @@ export const generatePOWhatsAppMessage = (params: {
   })}`;
 
   const formattedPoDate = formatLongDate(params.poDate) || params.poDate;
+  const remarksText = (params.remarks || params.notes || '').trim();
 
   const lines: string[] = [
-    `500Core ERP — PURCHASE ORDER ${params.poNumber}`,
+    `S & K Enterprices — PURCHASE ORDER ${params.poNumber}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `Supplier: ${params.supplierName}`,
     `PO Date: ${formattedPoDate}`,
@@ -176,11 +193,59 @@ export const generatePOWhatsAppMessage = (params: {
     `Total Amount: ${formattedAmount}`,
   ];
 
+  if (remarksText) {
+    lines.push(`Remarks: ${remarksText}`);
+  }
+
   if (params.shareUrl) {
     lines.push(`\n -- View / Download Purchase Order:\n${params.shareUrl}`);
   }
 
   lines.push(`\n -- The official Purchase Order PDF is attached for your records.`);
+  lines.push(`Thank you for your business. We appreciate your continued support.`);
+
+  return lines.join('\n');
+};
+
+/**
+ * Generates formatted WhatsApp text message for Sales Orders.
+ */
+export const generateOrderWhatsAppMessage = (params: {
+  orderId: string;
+  customerName: string;
+  totalAmount: number;
+  orderDate: string;
+  itemsCount: number;
+  remarks?: string;
+  notes?: string;
+  shareUrl?: string;
+}): string => {
+  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+  const formattedOrderDate = formatLongDate(params.orderDate) || params.orderDate;
+  const remarksText = (params.remarks || params.notes || '').trim();
+
+  const lines: string[] = [
+    `S & K Enterprices — SALES ORDER ${params.orderId}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `Customer: ${params.customerName}`,
+    `Order Date: ${formattedOrderDate}`,
+    `Items: ${params.itemsCount}`,
+    `Total Amount: ${formattedAmount}`,
+  ];
+
+  if (remarksText) {
+    lines.push(`Remarks: ${remarksText}`);
+  }
+
+  if (params.shareUrl) {
+    lines.push(`\n -- View / Download Order:\n${params.shareUrl}`);
+  }
+
+  lines.push(`\n -- The official Order confirmation has been created in our system.`);
   lines.push(`Thank you for your business. We appreciate your continued support.`);
 
   return lines.join('\n');

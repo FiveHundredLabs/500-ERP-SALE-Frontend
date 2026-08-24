@@ -119,6 +119,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
       dueDate: invoiceData.dueDate,
       itemsCount: invoiceData.items.length,
       paymentStatus: invoiceData.paymentStatus,
+      remarks: invoiceData.notes,
       shareUrl: invoiceShareUrl,
     });
 

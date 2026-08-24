@@ -19,7 +19,9 @@ import {
   FileCheck,
   Printer,
   Info,
+  MessageCircle,
 } from 'lucide-react';
+import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
 const OrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -134,6 +136,25 @@ const OrderDetails: React.FC = () => {
               className="px-3.5 py-1.5 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
             >
               <ArrowLeft size={14} /> Back to Orders
+            </button>
+
+            <button
+              onClick={() => {
+                const text = generateOrderWhatsAppMessage({
+                  orderId: order.orderId,
+                  customerName: order.customerName,
+                  totalAmount: order.grandTotal,
+                  orderDate: order.orderDate,
+                  itemsCount: order.products?.length || 0,
+                  remarks: order.notes,
+                });
+                const url = getWhatsAppUrl(order.contactPhone || '', text);
+                window.open(url, '_blank');
+              }}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+              title="Share on WhatsApp"
+            >
+              <MessageCircle size={14} /> Share on WhatsApp
             </button>
 
             <button

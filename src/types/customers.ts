@@ -36,6 +36,7 @@ export interface Customer {
   status: CustomerStatusValue;
 
   creditLimit: number;        // Credit Limit in LKR
+  creditPeriod?: number;      // Credit Period in Days (e.g. 15, 30, 45, 60, 90, custom)
   salesRep?: {
     id: string;
     name: string;
@@ -64,6 +65,7 @@ export interface CustomerCreateDto {
   phone3?: string;            // Optional
   address: string;            // Required
   creditLimit: number;
+  creditPeriod?: number;      // Credit Period in Days
   salesRep?: string;          // Sales representative ID or name
   salesRepName?: string;
   status?: CustomerStatusValue;

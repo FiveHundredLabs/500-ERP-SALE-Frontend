@@ -66,6 +66,7 @@ const CustomersTab: React.FC = () => {
     phone3: '',
     address: '',
     creditLimit: 1000000,
+    creditPeriod: 30,
     salesRep: 'Kasun Perera',
     salesRepName: 'Kasun Perera',
     status: 'Active',
@@ -216,6 +217,7 @@ const CustomersTab: React.FC = () => {
         address: formData.address,
         city,
         creditLimit: formData.creditLimit,
+        creditPeriod: formData.creditPeriod || 30,
         salesRep: formData.salesRep,
         salesRepName: formData.salesRepName || formData.salesRep,
         status: formData.status || 'Active',
@@ -248,6 +250,7 @@ const CustomersTab: React.FC = () => {
       phone3: customer.phone3 || '',
       address: customer.address,
       creditLimit: customer.creditLimit || 1000000,
+      creditPeriod: customer.creditPeriod ?? 30,
       salesRep: rep,
       salesRepName: rep,
       status: customer.status,
@@ -676,10 +679,10 @@ const CustomersTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Credit Limit & Sales Representative */}
+              {/* Credit Limit & Credit Period & Sales Representative */}
               <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/40 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between pb-1.5 border-b border-purple-500/20">
-                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Credit & Sales Officer Assignment</span>
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Credit Terms & Sales Officer Assignment</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -695,6 +698,48 @@ const CustomersTab: React.FC = () => {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-purple-200 mb-1 font-semibold">
+                      Credit Period <span className="text-purple-400 font-normal text-[11px]">({formData.creditPeriod || 30} Days)</span>
+                    </label>
+                    <div className="grid grid-cols-6 gap-1">
+                      {[15, 30, 45, 60, 90].map((days) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, creditPeriod: days })}
+                          className={`py-1.5 rounded-lg text-xs font-bold border transition ${
+                            formData.creditPeriod === days
+                              ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-600/30'
+                              : 'bg-[#0a1024] border-[#2e265c] text-slate-300 hover:border-purple-500/50 hover:bg-purple-900/20'
+                          }`}
+                        >
+                          {days}d
+                        </button>
+                      ))}
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Cust"
+                          title="Custom Days"
+                          className={`w-full py-1.5 px-1 bg-[#0a1024] border rounded-lg text-xs font-mono text-center text-white focus:outline-none ${
+                            ![15, 30, 45, 60, 90].includes(Number(formData.creditPeriod))
+                              ? 'border-purple-400 bg-purple-950/40 text-purple-200 font-bold'
+                              : 'border-[#2e265c] placeholder:text-slate-500'
+                          }`}
+                          value={![15, 30, 45, 60, 90].includes(Number(formData.creditPeriod)) ? (formData.creditPeriod || '') : ''}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setFormData({ ...formData, creditPeriod: isNaN(val) ? 0 : val });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-purple-200 mb-1 font-semibold">Sales Representative</label>
                     <div className="relative">
@@ -722,18 +767,18 @@ const CustomersTab: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-purple-200 mb-1 font-semibold">Account Status</label>
-                  <select
-                    className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
+                  <div>
+                    <label className="block text-purple-200 mb-1 font-semibold">Account Status</label>
+                    <select
+                      className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

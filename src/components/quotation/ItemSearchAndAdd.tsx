@@ -130,11 +130,19 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   };
 
   return (
-    <div className="bg-[#1e293b] rounded-xl p-5 border border-[#334155] shadow-lg space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-200 uppercase tracking-wider">
-          Add Line Item
-        </h3>
+    <div className="bg-[#1e293b] rounded-xl p-4 sm:p-5 border border-[#334155] shadow-lg space-y-3">
+      {/* Header with Top-Left Add Button */}
+      <div className="flex items-center justify-between pb-1 border-b border-[#334155]/60">
+        <button
+          type="button"
+          onClick={handleAddClick}
+          disabled={!newItem.item}
+          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+        >
+          <Plus size={14} />
+          {isItemAlreadyAdded ? 'Update Line Item' : 'Add Line Item'}
+        </button>
+
         {newItem.item && (
           <button
             type="button"
@@ -146,30 +154,53 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
         )}
       </div>
 
-      {/* Product Search Field */}
-      <div ref={containerRef} className="relative">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => {
-              onSearchChange(e.target.value);
-              onShowSuggestionsChange(true);
-            }}
-            onFocus={() => onShowSuggestionsChange(true)}
-            onClick={() => onShowSuggestionsChange(true)}
-            placeholder="Search product name or code..."
-            className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Search product"
-          />
+      {/* Single-Row Grid for All Fields */}
+      <div className="grid grid-cols-12 gap-3 items-end pt-1">
+        {/* 1. Product Search Field */}
+        <div ref={containerRef} className="col-span-12 md:col-span-4 lg:col-span-4 relative">
+          <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+            Product Name <span className="text-red-400">*</span>
+          </label>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                onSearchChange(e.target.value);
+                onShowSuggestionsChange(true);
+              }}
+              onFocus={() => onShowSuggestionsChange(true)}
+              onClick={() => onShowSuggestionsChange(true)}
+              placeholder="Search product..."
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Search product"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearSelection();
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                title="Clear product"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
 
           {/* Suggestions Dropdown */}
           {showSuggestions && (
-            <div className="absolute z-30 w-full mt-1 bg-[#0f172a] border border-[#334155] rounded-lg shadow-2xl max-h-60 overflow-y-auto divide-y divide-[#334155]/60">
+            <div className="absolute z-30 w-full min-w-[280px] mt-1 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl max-h-60 overflow-y-auto divide-y divide-[#334155]/60">
+              <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase bg-[#1e293b]/60 flex justify-between">
+                <span>{searchTerm ? `Matching (${filteredItems.length})` : `All items (${filteredItems.length})`}</span>
+                <span className="text-[10px] text-gray-500">Price / Margin</span>
+              </div>
               {filteredItems.length === 0 ? (
                 <div className="px-4 py-2.5 text-gray-400 text-xs italic text-center">
-                  No products found matching "{searchTerm}"
+                  No products found{searchTerm ? ` matching "${searchTerm}"` : ''}
                 </div>
               ) : (
                 filteredItems.map((item) => {
@@ -179,25 +210,25 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
                   return (
                     <div
                       key={item._id || item.id || item.product_code}
-                      className="px-3.5 py-2 hover:bg-[#1e293b] cursor-pointer transition-colors duration-150 flex justify-between items-center text-xs"
+                      className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer transition-colors duration-150 flex justify-between items-center text-xs"
                       onClick={() => {
                         onItemSelect(item);
                         onShowSuggestionsChange(false);
                       }}
                     >
-                      <div>
-                        <div className="font-semibold text-white">{item.product_name}</div>
-                        <div className="text-[11px] font-mono text-gray-400">
+                      <div className="truncate pr-2">
+                        <div className="font-semibold text-white truncate">{item.product_name}</div>
+                        <div className="text-[10px] font-mono text-gray-400 mt-0.5">
                           Code: <span className="text-blue-400">{item.product_code}</span>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <div className="font-mono font-bold text-emerald-400">
+                      <div className="text-right shrink-0">
+                        <div className="font-mono font-bold text-emerald-400 text-xs">
                           LKR {(item.sell_price || 0).toLocaleString()}
                         </div>
                         <div className="text-[10px] text-gray-400">
-                          Cost: LKR {(item.purchase_price || 0).toLocaleString()} • Margin: {margin}%
+                          Margin: {margin}%
                         </div>
                       </div>
                     </div>
@@ -208,83 +239,64 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           )}
         </div>
 
-        {/* Minimal Selected Product Pill (Clean, small, inline) */}
-        {newItem.item && (
-          <div className="mt-2 px-3 py-1.5 bg-[#0f172a] border border-blue-500/20 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-white">{newItem.itemName}</span>
-              {newItem.product_code && (
-                <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-                  {newItem.product_code}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 text-[11px] font-mono">
-              <span className="text-gray-400">
-                Cost: <span className="text-gray-200">LKR {costPrice.toLocaleString()}</span>
-              </span>
-              <span className="text-gray-400">
-                Margin: <span className="text-emerald-400 font-bold">LKR {profitPerUnit.toLocaleString()} ({marginPct}%)</span>
-              </span>
-            </div>
+        {/* 2. Unit Price (Read-only) */}
+        <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+          <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
+            Unit Price
+          </label>
+          <div className="w-full h-[32px] bg-[#0a101f] border border-[#334155]/60 rounded-lg px-2.5 py-1 text-xs text-emerald-400 font-mono font-semibold flex items-center justify-between cursor-not-allowed select-none">
+            <span className="truncate">{unitPrice > 0 ? `LKR ${unitPrice.toFixed(2)}` : 'LKR 0.00'}</span>
           </div>
-        )}
-      </div>
-
-      {/* Compact Form Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Quantity */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase">
-            Qty
-          </label>
-          <input
-            type="number"
-            min="1"
-            value={newItem.quantity}
-            onChange={(e) => onQuantityChange(e.target.value)}
-            disabled={!newItem.item}
-            placeholder="1"
-            className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          />
         </div>
 
-        {/* Unit Price (Read-only) */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase">
-            Unit Price (Selling)
+        {/* 3. Quantity */}
+        <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+          <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+            Quantity <span className="text-red-400">*</span>
           </label>
-          <input
-            type="text"
-            readOnly
-            value={unitPrice > 0 ? `LKR ${unitPrice.toFixed(2)}` : 'LKR 0.00'}
-            disabled={!newItem.item}
-            className="w-full bg-[#0f172a]/70 border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono font-bold text-emerald-400 cursor-not-allowed opacity-90"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              value={newItem.quantity === '0' || newItem.quantity === 0 ? '0' : newItem.quantity || ''}
+              onChange={(e) => onQuantityChange(e.target.value)}
+              disabled={!newItem.item}
+              placeholder="0"
+              className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-7 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-center"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-500 pointer-events-none">
+              PCS
+            </span>
+          </div>
         </div>
 
-        {/* Discount Value */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase flex items-center justify-between">
-            <span>Discount</span>
-            <div className="flex gap-1 text-[10px]">
+        {/* 4. Discount Value (Compact) */}
+        <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[11px] font-semibold text-gray-300">Discount</label>
+            <div className="flex items-center bg-[#0f172a] border border-[#334155] rounded p-0.5 text-[9px]">
               <button
                 type="button"
                 onClick={() => onDiscountChange({ discountType: 'percentage', discountScope, discountValue })}
-                className={`px-1 py-0.5 rounded ${discountType === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+                className={`px-1 py-0.2 rounded transition-colors font-bold ${
+                  discountType === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title="Percentage (%)"
               >
                 %
               </button>
               <button
                 type="button"
                 onClick={() => onDiscountChange({ discountType: 'amount', discountScope, discountValue })}
-                className={`px-1 py-0.5 rounded ${discountType === 'amount' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+                className={`px-1 py-0.2 rounded transition-colors font-bold ${
+                  discountType === 'amount' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title="Amount (Rs.)"
               >
-                Rs.
+                Rs
               </button>
             </div>
-          </label>
+          </div>
           <div className="relative">
             <input
               type="number"
@@ -293,43 +305,68 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               onChange={(e) => onDiscountChange({ discountType, discountScope, discountValue: e.target.value })}
               disabled={!newItem.item}
               placeholder="0"
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7"
+              className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7 text-right"
             />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-500">
+            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
               {discountType === 'percentage' ? '%' : 'Rs'}
-            </div>
+            </span>
           </div>
         </div>
 
-        {/* Discount Application Scope (Per Unit vs Total Qty) */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase">
+        {/* 5. Discount Scope (Unit vs Total) */}
+        <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+          <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
             Apply Discount
           </label>
-          <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[34px]">
+          <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[32px]">
             <button
               type="button"
               disabled={!newItem.item}
               onClick={() => onDiscountChange({ discountType, discountScope: 'per_unit', discountValue })}
-              className={`text-xs rounded font-medium transition ${
-                discountScope === 'per_unit' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'
+              className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
+                discountScope === 'per_unit' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
               }`}
+              title="Apply discount per unit"
             >
-              Per Unit
+              Unit
             </button>
             <button
               type="button"
               disabled={!newItem.item}
               onClick={() => onDiscountChange({ discountType, discountScope: 'total_qty', discountValue })}
-              className={`text-xs rounded font-medium transition ${
-                discountScope === 'total_qty' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'
+              className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
+                discountScope === 'total_qty' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
               }`}
+              title="Apply discount on total line"
             >
-              Total Qty
+              Total
             </button>
           </div>
         </div>
       </div>
+
+      {/* Selected Product Pill & Margin */}
+      {newItem.item && (
+        <div className="px-3 py-1.5 bg-[#0f172a] border border-blue-500/20 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-white">{newItem.itemName}</span>
+            {newItem.product_code && (
+              <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                {newItem.product_code}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 text-[11px] font-mono">
+            <span className="text-gray-400">
+              Cost: <span className="text-gray-200">LKR {costPrice.toLocaleString()}</span>
+            </span>
+            <span className="text-gray-400">
+              Margin: <span className="text-emerald-400 font-bold">LKR {profitPerUnit.toLocaleString()} ({marginPct}%)</span>
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Stock warning if applicable */}
       {stockWarning && (
@@ -338,7 +375,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
         </div>
       )}
 
-      {/* Line Total & Add Button */}
+      {/* Line Total */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#334155]">
         <div className="flex items-center gap-3 text-xs">
           <span className="text-gray-400">Line Total:</span>
@@ -347,20 +384,10 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           </span>
           {calculatedDiscountAmount > 0 && (
             <span className="text-red-400 font-mono text-xs">
-              (Disc: -LKR {Math.round(calculatedDiscountAmount).toLocaleString()}/=)
+              (Disc ({discountScope === 'per_unit' ? 'Unit' : 'Total'}): -LKR {Math.round(calculatedDiscountAmount).toLocaleString()}/=)
             </span>
           )}
         </div>
-
-        <button
-          type="button"
-          onClick={handleAddClick}
-          disabled={!newItem.item}
-          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus size={14} />
-          {isItemAlreadyAdded ? 'Update Line Item' : 'Add Item to Quotation'}
-        </button>
       </div>
     </div>
   );

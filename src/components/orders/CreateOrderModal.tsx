@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, Tag, Percent, FileCheck, FileText, CheckCircle, TrendingUp } from 'lucide-react';
+import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, FileCheck, FileText, CheckCircle, TrendingUp, MessageCircle } from 'lucide-react';
 import type { Order, OrderProduct } from '../../types/orders';
 import { mockSalesmen } from '../../data/mockOrders';
 import { mockCustomers } from '../../data/mockCustomers';
@@ -12,6 +12,7 @@ import { mockInvoicesList } from '../../data/mockInvoices';
 import type { InvoiceResponse } from '../../types/invoice';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useToast } from '../erp/Toast';
+import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import CreatePOModal from './CreatePOModal';
 
 interface CreateOrderModalProps {
@@ -28,6 +29,7 @@ interface DraftProduct {
   unitPrice: number;
   discount: number;
   discountType: 'percentage' | 'amount';
+  discountScope?: 'per_unit' | 'total';
 }
 
 const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit }) => {
@@ -83,6 +85,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     unitPrice: 0,
     discount: 0,
     discountType: 'percentage',
+    discountScope: 'per_unit',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -148,12 +151,28 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
   const calcProductLine = (p: DraftProduct) => {
-    const subtotal = (p.quantity || 0) * (p.unitPrice || 0);
+    const qty = p.quantity || 0;
+    const unitPrice = p.unitPrice || 0;
+    const subtotal = qty * unitPrice;
+    const discVal = p.discount || 0;
+    const scope = p.discountScope || 'per_unit';
     let discAmt = 0;
-    if (p.discountType === 'amount') {
-      discAmt = Math.min(p.discount || 0, subtotal);
-    } else {
-      discAmt = subtotal * (Math.min(100, Math.max(0, p.discount || 0)) / 100);
+
+    if (discVal > 0 && unitPrice > 0 && qty > 0) {
+      if (p.discountType === 'amount') {
+        if (scope === 'per_unit') {
+          discAmt = Math.min(unitPrice, discVal) * qty;
+        } else {
+          discAmt = Math.min(subtotal, discVal);
+        }
+      } else {
+        const pct = Math.min(100, Math.max(0, discVal));
+        if (scope === 'per_unit') {
+          discAmt = unitPrice * (pct / 100) * qty;
+        } else {
+          discAmt = subtotal * (pct / 100);
+        }
+      }
     }
     const total = Math.max(0, subtotal - discAmt);
     return { subtotal, discAmt, total };
@@ -175,6 +194,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       ...prev,
       productName: item.product_name,
       unitPrice: item.sell_price || 0,
+      quantity: 0,
       unit: 'PCS',
     }));
     setProductSearch(item.product_name);
@@ -235,6 +255,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       unitPrice: 0,
       discount: 0,
       discountType: 'percentage',
+      discountScope: 'per_unit',
     });
     setProductSearch('');
     setErrors({});
@@ -302,7 +323,23 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
     onSubmit(newOrder);
     setCreatedOrder(newOrder);
-    toast.success('Order Created', `Order ${newOrder.orderId} created successfully! You can now convert to PO or Invoice.`);
+    toast.success('Order Created', `Order ${newOrder.orderId} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+  };
+
+  const handleShareWhatsApp = (orderToShare?: Order) => {
+    const target = orderToShare || createdOrder;
+    if (!target) return;
+    const phone = target.contactPhone || selectedCustomer?.phone || '';
+    const text = generateOrderWhatsAppMessage({
+      orderId: target.orderId,
+      customerName: target.customerName,
+      totalAmount: target.grandTotal,
+      orderDate: target.orderDate,
+      itemsCount: target.products.length,
+      remarks: target.notes || notes,
+    });
+    const url = getWhatsAppUrl(phone, text);
+    window.open(url, '_blank');
   };
 
   const handleConvertToPO = () => {
@@ -384,6 +421,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       unitPrice: 0,
       discount: 0,
       discountType: 'percentage',
+      discountScope: 'per_unit',
     });
   };
 
@@ -397,8 +435,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         onClick={onClose}
       />
 
-      {/* Slide-in panel */}
-      <div className="relative w-full max-w-2xl h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
+      {/* Slide-in panel - 70% width on md+ screens */}
+      <div className="relative w-full md:w-[70vw] lg:w-[70vw] xl:w-[70vw] max-w-none h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/80 flex-shrink-0">
@@ -425,13 +463,20 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
             {/* Order Created Success Banner */}
             {createdOrder && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3.5 text-xs text-emerald-300 flex items-center justify-between gap-3">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3.5 text-xs text-emerald-300 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle size={16} className="text-emerald-400 shrink-0" />
                   <span>
-                    Order <strong>{createdOrder.orderId}</strong> created successfully! You can now use <strong>Convert to PO</strong> or <strong>Convert to Invoice</strong> below.
+                    Order <strong>{createdOrder.orderId}</strong> created successfully! You can share on WhatsApp or convert to PO / Invoice.
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleShareWhatsApp(createdOrder)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                >
+                  <MessageCircle size={13} /> Share on WhatsApp
+                </button>
               </div>
             )}
 
@@ -616,206 +661,253 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               )}
 
               {/* Add product line card */}
-              <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 space-y-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Add Product Line</p>
-
-                {/* Product Name Search Field with Instant Dropdown */}
-                <div ref={productRef} className="relative">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-gray-300">
-                      Product Name <span className="text-red-400">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuickProduct({
-                          name: productSearch.trim() || '',
-                          cost: '',
-                          sellPrice: '',
-                        });
-                        setQuickProductErrors({});
-                        setShowAddProductModal(true);
-                      }}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
-                    >
-                      <Plus size={13} /> Add New Product
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      className={`w-full bg-[#0f172a] border rounded-lg pl-9 pr-8 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                        errors.productName ? 'border-red-500' : 'border-[#334155]'
-                      }`}
-                      placeholder="Select or search product name..."
-                      value={newProduct.productName || productSearch}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setProductSearch(val);
-                        setNewProduct(prev => ({ ...prev, productName: val, unitPrice: 0 }));
-                        setShowProductDropdown(true);
-                      }}
-                      onFocus={() => setShowProductDropdown(true)}
-                      onClick={() => setShowProductDropdown(true)}
-                      autoComplete="off"
-                    />
-                    {(newProduct.productName || productSearch) ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNewProduct(prev => ({ ...prev, productName: '', unitPrice: 0 }));
-                          setProductSearch('');
-                          setShowProductDropdown(true);
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
-                        title="Clear product"
-                      >
-                        <X size={13} />
-                      </button>
-                    ) : (
-                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    )}
-                  </div>
-
-                  {showProductDropdown && (
-                    <div className="absolute z-50 top-full mt-1 w-full bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl overflow-hidden py-1 max-h-60 overflow-y-auto">
-                      <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wider text-gray-400 uppercase bg-[#1e293b]/50 flex justify-between">
-                        <span>{productSearch ? `Matching Products (${filteredProducts.length})` : `All Available Products (${filteredProducts.length})`}</span>
-                        <span className="text-[10px] text-gray-500">A-Z</span>
-                      </div>
-                      {filteredProducts.length === 0 ? (
-                        <p className="px-4 py-3 text-xs text-gray-400 text-center italic">No products found</p>
-                      ) : (
-                        filteredProducts.map(item => (
-                          <div
-                            key={item._id || item.product_code}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSelectProduct(item)}
-                            className="px-3.5 py-2.5 cursor-pointer flex items-center justify-between text-xs transition-colors hover:bg-[#1e293b] border-b border-[#334155]/40 last:border-b-0"
-                          >
-                            <span className="font-semibold text-gray-200">{item.product_name}</span>
-                            <div className="text-right shrink-0 ml-3">
-                              <span className="font-bold text-emerald-400 font-mono">
-                                LKR {(item.sell_price || 0).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      {/* Quick Add Product button in dropdown footer */}
-                      <div
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setQuickProduct({
-                            name: productSearch.trim() || '',
-                            cost: '',
-                            sellPrice: '',
-                          });
-                          setQuickProductErrors({});
-                          setShowAddProductModal(true);
-                          setShowProductDropdown(false);
-                        }}
-                        className="p-2.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer border-t border-[#334155] transition-colors"
-                      >
-                        <Plus size={13} /> {productSearch ? `Add "${productSearch}" as New Product` : 'Add New Product'}
-                      </div>
-                    </div>
-                  )}
-                  {errors.productName && <p className="text-red-400 text-xs mt-1">{errors.productName}</p>}
+              <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 space-y-3">
+                {/* Header with Top-Left Add Button */}
+                <div className="flex items-center justify-between pb-1 border-b border-[#334155]/60">
+                  <button
+                    type="button"
+                    onClick={handleAddProduct}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Plus size={14} /> Add Product Line
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickProduct({
+                        name: productSearch.trim() || '',
+                        cost: '',
+                        sellPrice: '',
+                      });
+                      setQuickProductErrors({});
+                      setShowAddProductModal(true);
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
+                  >
+                    <Plus size={13} /> Quick Add Product
+                  </button>
                 </div>
 
-                {/* Same Row: Selling Price (Not editable), Quantity (starts on 0, PCS), and Discount */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                  {/* Selling Price (Not Editable) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                      Selling Price
+                {/* All Fields in One Row */}
+                <div className="grid grid-cols-12 gap-3 items-end pt-1">
+                  {/* Product Name Search Field (Smaller text, compact) */}
+                  <div ref={productRef} className="col-span-12 md:col-span-4 lg:col-span-4 relative">
+                    <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                      Product Name <span className="text-red-400">*</span>
                     </label>
-                    <div className="w-full bg-[#0a101f] border border-[#334155]/60 rounded-lg px-3 py-2.5 text-sm text-emerald-400 font-mono font-semibold flex items-center justify-between cursor-not-allowed select-none">
-                      <span>{newProduct.unitPrice > 0 ? formatCurrency(newProduct.unitPrice) : 'LKR 0.00'}</span>
-                      <span className="text-[10px] text-gray-500 font-sans font-normal uppercase">Auto</span>
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className={`w-full bg-[#0f172a] border rounded-lg pl-8 pr-7 py-1.5 text-xs text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                          errors.productName ? 'border-red-500' : 'border-[#334155]'
+                        }`}
+                        placeholder="Search product..."
+                        value={newProduct.productName || productSearch}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setProductSearch(val);
+                          setNewProduct(prev => ({ ...prev, productName: val, unitPrice: 0 }));
+                          setShowProductDropdown(true);
+                        }}
+                        onFocus={() => setShowProductDropdown(true)}
+                        onClick={() => setShowProductDropdown(true)}
+                        autoComplete="off"
+                      />
+                      {(newProduct.productName || productSearch) ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewProduct(prev => ({ ...prev, productName: '', unitPrice: 0 }));
+                            setProductSearch('');
+                            setShowProductDropdown(true);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                          title="Clear product"
+                        >
+                          <X size={12} />
+                        </button>
+                      ) : (
+                        <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      )}
                     </div>
-                    {errors.unitPrice && <p className="text-red-400 text-[11px] mt-1">{errors.unitPrice}</p>}
+
+                    {showProductDropdown && (
+                      <div className="absolute z-50 top-full mt-1 w-full min-w-[280px] bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl overflow-hidden py-1 max-h-60 overflow-y-auto">
+                        <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wider text-gray-400 uppercase bg-[#1e293b]/50 flex justify-between">
+                          <span>{productSearch ? `Matching (${filteredProducts.length})` : `All Products (${filteredProducts.length})`}</span>
+                          <span className="text-[10px] text-gray-500">Price</span>
+                        </div>
+                        {filteredProducts.length === 0 ? (
+                          <p className="px-4 py-3 text-xs text-gray-400 text-center italic">No products found</p>
+                        ) : (
+                          filteredProducts.map(item => (
+                            <div
+                              key={item._id || item.product_code}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSelectProduct(item)}
+                              className="px-3 py-2 cursor-pointer flex items-center justify-between text-xs transition-colors hover:bg-[#1e293b] border-b border-[#334155]/40 last:border-b-0"
+                            >
+                              <div className="truncate pr-2">
+                                <span className="font-semibold text-gray-200 block truncate">{item.product_name}</span>
+                                {item.product_code && <span className="text-[10px] text-blue-400 font-mono">{item.product_code}</span>}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-bold text-emerald-400 font-mono text-xs">
+                                  LKR {(item.sell_price || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        {/* Quick Add Product button in dropdown footer */}
+                        <div
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setQuickProduct({
+                              name: productSearch.trim() || '',
+                              cost: '',
+                              sellPrice: '',
+                            });
+                            setQuickProductErrors({});
+                            setShowAddProductModal(true);
+                            setShowProductDropdown(false);
+                          }}
+                          className="p-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer border-t border-[#334155] transition-colors"
+                        >
+                          <Plus size={12} /> {productSearch ? `Add "${productSearch}"` : 'Add New Product'}
+                        </div>
+                      </div>
+                    )}
+                    {errors.productName && <p className="text-red-400 text-[11px] mt-0.5">{errors.productName}</p>}
                   </div>
 
-                  {/* Quantity (Starts on 0, limited to PCS) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  {/* Unit Price (Auto) */}
+                  <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                    <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
+                      Unit Price
+                    </label>
+                    <div className="w-full h-[32px] bg-[#0a101f] border border-[#334155]/60 rounded-lg px-2.5 py-1 text-xs text-emerald-400 font-mono font-semibold flex items-center justify-between cursor-not-allowed select-none">
+                      <span className="truncate">{newProduct.unitPrice > 0 ? formatCurrency(newProduct.unitPrice) : 'LKR 0.00'}</span>
+                    </div>
+                    {errors.unitPrice && <p className="text-red-400 text-[11px] mt-0.5">{errors.unitPrice}</p>}
+                  </div>
+
+                  {/* Quantity (Roomier space for input) */}
+                  <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                    <label className="block text-[11px] font-semibold text-gray-300 mb-1">
                       Quantity <span className="text-red-400">*</span>
                     </label>
                     <div className="relative">
                       <input
                         type="number"
                         min="0"
-                        className={`w-full bg-[#0f172a] border rounded-lg pl-3 pr-14 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
+                        className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-3 pr-8 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
                         placeholder="0"
                         value={newProduct.quantity === 0 && !errors.quantity ? '0' : newProduct.quantity || ''}
                         onChange={e => setNewProduct(p => ({ ...p, quantity: parseInt(e.target.value) || 0 }))}
                       />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#1e293b] text-gray-400 text-[11px] font-semibold px-2 py-0.5 rounded border border-[#334155] pointer-events-none">
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-500 pointer-events-none">
                         PCS
-                      </div>
+                      </span>
                     </div>
-                    {errors.quantity && <p className="text-red-400 text-[11px] mt-1">{errors.quantity}</p>}
+                    {errors.quantity && <p className="text-red-400 text-[11px] mt-0.5">{errors.quantity}</p>}
                   </div>
 
-                  {/* Discount Field (Same row with % vs Rs. toggle) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-gray-300">Discount</label>
-                      <div className="flex items-center bg-[#0f172a] border border-[#334155] rounded-md p-0.5 text-[10px]">
+                  {/* Discount (Compact % / Rs. toggle + input) */}
+                  <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-gray-300">Discount</label>
+                      <div className="flex items-center bg-[#0f172a] border border-[#334155] rounded p-0.5 text-[9px]">
                         <button
                           type="button"
                           onClick={() => setNewProduct(p => ({ ...p, discountType: 'percentage' }))}
-                          className={`px-1.5 py-0.5 rounded transition-colors font-medium flex items-center gap-0.5 ${
+                          className={`px-1 py-0.2 rounded transition-colors font-bold ${
                             newProduct.discountType === 'percentage'
-                              ? 'bg-blue-600 text-white font-bold'
+                              ? 'bg-blue-600 text-white'
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
-                          title="Percentage discount"
+                          title="Percentage (%)"
                         >
-                          <Percent size={10} /> %
+                          %
                         </button>
                         <button
                           type="button"
                           onClick={() => setNewProduct(p => ({ ...p, discountType: 'amount' }))}
-                          className={`px-1.5 py-0.5 rounded transition-colors font-medium flex items-center gap-0.5 ${
+                          className={`px-1 py-0.2 rounded transition-colors font-bold ${
                             newProduct.discountType === 'amount'
-                              ? 'bg-blue-600 text-white font-bold'
+                              ? 'bg-blue-600 text-white'
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
-                          title="Amount discount (Rs.)"
+                          title="Amount (Rs.)"
                         >
-                          <Tag size={10} /> Rs.
+                          Rs
                         </button>
                       </div>
                     </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max={newProduct.discountType === 'percentage' ? 100 : undefined}
+                        step={newProduct.discountType === 'percentage' ? '0.1' : '1'}
+                        className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+                        placeholder="0"
+                        value={newProduct.discount || ''}
+                        onChange={e => setNewProduct(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
+                        {newProduct.discountType === 'percentage' ? '%' : 'Rs'}
+                      </span>
+                    </div>
+                  </div>
 
-                    <input
-                      type="number"
-                      min="0"
-                      max={newProduct.discountType === 'percentage' ? 100 : undefined}
-                      step={newProduct.discountType === 'percentage' ? '0.1' : '1'}
-                      className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder={newProduct.discountType === 'percentage' ? '0 %' : 'Rs. 0'}
-                      value={newProduct.discount || ''}
-                      onChange={e => setNewProduct(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
-                    />
+                  {/* Apply Discount: Unit / Total (Invoice Style) */}
+                  <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                    <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
+                      Apply Discount
+                    </label>
+                    <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[32px]">
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct(p => ({ ...p, discountScope: 'per_unit' }))}
+                        className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
+                          newProduct.discountScope === 'per_unit'
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                        title="Apply discount per unit"
+                      >
+                        Unit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct(p => ({ ...p, discountScope: 'total' }))}
+                        className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
+                          newProduct.discountScope === 'total'
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                        title="Apply discount on total line"
+                      >
+                        Total
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Live calculated line total summary */}
+                {/* Live calculated line total preview */}
                 {newProduct.quantity > 0 && newProduct.unitPrice > 0 && (
-                  <div className="bg-[#0f172a] border border-[#334155] rounded-lg p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-4 text-gray-400">
+                  <div className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-3 text-gray-400">
                       <span>
                         Subtotal: <strong className="text-gray-200 font-mono">{formatCurrency(newProduct.quantity * newProduct.unitPrice)}</strong>
                       </span>
                       {calcProductLine(newProduct).discAmt > 0 && (
                         <span>
-                          Discount: <strong className="text-amber-400 font-mono">- {formatCurrency(calcProductLine(newProduct).discAmt)}</strong>
+                          Discount ({newProduct.discountScope === 'per_unit' ? 'Unit' : 'Total'}):{' '}
+                          <strong className="text-amber-400 font-mono">- {formatCurrency(calcProductLine(newProduct).discAmt)}</strong>
                           <span className="text-[10px] text-gray-500 ml-1">
                             ({newProduct.discountType === 'percentage' ? `${newProduct.discount}%` : `Rs. ${newProduct.discount}`})
                           </span>
@@ -830,67 +922,77 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                     </div>
                   </div>
                 )}
-
-                <button
-                  type="button"
-                  onClick={handleAddProduct}
-                  className="w-full py-2.5 border border-dashed border-blue-500/50 bg-blue-600/10 hover:bg-blue-600/20 text-blue-300 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Plus size={15} /> Add to Product Line
-                </button>
               </div>
 
               {/* Added Products Table */}
               {products.length > 0 && (
-                <div className="rounded-xl border border-[#334155] overflow-hidden">
-                  <table className="min-w-full border-collapse">
-                    <thead>
-                      <tr className="bg-[#1e293b] text-gray-300 text-xs border-b border-[#334155]">
-                        <th className="p-3 text-left">Product Name</th>
-                        <th className="p-3 text-right">Qty</th>
-                        <th className="p-3 text-right">Selling Price</th>
-                        <th className="p-3 text-right">Discount</th>
-                        <th className="p-3 text-right">Line Total</th>
-                        <th className="p-3 w-10"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((p, idx) => {
-                        const { discAmt, total } = calcProductLine(p);
-                        return (
-                          <tr
-                            key={p.id}
-                            className={`border-b border-[#334155]/60 text-sm ${idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'}`}
-                          >
-                            <td className="p-3">
-                              <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
-                            </td>
-                            <td className="p-3 text-right text-gray-300 text-xs font-mono">{p.quantity} PCS</td>
-                            <td className="p-3 text-right text-gray-300 text-xs font-mono">{formatCurrency(p.unitPrice)}</td>
-                            <td className="p-3 text-right text-xs font-mono">
-                              {discAmt > 0 ? (
-                                <span className="text-amber-400">
-                                  {p.discountType === 'percentage' ? `${p.discount}% (-${formatCurrency(discAmt)})` : `- ${formatCurrency(discAmt)}`}
+                <div className="rounded-xl border border-[#334155] overflow-hidden bg-[#0f172a]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-left">
+                      <thead>
+                        <tr className="bg-[#1e293b] text-gray-300 text-xs border-b border-[#334155]">
+                          <th className="py-2.5 px-3 w-8 text-center">#</th>
+                          <th className="py-2.5 px-3 min-w-[140px]">Product</th>
+                          <th className="py-2.5 px-3 w-20 text-center">Qty</th>
+                          <th className="py-2.5 px-3 w-28 text-right">Selling Price</th>
+                          <th className="py-2.5 px-3 w-24 text-center">Discount</th>
+                          <th className="py-2.5 px-3 w-24 text-center">Apply Discount</th>
+                          <th className="py-2.5 px-3 w-32 text-right">Line Total</th>
+                          <th className="py-2.5 px-2 w-10 text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#334155]/60 text-xs">
+                        {products.map((p, idx) => {
+                          const { discAmt, total } = calcProductLine(p);
+                          return (
+                            <tr
+                              key={p.id}
+                              className={`hover:bg-[#1e293b]/40 transition-colors ${idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'}`}
+                            >
+                              <td className="py-2.5 px-3 text-center text-gray-500 font-mono">{idx + 1}</td>
+                              <td className="py-2.5 px-3">
+                                <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-gray-300 font-mono whitespace-nowrap">{p.quantity} PCS</td>
+                              <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
+                              <td className="py-2.5 px-3 text-center font-mono">
+                                {discAmt > 0 ? (
+                                  <span className="text-amber-400">
+                                    {p.discountType === 'percentage' ? `${p.discount}%` : `Rs. ${p.discount}`}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500">—</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  {p.discountScope === 'total' ? 'Total' : 'Unit'}
                                 </span>
-                              ) : (
-                                <span className="text-gray-500">—</span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right font-bold text-white text-xs font-mono">{formatCurrency(total)}</td>
-                            <td className="p-3">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveProduct(p.id)}
-                                className="text-gray-500 hover:text-red-400 transition-colors"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-bold text-white font-mono whitespace-nowrap">
+                                <div className="flex flex-col items-end">
+                                  <span className="text-emerald-400">{formatCurrency(total)}</span>
+                                  {discAmt > 0 && (
+                                    <span className="text-[10px] text-amber-400/80 font-normal">-{formatCurrency(discAmt)}</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveProduct(p.id)}
+                                  className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-[#1e293b] transition-colors"
+                                  title="Remove product"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -943,7 +1045,19 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             {createdOrder ? 'Close' : 'Cancel'}
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Share on WhatsApp button */}
+            {createdOrder && (
+              <button
+                type="button"
+                onClick={() => handleShareWhatsApp(createdOrder)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
+                title="Share order details on WhatsApp"
+              >
+                <MessageCircle size={14} /> Share on WhatsApp
+              </button>
+            )}
+
             {/* Convert to PO button */}
             <button
               type="button"
@@ -967,7 +1081,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               title={!createdOrder ? 'Create the order first to convert to Invoice' : 'Convert order to Invoice'}
               className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 createdOrder
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 cursor-pointer'
+                  ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20 cursor-pointer'
                   : 'bg-[#1e293b]/50 border border-[#334155] text-gray-500 cursor-not-allowed opacity-50'
               }`}
             >
