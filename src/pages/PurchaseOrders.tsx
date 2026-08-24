@@ -5,10 +5,11 @@ import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
 import { mockOrders } from '../data/mockOrders';
-import { Eye, Download, ShoppingCart, Plus, Edit, FileText } from 'lucide-react';
+import { Eye, Download, ShoppingCart, Plus, Edit, FileText, MessageCircle } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
 import type { PurchaseOrder } from '../types/purchaseOrders';
+import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
 const PurchaseOrders: React.FC = () => {
   const navigate = useNavigate();
@@ -255,13 +256,34 @@ const PurchaseOrders: React.FC = () => {
       key: 'actions',
       header: '',
       align: 'right',
-      minWidth: '220px',
+      minWidth: '240px',
       render: (row) => {
         const isEligibleForInvoice = !!(row.items && row.items.length > 0);
         return (
-          <div className="flex gap-2 justify-end items-center">
+          <div className="flex gap-1.5 justify-end items-center" onClick={(e) => e.stopPropagation()}>
             <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${row.id}`); }}
+              onClick={() => {
+                const text = generatePOWhatsAppMessage({
+                  poNumber: row.poNumber,
+                  supplierName: row.supplierName,
+                  totalAmount: row.grandTotal,
+                  poDate: row.poDate,
+                  itemsCount: row.numberOfItems || row.items?.length || 0,
+                  remarks: row.notes,
+                  shareUrl: `${window.location.origin}/purchase-orders/${row.id || row.poNumber}`,
+                });
+                const url = getWhatsAppUrl(row.supplierPhone || '+94705787818', text);
+                window.open(url, '_blank');
+                success('WhatsApp Shared', `Opened chat for ${row.supplierName} (${row.supplierPhone || '+94 705787818'})`);
+              }}
+              className="p-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition shadow-sm"
+              title="Share Purchase Order on WhatsApp"
+              aria-label="Share Purchase Order on WhatsApp"
+            >
+              <MessageCircle size={14} />
+            </button>
+            <button
+              onClick={() => navigate(`/purchase-orders/${row.id}`)}
               className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm"
               title="View Purchase Order"
               aria-label="View Purchase Order"
@@ -269,10 +291,7 @@ const PurchaseOrders: React.FC = () => {
               <Eye size={14} />
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedPOToUpdate(row);
-              }}
+              onClick={() => setSelectedPOToUpdate(row)}
               className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm"
               title="Edit Purchase Order"
               aria-label="Edit Purchase Order"
@@ -280,8 +299,7 @@ const PurchaseOrders: React.FC = () => {
               <Edit size={14} />
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 navigate('/invoice', { state: { convertFromPO: row, salesman: getSalesmanFromPO(row) } });
               }}
               disabled={!isEligibleForInvoice}

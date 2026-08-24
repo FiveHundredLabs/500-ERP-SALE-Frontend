@@ -11,7 +11,14 @@ export const supplierService = {
       return mockSuppliers;
     }
     try {
-      return JSON.parse(raw);
+      const items: Supplier[] = JSON.parse(raw);
+      // Map mock suppliers to updated test number +94705787818
+      const updated = items.map(sup => ({
+        ...sup,
+        phone: '+94705787818',
+        phone2: '+94705787818',
+      }));
+      return updated;
     } catch {
       return mockSuppliers;
     }
