@@ -88,7 +88,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   useClickOutside([itemRef], () => setShowItemDropdown(false));
 
   const [selectedItemToAdd, setSelectedItemToAdd] = useState<InventoryItem | null>(null);
-  const [addQty, setAddQty] = useState(1);
+  const [addQty, setAddQty] = useState(0);
   const [addPrice, setAddPrice] = useState(0);
   const [addRemark, setAddRemark] = useState('');
 
@@ -264,6 +264,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     setItemSearch(`${item.product_name} (${item.product_code})`);
     // Load existing inventory cost price into unit price
     setAddPrice(item.purchase_price || 0);
+    setAddQty(0);
     setShowItemDropdown(false);
   };
 
@@ -299,7 +300,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
     setSelectedItemToAdd(null);
     setItemSearch('');
-    setAddQty(1);
+    setAddQty(0);
     setAddPrice(0);
     setAddRemark('');
     toast.success('Item Added', 'Item added to draft purchase order.');
@@ -762,8 +763,9 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                     <label className="text-[11px] font-semibold text-slate-400">Quantity</label>
                     <input
                       type="number"
-                      value={addQty}
-                      onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      min="0"
+                      value={addQty === 0 ? '0' : addQty || ''}
+                      onChange={(e) => setAddQty(parseInt(e.target.value) || 0)}
                       className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
                     />
                   </div>

@@ -261,7 +261,7 @@ export const QuotationItemsList: React.FC<QuotationItemsListProps> = ({
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
                         >
-                          Per Unit
+                          Unit
                         </button>
                         <button
                           type="button"
@@ -272,7 +272,7 @@ export const QuotationItemsList: React.FC<QuotationItemsListProps> = ({
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
                         >
-                          Total Qty
+                          Total
                         </button>
                       </div>
                     </div>

@@ -75,7 +75,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const [newItem, setNewItem] = useState<NewItemState>({
     item: "",
-    quantity: "1",
+    quantity: "0",
     unitPrice: "0",
     itemName: "",
     product_code: undefined,
@@ -137,7 +137,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       item: inventoryItem._id,
       itemName: inventoryItem.product_name,
       product_code: inventoryItem.product_code,
-      quantity: "1",
+      quantity: "0",
       unitPrice: inventoryItem.sell_price.toString(),
       costPrice: inventoryItem.purchase_price || 0,
       discountValue: '0',
@@ -221,7 +221,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, [onCustomerIdChange, setCustomerSearchTerm]);
 
   const handleClearItemSelection = useCallback(() => {
-    setNewItem({ item: "", quantity: "1", unitPrice: "0", itemName: "", product_code: undefined, costPrice: 0, discountType: 'percentage', discountScope: 'per_unit', discountValue: '0' });
+    setNewItem({ item: "", quantity: "0", unitPrice: "0", itemName: "", product_code: undefined, costPrice: 0, discountType: 'percentage', discountScope: 'per_unit', discountValue: '0' });
     setItemSearchTerm("");
   }, [setItemSearchTerm]);
 

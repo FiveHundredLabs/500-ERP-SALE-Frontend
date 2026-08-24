@@ -5,9 +5,10 @@ import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../comp
 import type { Column } from '../components/erp/DataTable';
 import { mockOrders as initialOrders } from '../data/mockOrders';
 import type { Order } from '../types/orders';
-import { Eye, Download, ShoppingBag, Plus } from 'lucide-react';
+import { Eye, Download, ShoppingBag, Plus, MessageCircle } from 'lucide-react';
 import CreateOrderModal from '../components/orders/CreateOrderModal';
 import { orderService } from '../services/OrderService';
+import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -234,14 +235,33 @@ const Orders: React.FC = () => {
       key: 'actions',
       header: '',
       align: 'right',
-      minWidth: '70px',
+      minWidth: '120px',
       render: (row) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/orders/${row.id}`); }}
-          className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs"
-        >
-          <Eye size={15} /> View
-        </button>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => {
+              const text = generateOrderWhatsAppMessage({
+                orderId: row.orderId,
+                customerName: row.customerName,
+                totalAmount: row.grandTotal,
+                orderDate: row.orderDate,
+                itemsCount: row.numberOfProducts || row.products?.length || 0,
+              });
+              const url = getWhatsAppUrl(row.contactPhone || '', text);
+              window.open(url, '_blank');
+            }}
+            className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs"
+            title="Share on WhatsApp"
+          >
+            <MessageCircle size={15} />
+          </button>
+          <button
+            onClick={() => navigate(`/orders/${row.id}`)}
+            className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs"
+          >
+            <Eye size={15} /> View
+          </button>
+        </div>
       ),
     },
   ];

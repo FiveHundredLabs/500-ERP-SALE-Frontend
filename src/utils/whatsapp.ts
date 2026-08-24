@@ -185,3 +185,40 @@ export const generatePOWhatsAppMessage = (params: {
 
   return lines.join('\n');
 };
+
+/**
+ * Generates formatted WhatsApp text message for Sales Orders.
+ */
+export const generateOrderWhatsAppMessage = (params: {
+  orderId: string;
+  customerName: string;
+  totalAmount: number;
+  orderDate: string;
+  itemsCount: number;
+  shareUrl?: string;
+}): string => {
+  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+  const formattedOrderDate = formatLongDate(params.orderDate) || params.orderDate;
+
+  const lines: string[] = [
+    `500Core ERP — SALES ORDER ${params.orderId}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `Customer: ${params.customerName}`,
+    `Order Date: ${formattedOrderDate}`,
+    `Items: ${params.itemsCount}`,
+    `Total Amount: ${formattedAmount}`,
+  ];
+
+  if (params.shareUrl) {
+    lines.push(`\n -- View / Download Order:\n${params.shareUrl}`);
+  }
+
+  lines.push(`\n -- The official Order confirmation has been created in our system.`);
+  lines.push(`Thank you for your business. We appreciate your continued support.`);
+
+  return lines.join('\n');
+};
