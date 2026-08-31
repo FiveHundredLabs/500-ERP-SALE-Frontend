@@ -110,31 +110,31 @@ const DashboardOverview: React.FC = () => {
 
   const outstandingReceivables = useMemo(() => {
     return invoices
-      .filter((inv) => inv.paymentStatus !== "Paid" && inv.paymentStatus !== "Completed")
+      .filter((inv) => inv.paymentStatus !== "paid" && inv.paymentStatus !== "completed")
       .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
   }, [invoices]);
 
   const pendingOrdersCount = useMemo(() => {
-    return orders.filter((o) => o.status === "Pending" || o.status === "Reviewing").length;
+    return orders.filter((o) => o.status === "pending" || o.status === "reviewing").length;
   }, [orders]);
 
   const pendingPOCount = useMemo(() => {
-    return purchaseOrders.filter((p) => p.status === "Pending Approval" || p.status === "Draft").length;
+    return purchaseOrders.filter((p) => p.status === "pending_approval" || p.status === "draft").length;
   }, [purchaseOrders]);
 
   // Operational status breakdown for pie chart
   const operationalStatusBreakdown = useMemo(() => {
     const total = orders.length + invoices.length + purchaseOrders.length || 1;
-    const completed = orders.filter(o => o.status === 'Completed').length + invoices.filter(i => i.paymentStatus === 'Paid' || i.paymentStatus === 'Completed').length;
-    const processing = orders.filter(o => o.status === 'Approved' || o.status === 'Reviewing').length + purchaseOrders.filter(p => p.status === 'Processing').length;
-    const pending = pendingOrdersCount + pendingPOCount + invoices.filter(i => i.paymentStatus === 'Pending').length;
-    const draft = purchaseOrders.filter(p => p.status === 'Draft').length;
+    const completed = orders.filter(o => o.status === 'completed').length + invoices.filter(i => i.paymentStatus === 'paid' || i.paymentStatus === 'completed').length;
+    const processing = orders.filter(o => o.status === 'approved' || o.status === 'reviewing').length + purchaseOrders.filter(p => p.status === 'processing').length;
+    const pending = pendingOrdersCount + pendingPOCount + invoices.filter(i => i.paymentStatus === 'pending').length;
+    const draft = purchaseOrders.filter(p => p.status === 'draft').length;
 
     return [
-      { name: "Completed", value: completed || 12, color: "#10b981", percentage: Math.round(((completed || 12) / total) * 100) },
-      { name: "Processing", value: processing || 8, color: "#3b82f6", percentage: Math.round(((processing || 8) / total) * 100) },
-      { name: "Pending", value: pending || 5, color: "#f59e0b", percentage: Math.round(((pending || 5) / total) * 100) },
-      { name: "Draft", value: draft || 3, color: "#94a3b8", percentage: Math.round(((draft || 3) / total) * 100) },
+      { name: "completed", value: completed || 12, color: "#10b981", percentage: Math.round(((completed || 12) / total) * 100) },
+      { name: "processing", value: processing || 8, color: "#3b82f6", percentage: Math.round(((processing || 8) / total) * 100) },
+      { name: "pending", value: pending || 5, color: "#f59e0b", percentage: Math.round(((pending || 5) / total) * 100) },
+      { name: "draft", value: draft || 3, color: "#94a3b8", percentage: Math.round(((draft || 3) / total) * 100) },
     ];
   }, [orders, invoices, purchaseOrders, pendingOrdersCount, pendingPOCount]);
 
@@ -148,7 +148,7 @@ const DashboardOverview: React.FC = () => {
       const mIdx = (currentMonthIdx - i + 12) % 12;
       const mName = months[mIdx];
       const monthInvoices = invoices.filter(inv => {
-        const d = new Date(inv.issueDate || inv.created_at || '');
+        const d = new Date(inv.issueDate || inv.createdAt || '');
         return d.getMonth() === mIdx;
       });
       const rev = monthInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
@@ -165,13 +165,13 @@ const DashboardOverview: React.FC = () => {
   const topProducts = useMemo(() => {
     if (inventoryItems.length === 0) return [];
     return [...inventoryItems]
-      .sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0))
+      .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
       .slice(0, 5)
       .map(item => ({
-        name: item.product_name,
-        code: item.product_code,
-        sales: item.sold_count || 10,
-        revenue: (item.sold_count || 10) * (item.sell_price || 1000),
+        name: item.productName,
+        code: item.productCode,
+        sales: item.soldCount || 10,
+        revenue: (item.soldCount || 10) * (item.sellPrice || 1000),
         stock: item.quantity,
         growth: "+12%",
       }));
@@ -182,7 +182,7 @@ const DashboardOverview: React.FC = () => {
     return salesOfficers.slice(0, 5).map(so => {
       const soInvoices = invoices.filter(inv => {
         const sm = inv.salesman;
-        return (typeof sm === 'object' && sm?.name === so.fullName) || sm === so.fullName || inv.salesmanName === so.fullName;
+        return sm?.fullName === so.fullName || inv.salesmanName === so.fullName;
       });
       const soTotal = soInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
       const target = so.monthlyTarget || 1000000;
@@ -580,11 +580,11 @@ const DashboardOverview: React.FC = () => {
                         idx % 2 ? "bg-[#111b2d]" : "bg-[#0f172a]"
                       }`}
                     >
-                      <td className="p-3 text-xs font-mono text-blue-400 font-bold">{ord.orderId}</td>
+                      <td className="p-3 text-xs font-mono text-blue-400 font-bold">{ord.orderNumber}</td>
                       <td className="p-3 text-xs font-semibold text-slate-200 truncate max-w-[140px]">
                         {ord.customerName}
                       </td>
-                      <td className="p-3 text-xs text-slate-400">{ord.salesman?.name || "—"}</td>
+                      <td className="p-3 text-xs text-slate-400">{ord.salesman?.fullName || "—"}</td>
                       <td className="p-3 text-xs font-bold text-white text-right font-mono">
                         {formatCurrency(ord.grandTotal)}
                       </td>

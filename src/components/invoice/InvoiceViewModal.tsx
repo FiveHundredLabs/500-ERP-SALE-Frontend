@@ -56,8 +56,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   const customerPhone = getCustomerPhone();
   const customerName = getCustomerName();
 
-  const invoiceShareUrl = invoiceData._id
-    ? `${window.location.origin}/invoice/view/${invoiceData._id}`
+  const invoiceShareUrl = invoiceData.id
+    ? `${window.location.origin}/invoice/view/${invoiceData.id}`
     : window.location.href;
 
   const handleCopyLink = async () => {
@@ -112,11 +112,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
     // Step 1: Generate & Download PDF
     await generateAndDownloadPDF();
-    const pdfFileName = `Invoice-${invoiceData.invoiceId || 'draft'}.pdf`;
+    const pdfFileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
 
     // Step 2: Build formatted WhatsApp message
     const message = generateInvoiceWhatsAppMessage({
-      invoiceId: invoiceData.invoiceId || 'Draft',
+      invoiceNumber: invoiceData.invoiceNumber || 'draft',
       customerName: customerName,
       totalAmount: invoiceData.totalAmount,
       issueDate: invoiceData.issueDate || new Date().toISOString().split('T')[0],
@@ -142,8 +142,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Invoice ${invoiceData.invoiceId} from 500Core ERP`;
-    const body = `Hello ${customerName},\n\nPlease find your invoice details below:\n\nInvoice: ${invoiceData.invoiceId}\nTotal Amount: LKR ${invoiceData.totalAmount.toFixed(2)}\nStatus: ${invoiceData.paymentStatus}\n\nView Online: ${invoiceShareUrl}\n\nThank you for choosing 500Core!`;
+    const subject = `Invoice ${invoiceData.invoiceNumber} from 500Core ERP`;
+    const body = `Hello ${customerName},\n\nPlease find your invoice details below:\n\nInvoice: ${invoiceData.invoiceNumber}\nTotal Amount: LKR ${invoiceData.totalAmount.toFixed(2)}\nStatus: ${invoiceData.paymentStatus}\n\nView Online: ${invoiceShareUrl}\n\nThank you for choosing 500Core!`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -175,7 +175,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Print Invoice ${invoiceData.invoiceId}</title>
+            <title>Print Invoice ${invoiceData.invoiceNumber}</title>
             <style>
               @page { size: A4 portrait; margin: 0; }
               body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
@@ -212,7 +212,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         setShareFeedback(null);
         onClose();
       }}
-      title={`Invoice Preview — ${invoiceData.invoiceId || 'Draft'}`}
+      title={`Invoice Preview — ${invoiceData.invoiceNumber || 'draft'}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[96vh] max-w-[96vw] flex flex-col"
@@ -228,8 +228,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <span className="text-xs text-gray-400">{invoiceData.items.length} {invoiceData.items.length === 1 ? 'item' : 'items'}</span>
             <span className="text-xs text-gray-500">•</span>
             <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-              invoiceData.paymentStatus === 'Completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-              invoiceData.paymentStatus === 'Pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+              invoiceData.paymentStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+              invoiceData.paymentStatus === 'pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
               'bg-red-500/20 text-red-400 border border-red-500/30'
             }`}>
               {invoiceData.paymentStatus}

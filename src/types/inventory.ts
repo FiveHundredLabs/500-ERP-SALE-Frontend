@@ -1,50 +1,32 @@
-export interface VehicleInfo {
-  brand: string;
-  model: string;
-  chassis_no: string;
-  year: number;
-}
+export type InventoryStatus = 'in_stock' | 'out_of_stock' | 'discontinued';
 
 export interface InventoryItem {
-  _id: string;
   id: string;
-  product_name: string;
-  product_code: string;
+  inventoryCode: string;
+  productName: string;
+  productCode: string;
   quantity: number;
-  sold_count: number;
-  status: 'in_stock' | 'out_of_stock' | 'discontinued';
-  vehicle: VehicleInfo;
-  purchase_price: number;
-  sell_price: number;
-  shipment_code: string;
-  created_at: string;
-  updated_at: string;
-  __v?: number;
-  discount_rate?: number;
-  actual_sold_price?: number
+  soldCount: number;
+  status: InventoryStatus;
+  brand: string;
+  model: string;
+  chassisNo: string;
+  year: number;
+  purchasePrice: number;
+  sellPrice: number;
+  discountRate: number;
+  actualSoldPrice: number;
+  shipmentCode: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface CreateInventoryItemData {
-  product_name: string;
-  product_code: string;
-  quantity: number;
-  vehicle: VehicleInfo;
-  purchase_price: number;
-  sell_price: number;
-  shipment_code: string;
-}
+export type CreateInventoryItemData = Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt' | 'soldCount' | 'actualSoldPrice'> & {
+  soldCount?: number;
+  actualSoldPrice?: number;
+};
 
-export interface UpdateInventoryItemData {
-  product_name?: string;
-  product_code?: string;
-  quantity?: number;
-  status?: 'in_stock' | 'out_of_stock' | 'discontinued';
-  vehicle?: Partial<VehicleInfo>;
-  purchase_price?: number;
-  sell_price?: number;
-  shipment_code?: string;
-  discount_rate?: number;
-}
+export type UpdateInventoryItemData = Partial<CreateInventoryItemData>;
 
 export interface InventoryStats {
   totalItems: number;

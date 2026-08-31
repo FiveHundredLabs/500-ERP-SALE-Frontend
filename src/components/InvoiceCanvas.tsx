@@ -33,7 +33,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
   const { subTotal, totalAmount, paidAmount, balanceAmount } = calculateTotals();
 
   const customer = invoiceData.customerDetails || ({} as any);
-  const salesmanName = invoiceData.salesman?.name || customer.salesRepName || "N/A";
+  const salesmanName = invoiceData.salesman?.fullName || customer.salesRepName || "N/A";
 
   const renderAddress = () => {
     if (!customer.address) return "N/A";

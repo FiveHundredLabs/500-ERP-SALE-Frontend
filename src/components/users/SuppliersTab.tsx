@@ -103,17 +103,17 @@ const SuppliersTab: React.FC = () => {
     suppliers.forEach(s => {
       const name = s.companyName || (s as any).name || 'Supplier';
       suggestions.push({
-        id: `s-name-${s.id || (s as any)._id}`,
+        id: `s-name-${s.id}`,
         title: name,
         subtitle: `${s.contactPerson || 'Supplier'} · WA: ${s.phone || ''} · ${s.city || s.address || ''}`,
         category: 'Supplier',
         value: name,
       });
 
-      const code = s.supplierId || (s as any).supplier_code || s.id || (s as any)._id;
+      const code = s.supplierCode || s.id;
       if (code) {
         suggestions.push({
-          id: `s-id-${s.id || (s as any)._id}`,
+          id: `s-id-${s.id}`,
           title: code,
           subtitle: `${name}`,
           category: 'Supplier ID',
@@ -132,7 +132,7 @@ const SuppliersTab: React.FC = () => {
         q === '' ||
         s.companyName.toLowerCase().includes(q) ||
         (s.contactPerson && s.contactPerson.toLowerCase().includes(q)) ||
-        s.supplierId.toLowerCase().includes(q) ||
+        s.supplierCode.toLowerCase().includes(q) ||
         s.phone.toLowerCase().includes(q) ||
         (s.phone2 && s.phone2.toLowerCase().includes(q)) ||
         (s.phone3 && s.phone3.toLowerCase().includes(q)) ||
@@ -269,11 +269,11 @@ const SuppliersTab: React.FC = () => {
 
   const columns: Column<Supplier>[] = [
     {
-      key: 'supplierId',
+      key: 'supplierCode',
       header: 'Supplier ID',
       sortable: true,
       minWidth: '110px',
-      render: (row) => <span className="font-mono text-purple-400 font-bold text-xs">{row.supplierId}</span>,
+      render: (row) => <span className="font-mono text-purple-400 font-bold text-xs">{row.supplierCode}</span>,
     },
     {
       key: 'companyName',
@@ -327,22 +327,22 @@ const SuppliersTab: React.FC = () => {
       render: (row) => <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">{row.totalPOs}</span>,
     },
     {
-      key: 'totalPurchaseAmount',
+      key: 'totalSpent',
       header: 'Total Purchases',
       sortable: true,
       align: 'right',
       minWidth: '130px',
-      render: (row) => <span className="font-bold text-slate-100 font-mono text-xs">{formatCurrency(row.totalPurchaseAmount)}</span>,
+      render: (row) => <span className="font-bold text-slate-100 font-mono text-xs">{formatCurrency(row.totalSpent)}</span>,
     },
     {
-      key: 'outstandingPayments',
+      key: 'balanceDue',
       header: 'Outstanding Pay',
       sortable: true,
       align: 'right',
       minWidth: '125px',
       render: (row) => (
-        <span className={`font-mono font-bold text-xs ${row.outstandingPayments > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
-          {formatCurrency(row.outstandingPayments)}
+        <span className={`font-mono font-bold text-xs ${row.balanceDue > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+          {formatCurrency(row.balanceDue)}
         </span>
       ),
     },

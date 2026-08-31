@@ -63,7 +63,7 @@ const PurchaseOrders: React.FC = () => {
   };
 
   // Returns the salesman from the original order if the PO was converted from one
-  const getSalesmanFromPO = (_po: PurchaseOrder): { _id: string; name: string } | undefined => {
+  const getSalesmanFromPO = (_po: PurchaseOrder): { id: string; name: string } | undefined => {
     return undefined;
   };
 
@@ -98,7 +98,7 @@ const PurchaseOrders: React.FC = () => {
       suggestions.push({
         id: `po-${po.poNumber}`,
         title: po.poNumber,
-        subtitle: `${po.supplierName} · LKR ${(po.grandTotal || 0).toLocaleString()} · ${po.status}`,
+        subtitle: `${po.supplierName} · LKR ${(po.totalAmount || 0).toLocaleString()} · ${po.status}`,
         category: 'Purchase Order',
         value: po.poNumber,
       });
@@ -106,13 +106,13 @@ const PurchaseOrders: React.FC = () => {
 
     // 3. Reference Orders
     purchaseOrders.forEach(po => {
-      if (po.referenceOrderNum) {
+      if (po.sourceOrderNumber) {
         suggestions.push({
-          id: `ref-${po.referenceOrderNum}`,
-          title: `Ref: ${po.referenceOrderNum}`,
+          id: `ref-${po.sourceOrderNumber}`,
+          title: `Ref: ${po.sourceOrderNumber}`,
           subtitle: `Linked PO: ${po.poNumber} (${po.supplierName})`,
           category: 'Order ID',
-          value: po.referenceOrderNum,
+          value: po.sourceOrderNumber,
         });
       }
     });
@@ -126,7 +126,7 @@ const PurchaseOrders: React.FC = () => {
         searchQuery === '' ||
         po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (po.referenceOrderNum && po.referenceOrderNum.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (po.sourceOrderNumber && po.sourceOrderNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
@@ -167,8 +167,8 @@ const PurchaseOrders: React.FC = () => {
   const handleExportCSV = () => {
     const headers = ['PO Number', 'PO Date', 'Supplier', 'Ref Order', 'Created By', 'Items', 'Total', 'Status'];
     const rows = sortedPOs.map((p) => [
-      p.poNumber, p.poDate, `"${p.supplierName}"`, p.referenceOrderNum || 'Direct PO',
-      `"${p.createdByName}"`, p.numberOfItems, p.grandTotal, p.status,
+      p.poNumber, p.poDate, `"${p.supplierName}"`, p.sourceOrderNumber || 'Direct PO',
+      `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -195,7 +195,7 @@ const PurchaseOrders: React.FC = () => {
       key: 'referenceOrderNum',
       header: 'Ref Order',
       minWidth: '100px',
-      render: (row) => <span className="font-mono text-xs text-[#CBD5E1]">{row.referenceOrderNum || '—'}</span>,
+      render: (row) => <span className="font-mono text-xs text-[#CBD5E1]">{row.sourceOrderNumber || '—'}</span>,
     },
     {
       key: 'supplierName',
@@ -228,7 +228,7 @@ const PurchaseOrders: React.FC = () => {
       minWidth: '60px',
       render: (row) => (
         <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-[#111827] text-[#CBD5E1] border border-[#334155]">
-          {row.numberOfItems}
+          {row.totalItems}
         </span>
       ),
     },
@@ -238,7 +238,7 @@ const PurchaseOrders: React.FC = () => {
       sortable: true,
       align: 'right',
       minWidth: '120px',
-      render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.grandTotal)}</span>,
+      render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.totalAmount)}</span>,
     },
     {
       key: 'actions',
@@ -254,9 +254,9 @@ const PurchaseOrders: React.FC = () => {
                 const text = generatePOWhatsAppMessage({
                   poNumber: row.poNumber,
                   supplierName: row.supplierName,
-                  totalAmount: row.grandTotal,
+                  totalAmount: row.totalAmount,
                   poDate: row.poDate,
-                  itemsCount: row.numberOfItems || row.items?.length || 0,
+                  itemsCount: row.totalItems || row.items?.length || 0,
                   remarks: row.notes,
                   shareUrl: `${window.location.origin}/purchase-orders/${row.id || row.poNumber}`,
                 });

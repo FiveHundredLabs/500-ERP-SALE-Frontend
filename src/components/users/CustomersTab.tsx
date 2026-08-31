@@ -86,8 +86,8 @@ const CustomersTab: React.FC = () => {
     address: '',
     creditLimit: 1000000,
     creditPeriod: 30,
-    salesRep: 'Kasun Perera',
-    salesRepName: 'Kasun Perera',
+    salesRepId: null,
+    salesRepName: '',
     status: 'Active',
     notes: '',
   });
@@ -110,9 +110,9 @@ const CustomersTab: React.FC = () => {
     // 1. Customer Names
     customers.forEach(c => {
       const name = c.shopName || c.businessName || (c as any).fullName || 'Customer';
-      const rep = c.salesRepName || (typeof c.salesRep === 'object' ? c.salesRep.name : c.salesRep) || '';
+      const rep = c.salesRepName || c.salesRep?.fullName || '';
       suggestions.push({
-        id: `c-name-${c.id || (c as any)._id}`,
+        id: `c-name-${c.id}`,
         title: name,
         subtitle: `${c.contactPerson ? `${c.contactPerson} · ` : ''}WA: ${c.phone || ''} · ${c.city || extractCityFromAddress(c.address || '')} ${rep ? `· Rep: ${rep}` : ''}`,
         category: 'Shop / Customer',
@@ -122,10 +122,10 @@ const CustomersTab: React.FC = () => {
 
     // 2. Customer IDs
     customers.forEach(c => {
-      const code = (c as any).customerCode || c.customerId || (c as any)._id || c.id || '';
+      const code = c.customerCode || c.id || '';
       if (code) {
         suggestions.push({
-          id: `c-id-${c.id || (c as any)._id}`,
+          id: `c-id-${c.id}`,
           title: code,
           subtitle: `${c.shopName || c.businessName || (c as any).fullName || ''} · ${c.city || extractCityFromAddress(c.address || '')}`,
           category: 'Customer ID',
@@ -141,7 +141,7 @@ const CustomersTab: React.FC = () => {
     return customers.filter((c) => {
       const name = (c.shopName || c.businessName || '').toLowerCase();
       const contact = (c.contactPerson || '').toLowerCase();
-      const rep = (c.salesRepName || (typeof c.salesRep === 'object' ? c.salesRep.name : c.salesRep) || '').toLowerCase();
+      const rep = (c.salesRepName || c.salesRep?.fullName || '').toLowerCase();
       const city = (c.city || extractCityFromAddress(c.address) || '').toLowerCase();
       const addr = (c.address || '').toLowerCase();
       const query = searchQuery.toLowerCase().trim();
@@ -150,7 +150,7 @@ const CustomersTab: React.FC = () => {
         query === '' ||
         name.includes(query) ||
         contact.includes(query) ||
-        c.customerId.toLowerCase().includes(query) ||
+        c.customerCode.toLowerCase().includes(query) ||
         c.phone.toLowerCase().includes(query) ||
         (c.phone2 && c.phone2.toLowerCase().includes(query)) ||
         (c.phone3 && c.phone3.toLowerCase().includes(query)) ||
@@ -209,7 +209,7 @@ const CustomersTab: React.FC = () => {
     if (editCustomer) {
       // Edit
       try {
-        await invoiceService.updateCustomer(editCustomer.id || (editCustomer as any)._id, {
+        await invoiceService.updateCustomer(editCustomer.id, {
           ...formData,
           shopName: formData.shopName,
           fullName: formData.shopName,
@@ -243,7 +243,7 @@ const CustomersTab: React.FC = () => {
 
   const handleOpenEdit = (customer: Customer) => {
     setEditCustomer(customer);
-    const rep = customer.salesRepName || (typeof customer.salesRep === 'object' ? customer.salesRep.name : customer.salesRep) || '';
+    const rep = customer.salesRepName || customer.salesRep?.fullName || '';
     setFormData({
       shopName: customer.shopName || customer.businessName || '',
       contactPerson: customer.contactPerson || '',
@@ -253,7 +253,7 @@ const CustomersTab: React.FC = () => {
       address: customer.address,
       creditLimit: customer.creditLimit || 1000000,
       creditPeriod: customer.creditPeriod ?? 30,
-      salesRep: rep,
+      salesRepId: customer.salesRepId || customer.salesRep?.id || null,
       salesRepName: rep,
       status: customer.status,
       notes: customer.notes || '',
@@ -265,7 +265,7 @@ const CustomersTab: React.FC = () => {
   const handleDeleteConfirm = async () => {
     if (!deleteCustomer) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/customers/${deleteCustomer.id || (deleteCustomer as any)._id}`, {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/customers/${deleteCustomer.id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -286,8 +286,8 @@ const CustomersTab: React.FC = () => {
       phone3: '',
       address: '',
       creditLimit: 1000000,
-      salesRep: 'Kasun Perera',
-      salesRepName: 'Kasun Perera',
+      salesRepId: null,
+      salesRepName: '',
       status: 'Active',
       notes: '',
     });
@@ -296,11 +296,11 @@ const CustomersTab: React.FC = () => {
   // Columns: Removed Type, Removed Orders, Added Sales Rep, Compact Three-Dot Menu
   const columns: Column<Customer>[] = [
     {
-      key: 'customerId',
+      key: 'customerCode',
       header: 'Customer ID',
       sortable: true,
       minWidth: '100px',
-      render: (row) => <span className="font-mono text-cyan-400 font-bold text-xs">{row.customerId || (row as any).customerCode || 'cus-101'}</span>,
+      render: (row) => <span className="font-mono text-cyan-400 font-bold text-xs">{row.customerCode}</span>,
     },
     {
       key: 'shopName',
@@ -358,7 +358,7 @@ const CustomersTab: React.FC = () => {
       sortable: true,
       minWidth: '130px',
       render: (row) => {
-        const rep = row.salesRepName || (typeof row.salesRep === 'object' ? row.salesRep.name : row.salesRep);
+        const rep = row.salesRepName || row.salesRep?.fullName;
         return rep ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[11px] font-medium truncate max-w-[130px]">
             <UserCheck size={11} className="text-blue-400 shrink-0" />
@@ -383,7 +383,7 @@ const CustomersTab: React.FC = () => {
     },
     {
       key: 'outstandingBalance',
-      header: 'Outstanding',
+      header: 'outstanding',
       sortable: true,
       align: 'right',
       minWidth: '120px',
@@ -754,19 +754,20 @@ const CustomersTab: React.FC = () => {
                       </div>
                       <select
                         className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-8.5 pr-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
-                        value={formData.salesRepName || formData.salesRep || ''}
+                        value={formData.salesRepId || ''}
                         onChange={(e) => {
-                          const rep = e.target.value;
+                          const repId = e.target.value;
+                          const rep = salesOfficers.find(so => so.id === repId);
                           setFormData({ 
                             ...formData, 
-                            salesRep: rep,
-                            salesRepName: rep 
+                            salesRepId: repId || null,
+                            salesRepName: rep?.fullName || ''
                           });
                         }}
                       >
                         <option value="">Unassigned</option>
                         {salesOfficers.map((so: SalesOfficer) => (
-                          <option key={so.id} value={so.fullName}>
+                          <option key={so.id} value={so.id}>
                             {so.fullName} ({so.assignedTerritory || so.assignedArea || 'Region'})
                           </option>
                         ))}

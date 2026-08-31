@@ -11,7 +11,7 @@ export type SupplierStatusValue = typeof SupplierStatus[keyof typeof SupplierSta
 
 export interface Supplier {
   id: string;
-  supplierId: string;         // SUP-XXXXX
+  supplierCode: string;       // SUP-XXXX
   companyName: string;
   contactPerson?: string;     // Optional
   phone: string;              // Primary / WhatsApp number (Required)
@@ -32,8 +32,8 @@ export interface Supplier {
 
   // Statistics
   totalPOs: number;
-  totalPurchaseAmount: number;
-  outstandingPayments: number;
+  totalSpent: number;
+  balanceDue: number;
 
   createdAt: string;
   updatedAt: string;
@@ -42,6 +42,7 @@ export interface Supplier {
 }
 
 export interface SupplierCreateDto {
+  supplierCode?: string;
   companyName: string;
   contactPerson?: string;     // Optional
   phone: string;              // Primary / WhatsApp number (Required)
@@ -52,7 +53,7 @@ export interface SupplierCreateDto {
   city?: string;
   country?: string;
   supplierType?: string;
-  status: SupplierStatusValue;
+  status?: SupplierStatusValue;
   bankDetails?: string;
   categories?: string[];
   notes?: string;

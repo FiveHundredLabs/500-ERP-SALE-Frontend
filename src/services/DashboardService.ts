@@ -27,7 +27,7 @@ export const fetchSalesOverview = async () => {
     );
 
     const completedRevenue = invoices
-      .filter((inv: any) => inv.paymentStatus === 'Completed' || inv.paymentStatus === 'Paid')
+      .filter((inv: any) => inv.paymentStatus === 'completed' || inv.paymentStatus === 'paid')
       .reduce((sum: number, inv: any) => sum + Number(inv.totalAmount || 0), 0);
 
     return {

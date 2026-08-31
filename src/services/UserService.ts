@@ -65,7 +65,7 @@ class UserService {
       return users.some(
         user =>
           user.email.toLowerCase() === email.toLowerCase() &&
-          (!excludeId || user._id !== excludeId)
+          (!excludeId || user.id !== excludeId)
       );
     } catch {
       return false;

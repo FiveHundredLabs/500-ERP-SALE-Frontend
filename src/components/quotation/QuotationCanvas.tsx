@@ -61,19 +61,7 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
     
     // Add address if it exists
     if (quotationData.customerDetails.address) {
-      const addressParts = [];
-      if (quotationData.customerDetails.address.street) {
-        addressParts.push(quotationData.customerDetails.address.street);
-      }
-      if (quotationData.customerDetails.address.city) {
-        addressParts.push(quotationData.customerDetails.address.city);
-      }
-      if (quotationData.customerDetails.address.country) {
-        addressParts.push(quotationData.customerDetails.address.country);
-      }
-      if (quotationData.customerDetails.address.zip) {
-        addressParts.push(quotationData.customerDetails.address.zip);
-      }
+      const addressParts = [quotationData.customerDetails.address, quotationData.customerDetails.city].filter(Boolean);
       
       if (addressParts.length > 0) {
         details.push(<div key="address">{addressParts.join(', ')}</div>);
@@ -177,7 +165,7 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
             textAlign: 'right'
           }}
         >
-          #{quotationData.quotationId || "QUO-0000000"}
+          #{quotationData.quotationNumber || "QUO-0000000"}
         </div>
 
         {/* Company VAT Number */}
@@ -301,7 +289,7 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
                   justifyContent: 'center',
                   height: '100%'
                 }}>
-                  <span>{item.itemName || item.item || `ITEM NAME / DESCRIPTION`}</span>
+                  <span>{item.itemName || item.inventoryItem?.productName || item.inventoryItemId || `ITEM NAME / DESCRIPTION`}</span>
                   {item.discountAmount && item.discountAmount > 0 ? (
                     <span style={{ fontSize: '9px', color: '#dc2626', fontWeight: 'normal' }}>
                       (Discount: -LKR {item.discountAmount.toFixed(2)})
@@ -481,7 +469,7 @@ const QuotationCanvas: React.FC<QuotationCanvasProps> = ({ quotationData }) => {
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm', marginBottom: '1mm' }}>
               <span style={{ fontWeight: '500' }}>Quotation Number:</span>
-              <span>{quotationData.quotationId || "N/A"}</span>
+              <span>{quotationData.quotationNumber || "N/A"}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm', marginBottom: '1mm' }}>
               <span style={{ fontWeight: '500' }}>Issue Date:</span>
