@@ -76,20 +76,26 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (!invoiceRef.current) return false;
     try {
       setIsGeneratingPDF(true);
-      const canvas = await html2canvas(invoiceRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
+      const pages = invoiceRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return false;
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      const fileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      const fileName = `Invoice-${invoiceData.invoiceId || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {
@@ -146,16 +152,24 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (!invoiceRef.current) return;
     try {
       setIsPrinting(true);
-      const canvas = await html2canvas(invoiceRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
+      const pages = invoiceRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return;
+      
+      const images: string[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        images.push(canvas.toDataURL('image/jpeg', 0.95));
+      }
 
-      const imageData = canvas.toDataURL('image/png');
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
+
+      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
 
       const printHtml = `
         <!DOCTYPE html>
@@ -163,13 +177,20 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
           <head>
             <title>Print Invoice ${invoiceData.invoiceNumber}</title>
             <style>
-              @page { size: A4; margin: 0; }
-              body { margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
-              img { width: 210mm; height: 297mm; object-fit: contain; }
+              @page { size: A4 portrait; margin: 0; }
+              body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
+              .page-img { width: 210mm; height: 297mm; object-fit: contain; page-break-after: always; display: block; }
+              .page-img:last-child { page-break-after: auto; }
             </style>
           </head>
           <body>
-            <img src="${imageData}" onload="window.print(); window.close();" />
+            ${imgTags}
+            <script>
+              window.onload = function() {
+                window.print();
+                window.close();
+              }
+            </script>
           </body>
         </html>
       `;

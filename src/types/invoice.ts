@@ -83,15 +83,21 @@ export interface InvoiceItem {
   discountAmount?: number;
 }
 
-export interface InvoiceResponse {
-  id: string;
-  invoiceNumber: string;
-  customerId?: string | null;
-  customer?: InvoiceCustomer | null;
-  customerDetails?: InvoiceCustomer | null;
-  salesmanId?: string | null;
-  salesman?: { id: string; fullName: string; email?: string } | null;
-  salesmanName?: string;
+export interface InvoiceItemBackend {
+  item: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  _id?: string;
+}
+
+export interface InvoiceData {
+  _id?: string;
+  documentTitle?: string;
+  invoiceId: string;
+  customer: string;
+  customerDetails?: InvoiceCustomer;
+  salesman?: { _id: string; name: string } | null;
   items: InvoiceItem[];
   payments: InvoicePaymentRecord[];
   subTotal: number;

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Download, Printer, Share2, Copy, Check, ShoppingCart, MessageCircle, Mail, CheckCircle, ExternalLink } from 'lucide-react';
 import { Modal, LoadingSpinner } from '../common';
-import QuotationCanvas from './QuotationCanvas';
+import InvoiceCanvas from '../InvoiceCanvas';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { QuotationData } from '../../types/quotation';
@@ -76,20 +76,26 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return false;
     try {
       setIsGeneratingPDF(true);
-      const canvas = await html2canvas(quotationRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
+      const pages = quotationRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return false;
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      const fileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      const fileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {
@@ -144,16 +150,24 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return;
     try {
       setIsPrinting(true);
-      const canvas = await html2canvas(quotationRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
+      const pages = quotationRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return;
 
-      const imageData = canvas.toDataURL('image/png');
+      const images: string[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        images.push(canvas.toDataURL('image/jpeg', 0.95));
+      }
+
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
+
+      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
 
       const printHtml = `
         <!DOCTYPE html>
@@ -161,13 +175,20 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
           <head>
             <title>Print Quotation ${quotationData.quotationNumber}</title>
             <style>
-              @page { size: A4; margin: 0; }
-              body { margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
-              img { width: 210mm; height: 297mm; object-fit: contain; }
+              @page { size: A4 portrait; margin: 0; }
+              body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
+              .page-img { width: 210mm; height: 297mm; object-fit: contain; page-break-after: always; display: block; }
+              .page-img:last-child { page-break-after: auto; }
             </style>
           </head>
           <body>
-            <img src="${imageData}" onload="window.print(); window.close();" />
+            ${imgTags}
+            <script>
+              window.onload = function() {
+                window.print();
+                window.close();
+              }
+            </script>
           </body>
         </html>
       `;
@@ -347,7 +368,36 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
                 margin: '0 auto',
               }}
             >
-              <QuotationCanvas quotationData={quotationData} />
+              <InvoiceCanvas 
+                invoiceData={{
+                  documentTitle: "QUOTATION",
+                  invoiceId: quotationData.quotationId || "Draft",
+                  customer: quotationData.customer,
+                  customerDetails: quotationData.customerDetails as any,
+                  items: quotationData.items.map(item => ({
+                    id: item.id || Date.now().toString(),
+                    item: item.item,
+                    itemName: item.itemName || item.item,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    total: item.total,
+                  })),
+                  subTotal: quotationData.subTotal,
+                  discount: quotationData.discount,
+                  discountPercentage: quotationData.discountPercentage || 0,
+                  totalAmount: quotationData.totalAmount,
+                  paymentStatus: 'Pending',
+                  paymentMethod: quotationData.paymentMethod as any,
+                  issueDate: quotationData.issueDate,
+                  dueDate: quotationData.validUntil,
+                  vehicleNumber: '',
+                  notes: quotationData.notes,
+                  applyVat: false,
+                  vatAmount: 0,
+                  taxRate: 0,
+                  paidAmount: 0,
+                }} 
+              />
             </div>
           )}
         </div>
