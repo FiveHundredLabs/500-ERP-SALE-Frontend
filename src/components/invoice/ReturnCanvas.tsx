@@ -16,9 +16,22 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
       <div className="flex justify-between mb-8">
         <div>
           <h2 className="text-sm font-bold text-gray-700 uppercase mb-2">Customer Details</h2>
-          <div className="font-semibold text-lg">{typeof returnData.customer === 'string' ? returnData.customer : returnData.customer.fullName}</div>
+          <div className="font-semibold text-lg">
+            {typeof returnData.customer === 'string' 
+              ? returnData.customer 
+              : (returnData.customer?.shopName || returnData.customer?.fullName || 'Customer')}
+          </div>
           <div className="text-sm text-gray-600 mt-1">
-            {typeof returnData.customer !== 'string' && returnData.customer.phone && <div>Phone: {returnData.customer.phone}</div>}
+            {typeof returnData.customer !== 'string' && returnData.customer?.phone && (
+              <div>Phone: {returnData.customer.phone}</div>
+            )}
+            {typeof returnData.customer !== 'string' && returnData.customer?.address && (
+              <div>
+                Address: {typeof returnData.customer.address === 'string' 
+                  ? returnData.customer.address 
+                  : `${(returnData.customer.address as any).street || ''} ${(returnData.customer.address as any).city || ''}`}
+              </div>
+            )}
           </div>
         </div>
         <div className="text-right">
