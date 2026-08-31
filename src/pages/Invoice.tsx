@@ -82,7 +82,6 @@ const Invoice: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
-  const [allCustomers, setAllCustomers] = useState<InvoiceCustomer[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -740,14 +739,6 @@ const Invoice: React.FC = () => {
     try {
       setIsLoadingInvoices(true);
 
-      // Fetch all customers
-      try {
-        const customers = await invoiceService.getAllCustomers();
-        setAllCustomers(customers);
-      } catch (customerError) {
-        // Silent fail for customer fetch
-      }
-
       // Fetch all invoices
       const invoices = await invoiceService.getAll();
 
@@ -758,64 +749,7 @@ const Invoice: React.FC = () => {
         return dateB - dateA;
       });
 
-      // Map invoices with customer & salesman details
-      const normalized = sortedInvoices.map((invoice: any) => {
-        let customer = invoice.customer;
-        let customerName = '';
-
-        if (typeof customer === 'object' && customer !== null) {
-          customerName = customer.fullName || customer.name || '';
-        } else if (typeof customer === 'string') {
-          const foundCustomer = allCustomers.find(c => c.id === customer);
-          if (foundCustomer) {
-            customerName = foundCustomer.fullName || '';
-          }
-        }
-
-        let salesmanName = '';
-        if (invoice.salesman) {
-          if (typeof invoice.salesman === 'object') {
-            salesmanName = invoice.salesman.fullName || '';
-          } else if (typeof invoice.salesman === 'string') {
-            salesmanName = invoice.salesman;
-          }
-        }
-        if (!salesmanName && invoice.salesmanName) {
-          salesmanName = invoice.salesmanName;
-        }
-
-        return {
-          id: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          customer: customer,
-          customerName: customerName,
-          salesman: invoice.salesman || null,
-          salesmanName: salesmanName,
-          items: invoice.items.map((item: any) => ({
-            inventoryItemId: item.inventoryItemId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.total
-          })),
-          subTotal: invoice.subTotal,
-          discount: invoice.discount,
-          totalAmount: invoice.totalAmount,
-          paymentStatus: invoice.paymentStatus,
-          paymentMethod: invoice.paymentMethod,
-          bankDepositDate: invoice.bankDepositDate,
-          issueDate: invoice.issueDate,
-          dueDate: invoice.dueDate,
-          vehicleNumber: invoice.vehicleNumber,
-          notes: invoice.notes,
-          applyVat: invoice.applyVat ?? true,
-          vatAmount: invoice.vatAmount || 0,
-          taxRate: invoice.taxRate || 0.18,
-          createdAt: invoice.createdAt,
-          updatedAt: invoice.updatedAt
-        } as BackendInvoiceData & { customerName: string; salesmanName?: string };
-      });
-
-      setAllInvoices(normalized as unknown as InvoiceResponse[]);
+      setAllInvoices(sortedInvoices);
     } catch (error) {
       setAlert({
         type: 'error',
@@ -826,54 +760,31 @@ const Invoice: React.FC = () => {
     }
   };
 
-  const getSalesmanDisplay = (invoice: any): string => {
+  const getSalesmanDisplay = (invoice: InvoiceResponse): string => {
     if (!invoice) return '';
-    if (invoice.salesmanName) return invoice.salesmanName;
-    if (typeof invoice.salesman === 'object' && invoice.salesman !== null) {
-      return invoice.salesman.fullName || '';
-    }
-    if (typeof invoice.salesman === 'string' && invoice.salesman.trim()) {
-      return invoice.salesman;
-    }
-    return '';
+    return invoice.salesman?.fullName || invoice.salesmanName || '';
   };
 
-  const getCustomerDisplay = (invoice: any): string => {
+  const getCustomerDisplay = (invoice: InvoiceResponse): string => {
     if (!invoice) return 'Unknown Customer';
-
-    if (invoice.customerName) {
-      return invoice.customerName;
-    }
-
-    if (typeof invoice.customer === 'object' && invoice.customer !== null) {
-      return invoice.customer.fullName || invoice.customer.name || 'Unknown Customer';
-    }
-
-    if (typeof invoice.customer === 'string' && allCustomers.length > 0) {
-      const foundCustomer = allCustomers.find(c => c.id === invoice.customer);
-      if (foundCustomer) {
-        return foundCustomer.fullName || 'Unknown Customer';
-      }
-    }
-
-    return 'Unknown Customer';
+    return invoice.customer?.shopName || invoice.customer?.fullName || 'Unknown Customer';
   };
 
-  const handleLoadInvoice = async (invoiceData: any) => {
+  const handleLoadInvoice = async (invoiceData: InvoiceResponse) => {
     try {
       // Fetch full invoice details
       let fullInvoiceData = invoiceData;
       if (invoiceData.id) {
         try {
           const response = await invoiceService.getById(invoiceData.id);
-          fullInvoiceData = response as any;
+          fullInvoiceData = response;
         } catch (fetchError) {
           // Use summary data if full fetch fails
         }
       }
 
       // Map items from backend response
-      const mappedItems: InvoiceItem[] = fullInvoiceData.items.map((item: any, index: number) => {
+      const mappedItems: InvoiceItem[] = fullInvoiceData.items.map((item, index) => {
         const itemData = item.inventoryItem;
         return {
           id: (Date.now() + index).toString(),
@@ -899,37 +810,16 @@ const Invoice: React.FC = () => {
       };
 
       // Get customer details if available
-      let customerDetails = undefined;
-      if (typeof fullInvoiceData.customer === 'object' && fullInvoiceData.customer !== null) {
-        customerDetails = fullInvoiceData.customer;
-      } else if (typeof fullInvoiceData.customer === 'string') {
-        const foundCustomer = allCustomers.find(c => c.id === fullInvoiceData.customer);
-        if (foundCustomer) {
-          customerDetails = foundCustomer;
-        }
-      }
+      const customerDetails = fullInvoiceData.customer ?? undefined;
 
-      let loadedSalesman = undefined;
-      if (fullInvoiceData.salesman) {
-        if (typeof fullInvoiceData.salesman === 'object') {
-          loadedSalesman = {
-            id: fullInvoiceData.salesman.id || '',
-            name: fullInvoiceData.salesman.fullName || ''
-          };
-        } else if (typeof fullInvoiceData.salesman === 'string') {
-          loadedSalesman = {
-            id: fullInvoiceData.salesman,
-            name: fullInvoiceData.salesman
-          };
-        }
-      }
+      const loadedSalesman = fullInvoiceData.salesman
+        ? { id: fullInvoiceData.salesman.id, name: fullInvoiceData.salesman.fullName || '' }
+        : undefined;
 
       const loadedData: InvoiceData = {
         id: fullInvoiceData.id,
         invoiceNumber: fullInvoiceData.invoiceNumber,
-        customer: typeof fullInvoiceData.customer === 'object'
-          ? (fullInvoiceData.customer as any)?.id || ''
-          : fullInvoiceData.customer || '',
+        customer: fullInvoiceData.customer?.id || '',
         customerDetails: customerDetails,
         salesman: loadedSalesman,
         items: mappedItems,
@@ -944,9 +834,9 @@ const Invoice: React.FC = () => {
         dueDate: formatDateForInput(fullInvoiceData.dueDate),
         vehicleNumber: fullInvoiceData.vehicleNumber || '',
         notes: fullInvoiceData.notes || '',
-        applyVat: fullInvoiceData.applyVat ?? true,
+        applyVat: fullInvoiceData.applyVat ?? false,
         vatAmount: fullInvoiceData.vatAmount || 0,
-        taxRate: fullInvoiceData.taxRate || 0.18,
+        taxRate: fullInvoiceData.taxRate || 0,
         createdAt: fullInvoiceData.createdAt,
         updatedAt: fullInvoiceData.updatedAt
       };

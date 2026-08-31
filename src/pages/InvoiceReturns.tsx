@@ -31,7 +31,7 @@ const InvoiceReturns: React.FC = () => {
   // Pagination & Sorting
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [sortColumn, setSortColumn] = useState('created_at');
+  const [sortColumn, setSortColumn] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Modals
@@ -55,14 +55,14 @@ const InvoiceReturns: React.FC = () => {
   }, []);
 
   const getCustomerInfo = (r: InvoiceReturn) => {
-    if (typeof r.customer === 'object' && r.customer) {
+    if (r.customer) {
       return {
         name: r.customer.shopName || r.customer.fullName || 'Customer',
         phone: r.customer.phone || '',
       };
     }
     return {
-      name: typeof r.customer === 'string' ? r.customer : 'Walk-in Customer',
+      name: 'Walk-in Customer',
       phone: '',
     };
   };
@@ -73,21 +73,21 @@ const InvoiceReturns: React.FC = () => {
 
     returns.forEach((r) => {
       const cust = getCustomerInfo(r);
-      const invId = typeof r.invoice === 'string' ? r.invoice : r.invoice?.invoiceId || '';
+      const invId = r.invoice?.invoiceNumber || '';
 
       suggestions.push({
-        id: `ret-${r._id}`,
-        title: r.returnId,
+        id: `ret-${r.id}`,
+        title: r.returnNumber,
         subtitle: `${invId ? `Inv: ${invId} · ` : ''}${cust.name}`,
         category: 'Return ID',
-        value: r.returnId,
+        value: r.returnNumber,
       });
 
       if (invId) {
         suggestions.push({
-          id: `inv-${r._id}`,
+          id: `inv-${r.id}`,
           title: invId,
-          subtitle: `Return: ${r.returnId} · ${cust.name}`,
+          subtitle: `Return: ${r.returnNumber} · ${cust.name}`,
           category: 'Invoice ID',
           value: invId,
         });
@@ -95,9 +95,9 @@ const InvoiceReturns: React.FC = () => {
 
       if (cust.name && cust.name !== 'Customer' && cust.name !== 'Walk-in Customer') {
         suggestions.push({
-          id: `cust-${r._id}`,
+          id: `cust-${r.id}`,
           title: cust.name,
-          subtitle: `Phone: ${cust.phone || 'N/A'} · Return: ${r.returnId}`,
+          subtitle: `Phone: ${cust.phone || 'N/A'} · Return: ${r.returnNumber}`,
           category: 'Customer',
           value: cust.name,
         });
@@ -116,10 +116,8 @@ const InvoiceReturns: React.FC = () => {
       const q = searchQuery.toLowerCase().trim();
       if (!q) return matchesStatus;
 
-      const retId = (r.returnId || '').toLowerCase();
-      const invId = (
-        typeof r.invoice === 'string' ? r.invoice : r.invoice?.invoiceId || ''
-      ).toLowerCase();
+      const retId = (r.returnNumber || '').toLowerCase();
+      const invId = (r.invoice?.invoiceNumber || '').toLowerCase();
       const cust = getCustomerInfo(r);
       const custName = (cust.name || '').toLowerCase();
       const custPhone = (cust.phone || '').toLowerCase();
@@ -145,8 +143,8 @@ const InvoiceReturns: React.FC = () => {
       let bVal: any = (b as any)[sortColumn];
 
       if (sortColumn === 'invoice') {
-        aVal = typeof a.invoice === 'string' ? a.invoice : a.invoice?.invoiceId || '';
-        bVal = typeof b.invoice === 'string' ? b.invoice : b.invoice?.invoiceId || '';
+        aVal = a.invoice?.invoiceNumber || '';
+        bVal = b.invoice?.invoiceNumber || '';
       } else if (sortColumn === 'customer') {
         aVal = getCustomerInfo(a).name;
         bVal = getCustomerInfo(b).name;
@@ -195,10 +193,10 @@ const InvoiceReturns: React.FC = () => {
 
   const handleStatusChange = async (ret: InvoiceReturn, newStatus: ReturnStatus) => {
     try {
-      await invoiceReturnService.updateStatus(ret._id, newStatus);
+      await invoiceReturnService.updateStatus(ret.id, newStatus);
       toast.success(`Return marked as ${newStatus}`);
       loadReturns();
-      if (selectedReturn?._id === ret._id) {
+      if (selectedReturn?.id === ret.id) {
         setSelectedReturn((prev) => (prev ? { ...prev, status: newStatus } : null));
       }
     } catch (err: any) {
@@ -209,13 +207,13 @@ const InvoiceReturns: React.FC = () => {
   // Table Columns Definition
   const columns: Column<InvoiceReturn>[] = [
     {
-      key: 'returnId',
+      key: 'returnNumber',
       header: 'Return ID',
       sortable: true,
       minWidth: '150px',
       render: (row) => (
         <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 whitespace-nowrap text-xs">
-          {row.returnId}
+          {row.returnNumber}
         </span>
       ),
     },
@@ -225,7 +223,7 @@ const InvoiceReturns: React.FC = () => {
       sortable: true,
       minWidth: '160px',
       render: (row) => {
-        const invId = typeof row.invoice === 'string' ? row.invoice : row.invoice?.invoiceId || 'INV';
+        const invId = row.invoice?.invoiceNumber || 'INV';
         return (
           <span className="font-mono text-cyan-400 font-semibold whitespace-nowrap flex items-center gap-1.5 text-xs">
             <FileText size={13} className="text-cyan-500 shrink-0" />
@@ -300,13 +298,13 @@ const InvoiceReturns: React.FC = () => {
       ),
     },
     {
-      key: 'created_at',
+      key: 'createdAt',
       header: 'Date',
       sortable: true,
       minWidth: '110px',
       render: (row) => (
         <span className="text-slate-400 whitespace-nowrap text-xs">
-          {new Date(row.created_at).toLocaleDateString(undefined, {
+          {new Date(row.createdAt).toLocaleDateString(undefined, {
             month: 'short',
             day: '2-digit',
             year: 'numeric',
@@ -473,7 +471,7 @@ const InvoiceReturns: React.FC = () => {
             columns={columns}
             data={paginatedReturns}
             loading={isLoading}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => item.id}
             onRowClick={(item) => setSelectedReturn(item)}
             sortColumn={sortColumn}
             sortDirection={sortDirection}

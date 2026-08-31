@@ -9,21 +9,14 @@ export interface Customer {
   phone: string;              // WhatsApp (Primary)
   phone2?: string;            // Secondary
   phone3?: string;            // Alternative
-  address?: string | {
-    street?: string;
-    city?: string;
-    country?: string;
-    zip?: string;
-  };
+  address?: string;
   city?: string;
   customerCode?: string;
   creditLimit?: number;
   creditPeriod?: number;
-  salesRep?: { id: string; name: string } | string;
+  salesRepId?: string | null;
+  salesRep?: { id: string; fullName: string; email?: string } | null;
   salesRepName?: string;
-  vehicle_number?: string;
-  vehicle_model?: string;
-  year_of_manufacture?: number;
 }
 
 export const useCustomerSearch = () => {

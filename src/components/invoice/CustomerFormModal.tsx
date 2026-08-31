@@ -26,7 +26,7 @@ export interface CustomerFormData {
   city?: string;
   creditLimit: number;
   creditPeriod?: number;
-  salesRep?: string;
+  salesRepId?: string | null;
   salesRepName?: string;
   notes?: string;
 }
@@ -58,9 +58,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
 
   const [formData, setFormData] = useState<CustomerFormData>(() => {
     if (initialData) {
-      const initialAddress = typeof initialData.address === 'object' 
-        ? `${initialData.address?.street || ''}${initialData.address?.city ? `, ${initialData.address.city}` : ''}`
-        : (initialData.address || '');
+      const initialAddress = initialData.address || '';
 
       return {
         fullName: (initialData as any).shopName || initialData.fullName || '',
@@ -71,8 +69,8 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
         phone3: initialData.phone3 || '',
         creditLimit: initialData.creditLimit ?? 1000000,
         creditPeriod: (initialData as any).creditPeriod ?? 30,
-        salesRep: typeof (initialData as any).salesRep === 'object' ? (initialData as any).salesRep?.name : ((initialData as any).salesRep || ''),
-        salesRepName: (initialData as any).salesRepName || (typeof (initialData as any).salesRep === 'object' ? (initialData as any).salesRep?.name : ''),
+        salesRepId: initialData.salesRepId || initialData.salesRep?.id || null,
+        salesRepName: initialData.salesRepName || initialData.salesRep?.fullName || '',
         address: initialAddress,
         city: initialData.city || extractCityFromAddress(initialAddress),
       };
@@ -88,8 +86,8 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
       phone3: prefillData?.phone3 || '',
       creditLimit: prefillData?.creditLimit ?? 1000000,
       creditPeriod: prefillData?.creditPeriod ?? 30,
-      salesRep: prefillData?.salesRep || 'Kasun Perera',
-      salesRepName: prefillData?.salesRepName || 'Kasun Perera',
+      salesRepId: prefillData?.salesRepId || null,
+      salesRepName: prefillData?.salesRepName || '',
       address: prefillAddr,
       city: extractCityFromAddress(prefillAddr),
     };
@@ -311,20 +309,21 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                   <UserCheck size={14} />
                 </div>
                 <select
-                  value={formData.salesRepName || formData.salesRep || ''}
+                  value={formData.salesRepId || ''}
                   onChange={(e) => {
-                    const sel = e.target.value;
+                    const salesRepId = e.target.value;
+                    const selected = salesOfficers.find((officer) => officer.id === salesRepId);
                     setFormData(prev => ({
                       ...prev,
-                      salesRep: sel,
-                      salesRepName: sel,
+                      salesRepId: salesRepId || null,
+                      salesRepName: selected?.fullName || '',
                     }));
                   }}
                   className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-inner"
                 >
                   <option value="">Unassigned</option>
                   {salesOfficers.map((so) => (
-                    <option key={so.id} value={so.fullName}>
+                    <option key={so.id} value={so.id}>
                       {so.fullName} - {so.assignedArea}
                     </option>
                   ))}

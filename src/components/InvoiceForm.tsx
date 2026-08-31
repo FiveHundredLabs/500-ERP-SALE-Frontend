@@ -363,7 +363,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       fullName: customer.shopName || customer.fullName,
       contactPerson: customer.contactPerson,
       phone: customer.phone,
-      address: typeof customer.address === 'string' ? customer.address : '',
+      address: customer.address || '',
       city: customer.city,
       customerCode: customer.customerCode || '',
     };

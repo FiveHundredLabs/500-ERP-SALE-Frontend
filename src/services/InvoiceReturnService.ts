@@ -23,8 +23,8 @@ export const invoiceReturnService = {
     return mapInvoiceReturn(await response.json());
   },
 
-  async getByInvoiceId(invoiceNumber: string): Promise<InvoiceReturn[]> {
-    const response = await fetch(`${ENDPOINT}/invoice/${invoiceNumber}`);
+  async getByInvoiceId(invoiceId: string): Promise<InvoiceReturn[]> {
+    const response = await fetch(`${ENDPOINT}/invoice/${encodeURIComponent(invoiceId)}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch returns for invoice: ${response.statusText}`);
     }

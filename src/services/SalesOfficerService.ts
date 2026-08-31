@@ -144,10 +144,7 @@ export class SalesOfficerService {
 
     const officerInvoices = invoices.filter((inv) => {
       if (officer === 'ALL') return true;
-      const sName =
-        typeof inv.salesman === 'object' && inv.salesman !== null
-          ? inv.salesman.fullName
-          : inv.salesmanName || (typeof inv.salesman === 'string' ? inv.salesman : '');
+      const sName = inv.salesman?.fullName || inv.salesmanName || '';
       return sName === officer.fullName || inv.salesman?.id === officer.id;
     });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, MessageCircle, CreditCard, Building, Car, UserCheck, MapPin } from 'lucide-react';
+import { X, MessageCircle, CreditCard, Building, UserCheck, MapPin } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 import type { Customer } from '../../hooks/useCustomerSearch';
 
@@ -18,7 +18,7 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const salesRepName = customer.salesRepName || (typeof customer.salesRep === 'object' ? customer.salesRep.name : customer.salesRep);
+  const salesRepName = customer.salesRepName || customer.salesRep?.fullName;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
@@ -123,34 +123,7 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
               <div className="text-gray-400 font-medium text-[11px] mb-1 flex items-center gap-1">
                 <MapPin size={11} className="text-slate-400" /> Address
               </div>
-              <div className="text-gray-300">
-                {typeof customer.address === 'string' ? (
-                  <div>{customer.address}</div>
-                ) : (
-                  <>
-                    {customer.address.street && <div>{customer.address.street}</div>}
-                    <div>
-                      {customer.address.city && `${customer.address.city}, `}
-                      {customer.address.country && `${customer.address.country} `}
-                      {customer.address.zip && `(${customer.address.zip})`}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {(customer.vehicle_number || customer.vehicle_model || customer.year_of_manufacture) && (
-            <div className="bg-[#1e293b]/50 p-2.5 rounded-lg border border-[#334155] space-y-1">
-              <div className="text-gray-400 font-medium text-[11px] mb-1 flex items-center gap-1.5">
-                <Car size={12} className="text-cyan-400" />
-                <span>Vehicle Details</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-[11px]">
-                {customer.vehicle_number && <div><span className="text-gray-500">Reg:</span> <span className="font-mono text-white font-semibold">{customer.vehicle_number}</span></div>}
-                {customer.vehicle_model && <div><span className="text-gray-500">Model:</span> <span className="text-white font-medium">{customer.vehicle_model}</span></div>}
-                {customer.year_of_manufacture && <div><span className="text-gray-500">Year:</span> <span className="text-white font-medium">{customer.year_of_manufacture}</span></div>}
-              </div>
+              <div className="text-gray-300">{customer.address}</div>
             </div>
           )}
         </div>
