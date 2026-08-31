@@ -21,6 +21,23 @@ import {
 } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 
+const getCustomerSalesRepName = (customer: Customer): string => {
+  if (customer.salesRepName) return customer.salesRepName;
+
+  // Prisma returns null for an unassigned relation. Older Mongo-backed data may
+  // still expose the representative as a string or with a `name` property.
+  const salesRep = customer.salesRep as
+    | { fullName?: string; name?: string }
+    | string
+    | null
+    | undefined;
+
+  if (!salesRep) return '';
+  return typeof salesRep === 'string'
+    ? salesRep
+    : salesRep.fullName || salesRep.name || '';
+};
+
 const CustomersTab: React.FC = () => {
   const navigate = useNavigate();
   const { success } = useToast();
@@ -110,7 +127,7 @@ const CustomersTab: React.FC = () => {
     // 1. Customer Names
     customers.forEach(c => {
       const name = c.shopName || c.fullName || 'Customer';
-      const rep = c.salesRepName || c.salesRep?.fullName || '';
+      const rep = getCustomerSalesRepName(c);
       suggestions.push({
         id: `c-name-${c.id}`,
         title: name,
@@ -141,7 +158,7 @@ const CustomersTab: React.FC = () => {
     return customers.filter((c) => {
       const name = (c.shopName || '').toLowerCase();
       const contact = (c.contactPerson || '').toLowerCase();
-      const rep = (c.salesRepName || c.salesRep?.fullName || '').toLowerCase();
+      const rep = getCustomerSalesRepName(c).toLowerCase();
       const city = (c.city || extractCityFromAddress(c.address) || '').toLowerCase();
       const addr = (c.address || '').toLowerCase();
       const query = searchQuery.toLowerCase().trim();
@@ -243,7 +260,7 @@ const CustomersTab: React.FC = () => {
 
   const handleOpenEdit = (customer: Customer) => {
     setEditCustomer(customer);
-    const rep = customer.salesRepName || customer.salesRep?.fullName || '';
+    const rep = getCustomerSalesRepName(customer);
     setFormData({
       shopName: customer.shopName || '',
       contactPerson: customer.contactPerson || '',
@@ -358,7 +375,7 @@ const CustomersTab: React.FC = () => {
       sortable: true,
       minWidth: '130px',
       render: (row) => {
-        const rep = row.salesRepName || row.salesRep?.fullName;
+        const rep = getCustomerSalesRepName(row);
         return rep ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[11px] font-medium truncate max-w-[130px]">
             <UserCheck size={11} className="text-blue-400 shrink-0" />
