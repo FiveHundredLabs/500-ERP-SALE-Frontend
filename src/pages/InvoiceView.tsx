@@ -28,14 +28,16 @@ const InvoiceView: React.FC = () => {
         const customerDetails = typeof response.customer === 'object' ? response.customer : undefined;
         
         const invoiceData: InvoiceData = {
-          _id: response._id,
-          invoiceId: response.invoiceId,
-          customer: typeof response.customer === 'object' ? (response.customer as any)._id || '' : response.customer || '',
-          customerDetails: customerDetails,
+          id: response.id,
+          invoiceNumber: response.invoiceNumber,
+          customer: typeof response.customer === 'object' ? (response.customer as any).id || '' : response.customer || '',
+          customerDetails: customerDetails ?? undefined,
           items: response.items.map((item: any, index: number) => ({
             id: (Date.now() + index).toString(),
-            item: item.item?._id || item.item || '',
-            itemName: item.item?.product_name || 'Unknown Item',
+            inventoryItemId: item.inventoryItemId,
+            itemName: item.itemName || item.inventoryItem?.productName || 'Unknown Item',
+            itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+            discount: item.discount || 0,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             total: item.total
@@ -54,8 +56,8 @@ const InvoiceView: React.FC = () => {
           applyVat: response.applyVat ?? false,
           vatAmount: response.vatAmount ?? 0,
           taxRate: response.taxRate ?? 0,
-          created_at: response.created_at,
-          updated_at: response.updated_at
+          createdAt: response.createdAt,
+          updatedAt: response.updatedAt
         };
 
         setInvoiceData(invoiceData);

@@ -30,14 +30,16 @@ const QuotationView: React.FC = () => {
           : 0;
 
         const quotationData: QuotationData = {
-          _id: response._id,
-          quotationId: response.quotationId,
-          customer: response.customer._id || '',
+          id: response.id,
+          quotationNumber: response.quotationNumber,
+          customer: response.customer.id || '',
           customerDetails: response.customer,
           items: response.items.map((item: any, index: number) => ({
             id: (Date.now() + index).toString(),
-            item: item.item?._id || item.item || '',
-            itemName: item.item?.product_name || 'Unknown Item',
+            inventoryItemId: item.inventoryItemId,
+            inventoryItem: item.inventoryItem,
+            itemName: item.itemName || item.inventoryItem?.productName || 'Unknown Item',
+            productCode: item.productCode || item.inventoryItem?.productCode,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             total: item.total

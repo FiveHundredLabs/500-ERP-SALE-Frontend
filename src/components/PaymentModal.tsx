@@ -2,10 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { DollarSign, AlertCircle } from 'lucide-react';
 import { Modal, Button, FormField, FormInput, FormSelect } from './common';
 import type { InvoiceResponse } from '../types/invoice';
+import type { PaymentMethodType } from '../types/invoice';
 import { financeService } from '../services/FinanceService';
 
 export interface PaymentDetails {
-  method: 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque' | 'Credit';
+  method: PaymentMethodType;
   bankName?: string;
   accountNumber?: string;
   transactionRef?: string;
@@ -72,7 +73,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
 
     // Cheque-specific validations
-    if (paymentDetails.method === 'Cheque') {
+    if (paymentDetails.method === 'cheque') {
       if (!paymentDetails.bankName?.trim()) {
         newErrors.bankName = 'Bank name is required';
       }
@@ -94,19 +95,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       method,
     };
 
-    if (method === 'Cash') {
+    if (method === 'cash') {
       updated.bankName = 'N/A';
       updated.accountNumber = 'N/A';
       updated.transactionRef = 'CASH-' + Date.now();
-    } else if (method === 'Bank Transfer' || method === 'Bank Deposit') {
+    } else if (method === 'bank_transfer' || method === 'bank_deposit') {
       updated.bankName = '';
       updated.accountNumber = '';
       updated.transactionRef = updated.refNumber || '';
-    } else if (method === 'Card') {
+    } else if (method === 'card') {
       updated.bankName = '';
       updated.accountNumber = '';
       updated.transactionRef = updated.cardLast4 ? `Card **** ${updated.cardLast4}` : '';
-    } else if (method === 'Cheque') {
+    } else if (method === 'cheque') {
       if (!updated.chequeDate) {
         updated.chequeDate = paymentDetails.transactionDate || new Date().toISOString().split('T')[0];
       }
@@ -139,12 +140,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-500 text-xs uppercase tracking-wide">Invoice ID</p>
-                <p className="text-gray-200 font-medium">{selectedInvoice.invoiceId}</p>
+                <p className="text-gray-200 font-medium">{selectedInvoice.invoiceNumber}</p>
               </div>
               <div>
                 <p className="text-gray-500 text-xs uppercase tracking-wide">Status</p>
-                <p className={`font-semibold ${selectedInvoice.paymentStatus === 'Completed' ? 'text-green-400' :
-                    selectedInvoice.paymentStatus === 'Pending' ? 'text-yellow-400' : 'text-red-400'
+                <p className={`font-semibold ${selectedInvoice.paymentStatus === 'completed' ? 'text-green-400' :
+                    selectedInvoice.paymentStatus === 'pending' ? 'text-yellow-400' : 'text-red-400'
                   }`}>
                   {selectedInvoice.paymentStatus}
                 </p>
@@ -173,11 +174,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <FormField label="Payment Method" required>
             <FormSelect
               options={[
-                { value: 'Bank Transfer', label: 'Bank Transfer' },
-                { value: 'Bank Deposit', label: 'Bank Deposit' },
-                { value: 'Cash', label: 'Cash' },
-                { value: 'Card', label: 'Credit / Debit Card' },
-                { value: 'Cheque', label: 'Cheque' },
+                { value: 'bank_transfer', label: 'Bank Transfer' },
+                { value: 'bank_deposit', label: 'Bank Deposit' },
+                { value: 'cash', label: 'Cash' },
+                { value: 'card', label: 'Credit / Debit Card' },
+                { value: 'cheque', label: 'Cheque' },
               ]}
               value={paymentDetails.method}
               onChange={(e) => handleMethodChange(e.target.value)}
@@ -185,7 +186,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </FormField>
 
           {/* Bank Transfer / Bank Deposit -> Ref Number (Optional) */}
-          {(paymentDetails.method === 'Bank Transfer' || paymentDetails.method === 'Bank Deposit') && (
+          {(paymentDetails.method === 'bank_transfer' || paymentDetails.method === 'bank_deposit') && (
             <FormField
               label="Reference Number (Optional)"
               hint="Optional bank transfer / deposit reference number"
@@ -206,7 +207,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           )}
 
           {/* Credit / Debit Card -> Last 4 Digits (Optional) */}
-          {paymentDetails.method === 'Card' && (
+          {paymentDetails.method === 'card' && (
             <FormField
               label="Card Last 4 Digits (Optional)"
               hint="Optional last 4 digits of the payment card"
@@ -228,7 +229,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           )}
 
           {/* Cheque -> Bank Name, Cheque Date, Cheque Number */}
-          {paymentDetails.method === 'Cheque' && (
+          {paymentDetails.method === 'cheque' && (
             <div className="space-y-4 bg-[#0f172a]/50 p-3.5 rounded-xl border border-[#334155]">
               <FormField
                 label="Bank Name"

@@ -105,7 +105,7 @@ const SupplierDetails: React.FC = () => {
 
         const allPOs = await purchaseOrderService.getAll();
         const matchingPOs = (allPOs || []).filter(
-          (p) => p.supplierId === (found?.supplierId || id) || p.supplierName === found?.companyName
+          (p) => p.supplierId === found?.id || p.supplierName === found?.companyName
         );
         setPurchaseOrders(matchingPOs);
       } catch (err) {
@@ -117,11 +117,11 @@ const SupplierDetails: React.FC = () => {
 
   // Calculate financials
   const totalPurchases = useMemo(() => {
-    return purchaseOrders.reduce((sum, po) => sum + po.grandTotal, 0) || (supplier?.totalPurchaseAmount || 0);
+    return purchaseOrders.reduce((sum, po) => sum + po.totalAmount, 0) || (supplier?.totalSpent || 0);
   }, [purchaseOrders, supplier]);
 
   const totalOutstanding = useMemo(() => {
-    return supplier?.outstandingPayments || 0;
+    return supplier?.balanceDue || 0;
   }, [supplier]);
 
   const totalPaid = useMemo(() => {
@@ -130,11 +130,11 @@ const SupplierDetails: React.FC = () => {
 
   // Filtered PO lists
   const unpaidPOs = useMemo(() => {
-    return purchaseOrders.filter((po) => po.paymentStatus === 'Unpaid' || po.paymentStatus === 'Partial');
+    return purchaseOrders.filter((po) => po.paymentStatus === 'unpaid' || po.paymentStatus === 'partial');
   }, [purchaseOrders]);
 
   const paidPOs = useMemo(() => {
-    return purchaseOrders.filter((po) => po.paymentStatus === 'Paid');
+    return purchaseOrders.filter((po) => po.paymentStatus === 'paid');
   }, [purchaseOrders]);
 
   const filteredPOs = useMemo(() => {
@@ -161,7 +161,7 @@ const SupplierDetails: React.FC = () => {
 
     let remainingPayment = enteredAmount;
     return unpaidPOs.map((po) => {
-      const needed = po.grandTotal;
+      const needed = po.totalAmount;
       let allocated = 0;
       if (remainingPayment >= needed) {
         allocated = needed;
@@ -174,8 +174,8 @@ const SupplierDetails: React.FC = () => {
       return {
         po,
         allocated,
-        newRemaining: Math.max(0, po.grandTotal - allocated),
-        newStatus: allocated >= po.grandTotal ? 'Paid' : allocated > 0 ? 'Partial' : po.paymentStatus,
+        newRemaining: Math.max(0, po.totalAmount - allocated),
+        newStatus: allocated >= po.totalAmount ? 'paid' : allocated > 0 ? 'partial' : po.paymentStatus,
       };
     });
   }, [unpaidPOs, enteredAmount]);
@@ -190,16 +190,13 @@ const SupplierDetails: React.FC = () => {
     try {
       // 1. Record transaction in Finance
       await financeService.create({
-        transactionId: `TXN-${Date.now()}`,
+        transactionNumber: `TXN-${Date.now()}`,
         transactionDate: settlementForm.date,
-        paymentMethod: {
-          type: (settlementForm.paymentMethod || 'Bank Transfer') as any,
-          bankName: settlementForm.bankName || '',
-          accountNumber: '',
-          transactionRef: settlementForm.reference || '',
-        },
-        amount: enteredAmount.toString(),
-        invoice: { invoiceId: `SUP-SETTLE-${supplier?.supplierId || '001'}` },
+        paymentMethod: settlementForm.paymentMethod === 'Cheque' ? 'cheque' : 'bank_transfer',
+        bankName: settlementForm.bankName || undefined,
+        transactionRef: settlementForm.reference || undefined,
+        amount: enteredAmount,
+        invoiceNumber: `SUP-SETTLE-${supplier?.supplierCode || '001'}`,
       });
 
       // 2. Add to payment ledger
@@ -219,10 +216,10 @@ const SupplierDetails: React.FC = () => {
       const newOutstanding = Math.max(0, totalOutstanding - enteredAmount);
       const updatedSupplier = {
         ...supplier!,
-        outstandingPayments: newOutstanding,
+        balanceDue: newOutstanding,
       };
       setSupplier(updatedSupplier);
-      await supplierService.update(supplier!.id, { outstandingPayments: newOutstanding });
+      await supplierService.update(supplier!.id, { balanceDue: newOutstanding });
 
       success('Payment Recorded', `Successfully settled ${formatCurrency(enteredAmount)} to ${supplier?.companyName}.`);
       setShowPaymentModal(false);
@@ -267,7 +264,7 @@ const SupplierDetails: React.FC = () => {
     <AppLayout
       headerIcon={<Truck size={20} className="text-purple-400" />}
       headerTitle="Supplier Details"
-      headerSubtitle={supplier.supplierId}
+      headerSubtitle={supplier.supplierCode}
     >
       <div className="space-y-5">
         {/* ── Breadcrumb Navigation ── */}
@@ -301,7 +298,7 @@ const SupplierDetails: React.FC = () => {
                   {supplier.companyName}
                 </h1>
                 <span className="font-mono text-xs font-bold text-purple-400 bg-purple-950/60 border border-purple-500/30 px-2.5 py-0.5 rounded-md">
-                  {supplier.supplierId}
+                  {supplier.supplierCode}
                 </span>
                 <StatusBadge status={supplier.status} />
               </div>
@@ -450,7 +447,7 @@ const SupplierDetails: React.FC = () => {
               {[
                 { id: 'all', label: 'All Purchase Orders', count: purchaseOrders.length },
                 { id: 'unpaid', label: 'Unpaid / Partial', count: unpaidPOs.length, color: 'text-amber-400' },
-                { id: 'paid', label: 'Completed', count: paidPOs.length, color: 'text-emerald-400' },
+                { id: 'paid', label: 'completed', count: paidPOs.length, color: 'text-emerald-400' },
                 { id: 'payments', label: 'Payment Ledger', count: paymentHistory.length, icon: History },
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -527,26 +524,26 @@ const SupplierDetails: React.FC = () => {
                             {po.poDate}
                           </td>
                           <td className="p-3 text-gray-300 font-mono">
-                            {po.expectedDate}
+                            {po.expectedDeliveryDate}
                           </td>
                           <td className="p-3 text-right font-mono font-semibold text-gray-300">
-                            {po.numberOfItems}
+                            {po.totalItems}
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-gray-100">
-                            {formatCurrency(po.grandTotal)}
+                            {formatCurrency(po.totalAmount)}
                           </td>
                           <td className="p-3 text-center">
-                            {po.paymentStatus === 'Paid' && (
+                            {po.paymentStatus === 'paid' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 Paid
                               </span>
                             )}
-                            {po.paymentStatus === 'Partial' && (
+                            {po.paymentStatus === 'partial' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
                                 Partial
                               </span>
                             )}
-                            {po.paymentStatus === 'Unpaid' && (
+                            {po.paymentStatus === 'unpaid' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                 Unpaid
                               </span>
@@ -581,13 +578,13 @@ const SupplierDetails: React.FC = () => {
                                       <span>View PO Details</span>
                                     </button>
 
-                                    {po.paymentStatus !== 'Paid' && (
+                                    {po.paymentStatus !== 'paid' && (
                                       <button
                                         onClick={() => {
                                           setActiveMenuId(null);
                                           setSettlementForm(prev => ({
                                             ...prev,
-                                            amount: po.grandTotal.toString(),
+                                            amount: po.totalAmount.toString(),
                                             notes: `Payment settlement for ${po.poNumber}`,
                                           }));
                                           setShowPaymentModal(true);
@@ -680,7 +677,7 @@ const SupplierDetails: React.FC = () => {
                     <span>Settle Supplier Payment</span>
                   </h2>
                   <p className="text-xs text-gray-400">
-                    Recording payment to <strong className="text-white">{supplier.companyName}</strong> ({supplier.supplierId})
+                    Recording payment to <strong className="text-white">{supplier.companyName}</strong> ({supplier.supplierCode})
                   </p>
                 </div>
               </div>

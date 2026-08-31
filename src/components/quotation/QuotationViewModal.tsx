@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Download, Printer, Share2, Copy, Check, ShoppingCart, MessageCircle, Mail, CheckCircle, ExternalLink } from 'lucide-react';
 import { Modal, LoadingSpinner } from '../common';
-import QuotationCanvas from './QuotationCanvas';
+import InvoiceCanvas from '../InvoiceCanvas';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { QuotationData } from '../../types/quotation';
@@ -56,8 +56,8 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   const customerPhone = getCustomerPhone();
   const customerName = getCustomerName();
 
-  const quotationShareUrl = quotationData._id
-    ? `${window.location.origin}/quotation/view/${quotationData._id}`
+  const quotationShareUrl = quotationData.id
+    ? `${window.location.origin}/quotation/view/${quotationData.id}`
     : window.location.href;
 
   const handleCopyLink = async () => {
@@ -76,20 +76,26 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return false;
     try {
       setIsGeneratingPDF(true);
-      const canvas = await html2canvas(quotationRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
+      const pages = quotationRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return false;
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      const fileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      const fileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {
@@ -106,11 +112,11 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     
     // Step 1: Generate & Download PDF
     await generateAndDownloadPDF();
-    const pdfFileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+    const pdfFileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
 
     // Step 2: Build formatted WhatsApp message
     const message = generateQuotationWhatsAppMessage({
-      quotationId: quotationData.quotationId || 'Draft',
+      quotationNumber: quotationData.quotationNumber || 'draft',
       customerName: customerName,
       totalAmount: quotationData.totalAmount,
       issueDate: quotationData.issueDate || new Date().toISOString().split('T')[0],
@@ -134,8 +140,8 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Quotation ${quotationData.quotationId} from 500Core ERP`;
-    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationId}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500Core!`;
+    const subject = `Quotation ${quotationData.quotationNumber} from 500Core ERP`;
+    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationNumber}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500Core!`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -144,30 +150,45 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return;
     try {
       setIsPrinting(true);
-      const canvas = await html2canvas(quotationRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
+      const pages = quotationRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return;
 
-      const imageData = canvas.toDataURL('image/png');
+      const images: string[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        images.push(canvas.toDataURL('image/jpeg', 0.95));
+      }
+
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
+
+      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
 
       const printHtml = `
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Print Quotation ${quotationData.quotationId}</title>
+            <title>Print Quotation ${quotationData.quotationNumber}</title>
             <style>
-              @page { size: A4; margin: 0; }
-              body { margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
-              img { width: 210mm; height: 297mm; object-fit: contain; }
+              @page { size: A4 portrait; margin: 0; }
+              body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
+              .page-img { width: 210mm; height: 297mm; object-fit: contain; page-break-after: always; display: block; }
+              .page-img:last-child { page-break-after: auto; }
             </style>
           </head>
           <body>
-            <img src="${imageData}" onload="window.print(); window.close();" />
+            ${imgTags}
+            <script>
+              window.onload = function() {
+                window.print();
+                window.close();
+              }
+            </script>
           </body>
         </html>
       `;
@@ -189,7 +210,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
         setShareFeedback(null);
         onClose();
       }}
-      title={`Quotation Preview — ${quotationData.quotationId || 'Draft'}`}
+      title={`Quotation Preview — ${quotationData.quotationNumber || 'draft'}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[96vh] max-w-[96vw] flex flex-col"
@@ -269,7 +290,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             </div>
 
             {/* Convert to PO */}
-            {onConvertToPO && quotationData._id && (
+            {onConvertToPO && quotationData.id && (
               <button
                 type="button"
                 onClick={() => onConvertToPO(quotationData)}
@@ -347,7 +368,37 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
                 margin: '0 auto',
               }}
             >
-              <QuotationCanvas quotationData={quotationData} />
+              <InvoiceCanvas 
+                invoiceData={{
+                  documentTitle: "QUOTATION",
+                  invoiceNumber: quotationData.quotationNumber || "Draft",
+                  customer: quotationData.customer,
+                  customerDetails: quotationData.customerDetails as any,
+                  items: quotationData.items.map(item => ({
+                    id: item.id || Date.now().toString(),
+                    inventoryItemId: item.inventoryItemId,
+                    itemName: item.itemName || item.inventoryItem?.productName || 'Item',
+                    itemCode: item.productCode || item.inventoryItem?.productCode,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    total: item.total,
+                  })),
+                  subTotal: quotationData.subTotal,
+                  discount: quotationData.discount,
+                  discountPercentage: quotationData.discountPercentage || 0,
+                  totalAmount: quotationData.totalAmount,
+                  paymentStatus: 'pending',
+                  paymentMethod: quotationData.paymentMethod as any,
+                  issueDate: quotationData.issueDate,
+                  dueDate: quotationData.validUntil,
+                  vehicleNumber: '',
+                  notes: quotationData.notes,
+                  applyVat: false,
+                  vatAmount: 0,
+                  taxRate: 0,
+                  paidAmount: 0,
+                }} 
+              />
             </div>
           )}
         </div>

@@ -20,9 +20,9 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = () => {
   }, []);
 
   const totalProducts = items.length;
-  const totalSoldQty = items.reduce((acc, i) => acc + (i.sold_count || 0), 0);
-  const avgCost = items.length > 0 ? items.reduce((acc, i) => acc + (i.purchase_price || 0), 0) / items.length : 0;
-  const avgSell = items.length > 0 ? items.reduce((acc, i) => acc + (i.sell_price || 0), 0) / items.length : 0;
+  const totalSoldQty = items.reduce((acc, i) => acc + (i.soldCount || 0), 0);
+  const avgCost = items.length > 0 ? items.reduce((acc, i) => acc + (i.purchasePrice || 0), 0) / items.length : 0;
+  const avgSell = items.length > 0 ? items.reduce((acc, i) => acc + (i.sellPrice || 0), 0) / items.length : 0;
 
   const statCards = [
     {

@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "./utils/fetchInterceptor";
 import App from "./App";
 
 const tw = document.createElement("script");

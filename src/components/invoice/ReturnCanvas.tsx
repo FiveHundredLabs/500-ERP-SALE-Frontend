@@ -16,15 +16,24 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
       <div className="flex justify-between mb-8">
         <div>
           <h2 className="text-sm font-bold text-gray-700 uppercase mb-2">Customer Details</h2>
-          <div className="font-semibold text-lg">{typeof returnData.customer === 'string' ? returnData.customer : returnData.customer.fullName}</div>
+          <div className="font-semibold text-lg">
+            {returnData.customer?.shopName || returnData.customer?.fullName || 'Customer'}
+          </div>
           <div className="text-sm text-gray-600 mt-1">
-            {typeof returnData.customer !== 'string' && returnData.customer.phone && <div>Phone: {returnData.customer.phone}</div>}
+            {returnData.customer?.phone && (
+              <div>Phone: {returnData.customer.phone}</div>
+            )}
+            {returnData.customer?.address && (
+              <div>
+                Address: {returnData.customer.address}
+              </div>
+            )}
           </div>
         </div>
         <div className="text-right">
-          <div className="mb-2"><span className="font-bold text-gray-700">Return ID:</span> {returnData.returnId}</div>
-          <div className="mb-2"><span className="font-bold text-gray-700">Original Invoice:</span> {typeof returnData.invoice === 'string' ? returnData.invoice : returnData.invoice.invoiceId}</div>
-          <div><span className="font-bold text-gray-700">Date:</span> {new Date(returnData.created_at).toLocaleDateString()}</div>
+          <div className="mb-2"><span className="font-bold text-gray-700">Return ID:</span> {returnData.returnNumber}</div>
+          <div className="mb-2"><span className="font-bold text-gray-700">Original Invoice:</span> {returnData.invoice.invoiceNumber}</div>
+          <div><span className="font-bold text-gray-700">Date:</span> {new Date(returnData.createdAt).toLocaleDateString()}</div>
         </div>
       </div>
 
@@ -45,7 +54,7 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
         </thead>
         <tbody className="divide-y divide-gray-200">
           {returnData.items.map((item, idx) => {
-            const itemName = typeof item.item === 'string' ? item.item : item.item.product_name;
+            const itemName = item.inventoryItem?.productName || item.inventoryItemId;
             return (
               <tr key={idx}>
                 <td className="py-3 px-2 text-sm">{itemName}</td>

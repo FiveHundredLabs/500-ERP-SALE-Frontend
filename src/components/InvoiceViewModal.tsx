@@ -62,13 +62,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         >
           <InvoiceCanvas
             invoiceData={{
-              invoiceId: selectedInvoice.invoiceId,
-              customer: selectedInvoice.customer?._id || "",
-              customerDetails: selectedInvoice.customer,
+              invoiceNumber: selectedInvoice.invoiceNumber,
+              customer: selectedInvoice.customer?.id || "",
+              customerDetails: selectedInvoice.customer ?? undefined,
               items: selectedInvoice.items.map(item => ({
-                id: item._id || Date.now().toString(),
-                item: item.item?._id || "",
-                itemName: item.item?.product_name || item.item?.itemName || item.item?.description || "Item",
+                id: item.id || Date.now().toString(),
+                inventoryItemId: item.inventoryItemId,
+                itemName: item.itemName || item.inventoryItem?.productName || "Item",
+                itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+                discount: item.discount || 0,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
                 total: item.total,
@@ -90,7 +92,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               paidAmount: selectedInvoice.paidAmount,
               salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null 
                 ? selectedInvoice.salesman 
-                : (selectedInvoice.salesmanName ? { _id: '', name: selectedInvoice.salesmanName } : null),
+                : (selectedInvoice.salesmanName ? { id: '', name: selectedInvoice.salesmanName } : null),
             }}
           />
         </div>
@@ -98,25 +100,23 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const invoiceElement = tempContainer.firstChild as HTMLElement;
-      if (!invoiceElement) throw new Error('Invoice element not found');
+      const pages = tempContainer.querySelectorAll('.invoice-page');
+      if (pages.length === 0) throw new Error('Invoice element not found');
 
-      const canvas = await html2canvas(invoiceElement, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: 1123,
-        windowWidth: 794,
-        windowHeight: 1123
-      });
+      const images: string[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 3,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        images.push(canvas.toDataURL('image/png', 1.0));
+      }
 
       root.unmount();
       document.body.removeChild(tempContainer);
-
-      const imageData = canvas.toDataURL('image/png', 1.0);
 
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
@@ -125,43 +125,39 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         return;
       }
 
+      const imgTags = images.map(src => `<img class="invoice-image" src="${src}" />`).join('');
+
       const printHtml = `
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Invoice ${selectedInvoice.invoiceId}</title>
+            <title>Invoice ${selectedInvoice.invoiceNumber}</title>
             <style>
               @page {
                 size: A4 portrait;
                 margin: 0;
               }
-              
               body {
                 margin: 0;
                 padding: 0;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: #fff;
+              }
+              .invoice-image {
                 width: 210mm;
                 height: 297mm;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-              
-              .invoice-image {
-                width: 100%;
-                height: 100%;
                 object-fit: contain;
                 display: block;
+                page-break-after: always;
               }
-              
+              .invoice-image:last-child {
+                page-break-after: auto;
+              }
               @media print {
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                
-                .invoice-image {
                   page-break-inside: avoid;
                   page-break-after: avoid;
                 }
@@ -169,7 +165,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </style>
           </head>
           <body>
-            <img src="${imageData}" alt="Invoice ${selectedInvoice.invoiceId}" class="invoice-image" />
+            ${imgTags}
             <script>
               window.onload = function() {
                 setTimeout(function() {
@@ -201,7 +197,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Invoice Preview - ${selectedInvoice?.invoiceId}`}
+      title={`Invoice Preview - ${selectedInvoice?.invoiceNumber}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[95vh] max-w-[95vw] flex flex-col"
@@ -281,13 +277,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               >
                 <InvoiceCanvas
                   invoiceData={{
-                    invoiceId: selectedInvoice.invoiceId,
-                    customer: selectedInvoice.customer?._id || "",
-                    customerDetails: selectedInvoice.customer,
+                    invoiceNumber: selectedInvoice.invoiceNumber,
+                    customer: selectedInvoice.customer?.id || "",
+                    customerDetails: selectedInvoice.customer ?? undefined,
                     items: selectedInvoice.items.map(item => ({
-                      id: item._id || Date.now().toString(),
-                      item: item.item?._id || "",
-                      itemName: item.item?.product_name || item.item?.itemName || item.item?.description || "Item",
+                      id: item.id || Date.now().toString(),
+                      inventoryItemId: item.inventoryItemId,
+                      itemName: item.itemName || item.inventoryItem?.productName || "Item",
+                      itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+                      discount: item.discount || 0,
                       quantity: item.quantity,
                       unitPrice: item.unitPrice,
                       total: item.total,
@@ -309,7 +307,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       paidAmount: selectedInvoice.paidAmount,
                       salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null 
                         ? selectedInvoice.salesman 
-                        : (selectedInvoice.salesmanName ? { _id: '', name: selectedInvoice.salesmanName } : null),
+                        : (selectedInvoice.salesmanName ? { id: '', name: selectedInvoice.salesmanName } : null),
                     }}
                   />
               </div>

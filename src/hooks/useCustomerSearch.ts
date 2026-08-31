@@ -2,28 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { quotationService } from '../services/QuotationService';
 
 export interface Customer {
-  _id: string;
+  id: string;
   shopName?: string;
   fullName: string;
   contactPerson?: string;
   phone: string;              // WhatsApp (Primary)
   phone2?: string;            // Secondary
   phone3?: string;            // Alternative
-  address?: string | {
-    street?: string;
-    city?: string;
-    country?: string;
-    zip?: string;
-  };
+  address?: string;
   city?: string;
   customerCode?: string;
   creditLimit?: number;
   creditPeriod?: number;
-  salesRep?: { id: string; name: string } | string;
+  salesRepId?: string | null;
+  salesRep?: { id: string; fullName: string; email?: string } | null;
   salesRepName?: string;
-  vehicle_number?: string;
-  vehicle_model?: string;
-  year_of_manufacture?: number;
 }
 
 export const useCustomerSearch = () => {
@@ -92,7 +85,7 @@ export const useCustomerSearch = () => {
     }
   }, []);
 
-  const createCustomer = useCallback(async (customerData: Omit<Customer, '_id'>) => {
+  const createCustomer = useCallback(async (customerData: Omit<Customer, 'id'>) => {
     try {
       const createdCustomer = await quotationService.createCustomer(customerData as any);
       await refreshCustomers();

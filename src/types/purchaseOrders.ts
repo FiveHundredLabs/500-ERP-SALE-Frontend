@@ -1,100 +1,64 @@
-// ============= PO Status =============
-
 export const POStatus = {
-  DRAFT: 'Draft',
-  PENDING_APPROVAL: 'Pending Approval',
-  APPROVED: 'Approved',
-  PROCESSING: 'Processing',
-  PARTIALLY_RECEIVED: 'Partially Received',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
+  DRAFT: 'draft', PENDING_APPROVAL: 'pending_approval', APPROVED: 'approved', PROCESSING: 'processing',
+  PARTIALLY_RECEIVED: 'partially_received', COMPLETED: 'completed', CANCELLED: 'cancelled',
 } as const;
-
 export type POStatusType = typeof POStatus[keyof typeof POStatus];
-
-// ============= PO Payment Status =============
-
-export const POPaymentStatus = {
-  UNPAID: 'Unpaid',
-  PAID: 'Paid',
-  PARTIAL: 'Partial',
-} as const;
-
+export const POPaymentStatus = { UNPAID: 'unpaid', PAID: 'paid', PARTIAL: 'partial' } as const;
 export type POPaymentStatusType = typeof POPaymentStatus[keyof typeof POPaymentStatus];
-
-// ============= PO Item =============
 
 export interface POItem {
   id: string;
+  inventoryItemId?: string | null;
   sku: string;
   productName: string;
-  category: string;
-  quantity: number;
+  category?: string;
+  brand?: string;
+  quantityOrdered: number;
+  quantityReceived: number;
   unit: string;
   unitPrice: number;
-  discount: number;         // percentage
-  tax: number;              // percentage
-  subtotal: number;
-  total: number;
-  receivedQty?: number;
-  remark?: string;          // Optional item-level remark/note for supplier
+  discount: number;
+  tax: number;
+  subTotal: number;
+  totalPrice: number;
+  remark?: string;
 }
-
-// ============= Purchase Order =============
 
 export interface PurchaseOrder {
   id: string;
-  poNumber: string;         // PO-YYYY-XXXXX
-  referenceOrderId?: string; // ORD-XXXXX
-  referenceOrderNum?: string;
-
-  // Supplier
+  poNumber: string;
+  sourceOrderId?: string | null;
+  sourceOrder?: { id: string; orderNumber: string } | null;
+  sourceOrderNumber?: string;
   supplierId: string;
   supplierName: string;
   supplierContact: string;
   supplierPhone: string;
-  supplierAddress: string;
-  supplierCity: string;
+  supplierAddress?: string;
+  supplierCity?: string;
   supplierEmail?: string;
-
-  // Customer (from original order if converted)
   customerName?: string;
-
-  // Created by (admin)
-  createdById: string;
+  createdById?: string | null;
   createdByName: string;
-
-  // Approved by
-  approvedById?: string;
+  approvedById?: string | null;
   approvedByName?: string;
-  approvedAt?: string;
-
-  // Dates
+  approvedAt?: string | null;
   poDate: string;
-  expectedDate: string;
+  expectedDeliveryDate: string;
   createdAt: string;
   updatedAt: string;
-
-  // Items
   items: POItem[];
-  numberOfItems: number;
-
-  // Financials
+  totalItems: number;
   subTotal: number;
   discountType?: 'percentage' | 'fixed';
   discountValue?: number;
   totalDiscount: number;
   totalTax: number;
   shippingCharges: number;
-  grandTotal: number;
-
-  // Status
+  totalAmount: number;
   status: POStatusType;
   paymentStatus: POPaymentStatusType;
-
-  // Terms
   paymentTerms: string;
   deliveryTerms?: string;
-
   notes?: string;
 }

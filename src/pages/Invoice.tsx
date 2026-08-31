@@ -81,8 +81,7 @@ const Invoice: React.FC = () => {
   const lastSavedAtRef = useRef<string | null>(null);
 
   const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
-  const [allInvoices, setAllInvoices] = useState<BackendInvoiceData[]>([]);
-  const [allCustomers, setAllCustomers] = useState<InvoiceCustomer[]>([]);
+  const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -132,7 +131,7 @@ const Invoice: React.FC = () => {
 
 
   const getInitialInvoiceData = (): InvoiceData => ({
-    invoiceId: "",
+    invoiceNumber: "",
     customer: "",
     customerDetails: undefined,
     items: [],
@@ -167,7 +166,7 @@ const Invoice: React.FC = () => {
 
       const convertFromPO = location.state?.convertFromPO as PurchaseOrder | undefined;
       // salesman can be explicitly passed in location.state, e.g. from an order conversion
-      const convertFromSalesman = location.state?.salesman as { _id: string; name: string } | undefined;
+      const convertFromSalesman = location.state?.salesman as { id: string; name: string } | undefined;
 
       let initialInvoiceItems: InvoiceItem[] = [];
       let initialNotes = "";
@@ -175,17 +174,17 @@ const Invoice: React.FC = () => {
       if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
         initialInvoiceItems = convertFromPO.items.map((p, idx) => ({
           id: `inv-item-${Date.now()}-${idx}`,
-          item: p.sku || p.id || `item-${idx}`,
+          inventoryItemId: p.inventoryItemId || p.id,
           itemName: p.productName,
-          product_code: p.sku,
-          quantity: p.quantity,
+          productCode: p.sku,
+          quantity: p.quantityOrdered,
           unitPrice: p.unitPrice, // PO Cost Price automatically becomes Invoice Selling Price!
           costPrice: p.unitPrice,
           discountType: 'percentage',
           discountScope: 'per_unit',
           discountValue: 0,
           discountAmount: 0,
-          total: p.quantity * p.unitPrice,
+          total: p.quantityOrdered * p.unitPrice,
         }));
         initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
       }
@@ -194,7 +193,7 @@ const Invoice: React.FC = () => {
 
       const initialInvoiceData: InvoiceData = {
         ...getInitialInvoiceData(),
-        invoiceId: nextId,
+        invoiceNumber: nextId,
         items: initialInvoiceItems,
         subTotal,
         totalAmount: subTotal,
@@ -245,7 +244,7 @@ const Invoice: React.FC = () => {
 
   // payment submission from invoice form
   const handlePaymentSubmit = async () => {
-    if (!invoiceData._id) {
+    if (!invoiceData.id) {
       setAlert({
         type: 'error',
         message: 'Please save the invoice first before recording payment'
@@ -260,23 +259,20 @@ const Invoice: React.FC = () => {
       const transactionId = await financeService.getNextId();
       const paymentMethod = paymentDetails.method || invoiceData.paymentMethod;
       const paymentData: FinancePaymentData = {
-        transactionId: transactionId,
+        transactionNumber: transactionId,
         transactionDate: new Date(paymentDetails.transactionDate).toISOString(),
-        paymentMethod: {
-          type: paymentMethod,
-          bankName: paymentDetails.bankName || 'N/A',
-          accountNumber: paymentDetails.accountNumber || 'N/A',
-          transactionRef: paymentDetails.transactionRef || 'PAY-' + Date.now(),
-        },
-        invoice: {
-          invoiceId: invoiceData.invoiceId,
-        },
-        amount: 'LKR ' + parseFloat(paymentDetails.amount).toFixed(2),
+        paymentMethod,
+        bankName: paymentDetails.bankName || undefined,
+        accountNumber: paymentDetails.accountNumber || undefined,
+        transactionRef: paymentDetails.transactionRef || 'PAY-' + Date.now(),
+        invoiceId: invoiceData.id,
+        invoiceNumber: invoiceData.invoiceNumber,
+        amount: parseFloat(paymentDetails.amount),
       };
 
       // Create finance transaction
       await financeService.create(paymentData);
-      await invoiceService.updatePaymentStatus(invoiceData._id, 'Completed');
+      await invoiceService.updatePaymentStatus(invoiceData.id, 'completed');
       setInvoiceData(prev => ({
         ...prev,
         paymentStatus: PaymentStatus.COMPLETED
@@ -284,7 +280,7 @@ const Invoice: React.FC = () => {
 
       setAlert({
         type: 'success',
-        message: 'Payment successfully recorded for invoice ' + invoiceData.invoiceId
+        message: 'Payment successfully recorded for invoice ' + invoiceData.invoiceNumber
       });
 
       // Reset payment modal state
@@ -345,7 +341,7 @@ const Invoice: React.FC = () => {
     const total = item.total !== undefined ? item.total : Math.max(0, baseSubtotal - calculatedDiscount);
 
     const existingItemIndex = invoiceData.items.findIndex(
-      existing => existing.item === item.item
+      existing => existing.inventoryItemId === item.inventoryItemId
     );
 
     let newItems;
@@ -408,7 +404,7 @@ const Invoice: React.FC = () => {
   };
 
   const handleCancelEdit = async () => {
-    if (invoiceData._id) {
+    if (invoiceData.id) {
       setConfirmConfig({
         isOpen: true,
         title: "Discard Changes",
@@ -471,11 +467,11 @@ const Invoice: React.FC = () => {
     };
 
     const backendData: BackendInvoiceData = {
-      invoiceId: data.invoiceId,
-      customer: data.customer,
-      salesman: data.salesman?._id || null,
+      invoiceNumber: data.invoiceNumber,
+      customerId: data.customer,
+      salesmanId: data.salesman?.id || null,
       items: data.items.map(item => ({
-        item: item.item,
+        inventoryItemId: item.inventoryItemId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         total: item.total
@@ -502,8 +498,8 @@ const Invoice: React.FC = () => {
       backendData.bankDepositDate = formatDateToISO(data.bankDepositDate);
     }
 
-    if (data._id) {
-      backendData._id = data._id;
+    if (data.id) {
+      backendData.id = data.id;
     }
 
     return backendData;
@@ -676,13 +672,13 @@ const Invoice: React.FC = () => {
       const backendData = prepareInvoiceForSave(invoiceData);
       let response: InvoiceResponse;
 
-      if (invoiceData._id) {
+      if (invoiceData.id) {
         setAlert({
           type: 'info',
           message: 'Updating invoice...'
         });
 
-        response = await invoiceService.update(invoiceData._id, backendData);
+        response = await invoiceService.update(invoiceData.id, backendData);
 
         setAlert({
           type: 'success',
@@ -698,7 +694,7 @@ const Invoice: React.FC = () => {
 
         setInvoiceData(prev => ({
           ...prev,
-          _id: response._id
+          id: response.id
         }));
 
         setAlert({
@@ -707,7 +703,7 @@ const Invoice: React.FC = () => {
         });
       }
 
-      lastSavedRef.current = { ...invoiceData, _id: response._id } as InvoiceData;
+      lastSavedRef.current = { ...invoiceData, id: response.id } as InvoiceData;
       setIsDirty(false);
       lastSavedAtRef.current = new Date().toISOString();
 
@@ -743,82 +739,17 @@ const Invoice: React.FC = () => {
     try {
       setIsLoadingInvoices(true);
 
-      // Fetch all customers
-      try {
-        const customers = await invoiceService.getAllCustomers();
-        setAllCustomers(customers);
-      } catch (customerError) {
-        // Silent fail for customer fetch
-      }
-
       // Fetch all invoices
       const invoices = await invoiceService.getAll();
 
       // Sort invoices
       const sortedInvoices = [...invoices].sort((a, b) => {
-        const dateA = new Date(a.created_at || a.issueDate).getTime();
-        const dateB = new Date(b.created_at || b.issueDate).getTime();
+        const dateA = new Date(a.createdAt || a.issueDate).getTime();
+        const dateB = new Date(b.createdAt || b.issueDate).getTime();
         return dateB - dateA;
       });
 
-      // Map invoices with customer & salesman details
-      const normalized = sortedInvoices.map((invoice: any) => {
-        let customer = invoice.customer;
-        let customerName = '';
-
-        if (typeof customer === 'object' && customer !== null) {
-          customerName = customer.fullName || customer.name || '';
-        } else if (typeof customer === 'string') {
-          const foundCustomer = allCustomers.find(c => c._id === customer);
-          if (foundCustomer) {
-            customerName = foundCustomer.fullName || '';
-          }
-        }
-
-        let salesmanName = '';
-        if (invoice.salesman) {
-          if (typeof invoice.salesman === 'object') {
-            salesmanName = invoice.salesman.name || invoice.salesman.fullName || '';
-          } else if (typeof invoice.salesman === 'string') {
-            salesmanName = invoice.salesman;
-          }
-        }
-        if (!salesmanName && invoice.salesmanName) {
-          salesmanName = invoice.salesmanName;
-        }
-
-        return {
-          _id: invoice._id,
-          invoiceId: invoice.invoiceId,
-          customer: customer,
-          customerName: customerName,
-          salesman: invoice.salesman || null,
-          salesmanName: salesmanName,
-          items: invoice.items.map((item: any) => ({
-            item: item.item?._id || item.item || '',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.total
-          })),
-          subTotal: invoice.subTotal,
-          discount: invoice.discount,
-          totalAmount: invoice.totalAmount,
-          paymentStatus: invoice.paymentStatus,
-          paymentMethod: invoice.paymentMethod,
-          bankDepositDate: invoice.bankDepositDate,
-          issueDate: invoice.issueDate,
-          dueDate: invoice.dueDate,
-          vehicleNumber: invoice.vehicleNumber,
-          notes: invoice.notes,
-          applyVat: invoice.applyVat ?? true,
-          vatAmount: invoice.vatAmount || 0,
-          taxRate: invoice.taxRate || 0.18,
-          created_at: invoice.created_at,
-          updated_at: invoice.updated_at
-        } as BackendInvoiceData & { customerName: string; salesmanName?: string };
-      });
-
-      setAllInvoices(normalized);
+      setAllInvoices(sortedInvoices);
     } catch (error) {
       setAlert({
         type: 'error',
@@ -829,59 +760,38 @@ const Invoice: React.FC = () => {
     }
   };
 
-  const getSalesmanDisplay = (invoice: any): string => {
+  const getSalesmanDisplay = (invoice: InvoiceResponse): string => {
     if (!invoice) return '';
-    if (invoice.salesmanName) return invoice.salesmanName;
-    if (typeof invoice.salesman === 'object' && invoice.salesman !== null) {
-      return invoice.salesman.name || invoice.salesman.fullName || '';
-    }
-    if (typeof invoice.salesman === 'string' && invoice.salesman.trim()) {
-      return invoice.salesman;
-    }
-    return '';
+    return invoice.salesman?.fullName || invoice.salesmanName || '';
   };
 
-  const getCustomerDisplay = (invoice: any): string => {
+  const getCustomerDisplay = (invoice: InvoiceResponse): string => {
     if (!invoice) return 'Unknown Customer';
-
-    if (invoice.customerName) {
-      return invoice.customerName;
-    }
-
-    if (typeof invoice.customer === 'object' && invoice.customer !== null) {
-      return invoice.customer.fullName || invoice.customer.name || 'Unknown Customer';
-    }
-
-    if (typeof invoice.customer === 'string' && allCustomers.length > 0) {
-      const foundCustomer = allCustomers.find(c => c._id === invoice.customer);
-      if (foundCustomer) {
-        return foundCustomer.fullName || 'Unknown Customer';
-      }
-    }
-
-    return 'Unknown Customer';
+    return invoice.customer?.shopName || invoice.customer?.fullName || 'Unknown Customer';
   };
 
-  const handleLoadInvoice = async (invoiceData: any) => {
+  const handleLoadInvoice = async (invoiceData: InvoiceResponse) => {
     try {
       // Fetch full invoice details
       let fullInvoiceData = invoiceData;
-      if (invoiceData._id) {
+      if (invoiceData.id) {
         try {
-          const response = await invoiceService.getById(invoiceData._id);
-          fullInvoiceData = response as any;
+          const response = await invoiceService.getById(invoiceData.id);
+          fullInvoiceData = response;
         } catch (fetchError) {
           // Use summary data if full fetch fails
         }
       }
 
       // Map items from backend response
-      const mappedItems: InvoiceItem[] = fullInvoiceData.items.map((item: any, index: number) => {
-        const itemData = item.item;
+      const mappedItems: InvoiceItem[] = fullInvoiceData.items.map((item, index) => {
+        const itemData = item.inventoryItem;
         return {
           id: (Date.now() + index).toString(),
-          item: itemData?._id || item.item || '',
-          itemName: itemData?.product_name || 'Unknown Item',
+          inventoryItemId: item.inventoryItemId,
+          itemName: item.itemName || itemData?.productName || 'Unknown Item',
+          itemCode: item.itemCode || itemData?.productCode || '',
+          discount: item.discount || 0,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           total: item.total
@@ -900,37 +810,16 @@ const Invoice: React.FC = () => {
       };
 
       // Get customer details if available
-      let customerDetails = undefined;
-      if (typeof fullInvoiceData.customer === 'object' && fullInvoiceData.customer !== null) {
-        customerDetails = fullInvoiceData.customer;
-      } else if (typeof fullInvoiceData.customer === 'string') {
-        const foundCustomer = allCustomers.find(c => c._id === fullInvoiceData.customer);
-        if (foundCustomer) {
-          customerDetails = foundCustomer;
-        }
-      }
+      const customerDetails = fullInvoiceData.customer ?? undefined;
 
-      let loadedSalesman = undefined;
-      if (fullInvoiceData.salesman) {
-        if (typeof fullInvoiceData.salesman === 'object') {
-          loadedSalesman = {
-            _id: fullInvoiceData.salesman._id || fullInvoiceData.salesman.id || '',
-            name: fullInvoiceData.salesman.name || fullInvoiceData.salesman.fullName || ''
-          };
-        } else if (typeof fullInvoiceData.salesman === 'string') {
-          loadedSalesman = {
-            _id: fullInvoiceData.salesman,
-            name: fullInvoiceData.salesman
-          };
-        }
-      }
+      const loadedSalesman = fullInvoiceData.salesman
+        ? { id: fullInvoiceData.salesman.id, name: fullInvoiceData.salesman.fullName || '' }
+        : undefined;
 
       const loadedData: InvoiceData = {
-        _id: fullInvoiceData._id,
-        invoiceId: fullInvoiceData.invoiceId,
-        customer: typeof fullInvoiceData.customer === 'object'
-          ? (fullInvoiceData.customer as any)?._id || ''
-          : fullInvoiceData.customer || '',
+        id: fullInvoiceData.id,
+        invoiceNumber: fullInvoiceData.invoiceNumber,
+        customer: fullInvoiceData.customer?.id || '',
         customerDetails: customerDetails,
         salesman: loadedSalesman,
         items: mappedItems,
@@ -945,11 +834,11 @@ const Invoice: React.FC = () => {
         dueDate: formatDateForInput(fullInvoiceData.dueDate),
         vehicleNumber: fullInvoiceData.vehicleNumber || '',
         notes: fullInvoiceData.notes || '',
-        applyVat: fullInvoiceData.applyVat ?? true,
+        applyVat: fullInvoiceData.applyVat ?? false,
         vatAmount: fullInvoiceData.vatAmount || 0,
-        taxRate: fullInvoiceData.taxRate || 0.18,
-        created_at: fullInvoiceData.created_at,
-        updated_at: fullInvoiceData.updated_at
+        taxRate: fullInvoiceData.taxRate || 0,
+        createdAt: fullInvoiceData.createdAt,
+        updatedAt: fullInvoiceData.updatedAt
       };
 
       setInvoiceData(loadedData);
@@ -962,7 +851,7 @@ const Invoice: React.FC = () => {
 
       setAlert({
         type: 'success',
-        message: `Invoice ${fullInvoiceData.invoiceId} loaded successfully`
+        message: `Invoice ${fullInvoiceData.invoiceNumber} loaded successfully`
       });
     } catch (error) {
       setAlert({
@@ -972,7 +861,7 @@ const Invoice: React.FC = () => {
     }
   };
 
-  const handleDeleteInvoice = async (invoiceId: string, invoiceNumber: string) => {
+  const handleDeleteInvoice = async (id: string, invoiceNumber: string) => {
     setConfirmConfig({
       isOpen: true,
       title: "Delete Invoice",
@@ -981,7 +870,7 @@ const Invoice: React.FC = () => {
       type: "danger",
       onConfirm: async () => {
         try {
-          await invoiceService.delete(invoiceId);
+          await invoiceService.delete(id);
           setAlert({
             type: 'success',
             message: `Invoice ${invoiceNumber} deleted successfully`
@@ -998,12 +887,12 @@ const Invoice: React.FC = () => {
   };
 
   // copy invoice link to clipboard
-  const handleCopyInvoiceLink = (invoiceId: string, invoiceNumber: string) => {
-    const invoiceLink = `${window.location.origin}/invoice/view/${invoiceId}`;
+  const handleCopyInvoiceLink = (id: string, invoiceNumber: string) => {
+    const invoiceLink = `${window.location.origin}/invoice/view/${id}`;
 
     navigator.clipboard.writeText(invoiceLink)
       .then(() => {
-        setCopiedInvoiceId(invoiceId);
+        setCopiedInvoiceId(id);
         setAlert({
           type: 'success',
           message: `Invoice ${invoiceNumber} link copied to clipboard!`
@@ -1041,7 +930,7 @@ const Invoice: React.FC = () => {
 
   const filteredInvoices = manageSearch.trim()
     ? allInvoices.filter(q => {
-      const idMatch = String(q.invoiceId).toLowerCase().includes(manageSearch.toLowerCase());
+      const idMatch = String(q.invoiceNumber).toLowerCase().includes(manageSearch.toLowerCase());
       const customerName = getCustomerDisplay(q);
       const customerMatch = customerName.toLowerCase().includes(manageSearch.toLowerCase());
       const salesmanName = getSalesmanDisplay(q);
@@ -1109,8 +998,8 @@ const Invoice: React.FC = () => {
             }
           }}
           selectedInvoice={{
-            invoiceId: invoiceData.invoiceId,
-            _id: invoiceData._id || '',
+            invoiceNumber: invoiceData.invoiceNumber,
+            id: invoiceData.id || '',
             totalAmount: invoiceData.totalAmount,
             customer: invoiceData.customerDetails as InvoiceCustomer,
             paymentStatus: invoiceData.paymentStatus,
@@ -1123,8 +1012,14 @@ const Invoice: React.FC = () => {
             items: invoiceData.items,
             subTotal: invoiceData.subTotal,
             discount: invoiceData.discount,
-            created_at: invoiceData.created_at || '',
-            updated_at: invoiceData.updated_at || ''
+            payments: invoiceData.payments || [],
+            paidAmount: invoiceData.paidAmount || 0,
+            remainingAmount: invoiceData.remainingAmount ?? invoiceData.totalAmount,
+            applyVat: invoiceData.applyVat,
+            vatAmount: invoiceData.vatAmount,
+            taxRate: invoiceData.taxRate,
+            createdAt: invoiceData.createdAt || '',
+            updatedAt: invoiceData.updatedAt || ''
           }}
           paymentDetails={paymentDetails}
           onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
@@ -1163,8 +1058,8 @@ const Invoice: React.FC = () => {
               <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
                 {viewMode === 'manage'
                   ? 'View Invoices'
-                  : invoiceData._id
-                    ? `Edit Invoice – ${invoiceData.invoiceId}`
+                  : invoiceData.id
+                    ? `Edit Invoice – ${invoiceData.invoiceNumber}`
                     : 'Create New Invoice'}
               </div>
             </div>
@@ -1196,7 +1091,7 @@ const Invoice: React.FC = () => {
             ) : (
               <>
                 {(() => {
-                  const isInvoiceSaved = Boolean(invoiceData._id);
+                  const isInvoiceSaved = Boolean(invoiceData.id);
                   return (
                     <>
                       <button
@@ -1302,13 +1197,13 @@ const Invoice: React.FC = () => {
                           <tbody className="divide-y divide-[#334155] text-sm">
                             {currentInvoices.map((inv) => {
                               const calc = getInvoiceCalculatedStatus(inv);
-                              const isMenuOpen = activeInvoiceMenuId === (inv._id || inv.invoiceId);
+                              const isMenuOpen = activeInvoiceMenuId === (inv.id || inv.invoiceNumber);
                               const salesmanName = getSalesmanDisplay(inv);
 
                               return (
-                                <tr key={inv._id || inv.invoiceId} className="hover:bg-[#0f172a]/50 transition">
+                                <tr key={inv.id || inv.invoiceNumber} className="hover:bg-[#0f172a]/50 transition">
                                   <td className="p-3 font-mono font-bold text-blue-400 text-xs">
-                                    {inv.invoiceId}
+                                    {inv.invoiceNumber}
                                   </td>
                                   <td className="p-3 font-medium text-white text-xs">
                                     {getCustomerDisplay(inv)}
@@ -1354,27 +1249,27 @@ const Invoice: React.FC = () => {
                                       remainingAmount={calc.remainingAmount}
                                       statusText={calc.status}
                                     >
-                                      {calc.status === 'Paid' && (
+                                      {calc.status === 'paid' && (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                           <CheckCircle className="w-3 h-3" /> Paid
                                         </span>
                                       )}
-                                      {calc.status === 'Partially Paid' && (
+                                      {calc.status === 'partially_paid' && (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">
                                           <Clock className="w-3 h-3" /> Partially Paid
                                         </span>
                                       )}
-                                      {calc.status === 'Overdue' && (
+                                      {calc.status === 'overdue' && (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
                                           <XCircle className="w-3 h-3" /> Overdue
                                         </span>
                                       )}
-                                      {calc.status === 'Due Soon' && (
+                                      {calc.status === 'due_soon' && (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                                           <Clock className="w-3 h-3" /> Due Soon
                                         </span>
                                       )}
-                                      {calc.status === 'Outstanding' && (
+                                      {calc.status === 'outstanding' && (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
                                           Outstanding
                                         </span>
@@ -1387,7 +1282,7 @@ const Invoice: React.FC = () => {
                                   <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                                     <div className="relative flex justify-end">
                                       <button
-                                        onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv._id || inv.invoiceId))}
+                                        onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv.id || inv.invoiceNumber))}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
                                         title="Actions"
                                       >
@@ -1440,18 +1335,18 @@ const Invoice: React.FC = () => {
                                             <button
                                               onClick={() => {
                                                 setActiveInvoiceMenuId(null);
-                                                handleCopyInvoiceLink(inv._id || '', inv.invoiceId);
+                                                handleCopyInvoiceLink(inv.id || '', inv.invoiceNumber);
                                               }}
                                               className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-left"
                                             >
-                                              {copiedInvoiceId === inv._id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                                              {copiedInvoiceId === inv.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                                               <span>Copy Link</span>
                                             </button>
 
                                             <button
                                               onClick={() => {
                                                 setActiveInvoiceMenuId(null);
-                                                handleDeleteInvoice(inv._id || '', inv.invoiceId);
+                                                handleDeleteInvoice(inv.id || '', inv.invoiceNumber);
                                               }}
                                               className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
                                             >
@@ -1551,7 +1446,7 @@ const Invoice: React.FC = () => {
                     )}
 
                     {(() => {
-                      const isInvoiceSaved = Boolean(invoiceData._id);
+                      const isInvoiceSaved = Boolean(invoiceData.id);
                       return (
                         <>
                           <button

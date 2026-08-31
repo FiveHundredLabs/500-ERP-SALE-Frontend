@@ -88,7 +88,7 @@ const Quotation: React.FC = () => {
   });
 
   const getInitialQuotationData = (): QuotationData => ({
-    quotationId: "",
+    quotationNumber: "",
     customer: "",
     customerDetails: undefined,
     items: [],
@@ -130,7 +130,7 @@ const Quotation: React.FC = () => {
       const nextId = await quotationService.getNextId();
       setQuotationData({
         ...getInitialQuotationData(),
-        quotationId: nextId
+        quotationNumber: nextId
       });
       lastSavedRef.current = null;
       setIsDirty(false);
@@ -152,7 +152,7 @@ const Quotation: React.FC = () => {
 
   const handleAddItem = (item: Omit<QuotationItem, 'id' | 'total'> & { total?: number }) => {
     const existingItemIndex = quotationData.items.findIndex(
-      existing => existing.item === item.item
+      existing => existing.inventoryItemId === item.inventoryItemId
     );
 
     let newItems: QuotationItem[];
@@ -217,7 +217,7 @@ const Quotation: React.FC = () => {
   };
 
   const handleCancelEdit = async () => {
-    if (quotationData._id) {
+    if (quotationData.id) {
       setConfirmConfig({
         isOpen: true,
         title: "Discard Changes",
@@ -252,12 +252,12 @@ const Quotation: React.FC = () => {
   };
 
   // copy quotation link to clipboard
-  const handleCopyQuotationLink = (quotationId: string, quotationNumber: string) => {
-    const quotationLink = `${window.location.origin}/quotation/view/${quotationId}`;
+  const handleCopyQuotationLink = (id: string, quotationNumber: string) => {
+    const quotationLink = `${window.location.origin}/quotation/view/${id}`;
   
     navigator.clipboard.writeText(quotationLink)
       .then(() => {
-        setCopiedQuotationId(quotationId);
+        setCopiedQuotationId(id);
         setAlert({
           type: 'success',
           message: `Quotation ${quotationNumber} link copied to clipboard!`
@@ -337,10 +337,10 @@ const Quotation: React.FC = () => {
 
   const prepareQuotationForSave = (data: QuotationData): BackendQuotationData => {
     return {
-      quotationId: data.quotationId,
-      customer: data.customer,
+      quotationNumber: data.quotationNumber,
+      customerId: data.customer,
       items: data.items.map(item => ({
-        item: item.item,
+        inventoryItemId: item.inventoryItemId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         total: item.total,
@@ -509,13 +509,13 @@ const Quotation: React.FC = () => {
 
       const backendData = prepareQuotationForSave(quotationData);
 
-      if (quotationData._id) {
+      if (quotationData.id) {
         setAlert({
           type: 'info',
           message: 'Updating quotation...'
         });
 
-        await quotationService.update(quotationData._id, backendData);
+        await quotationService.update(quotationData.id, backendData);
 
         setAlert({
           type: 'success',
@@ -535,14 +535,14 @@ const Quotation: React.FC = () => {
 
         setQuotationData(prev => ({
           ...prev,
-          _id: response._id
+          id: response.id
         }));
 
         setAlert({
           type: 'success',
           message: 'Quotation saved successfully!'
         });
-        lastSavedRef.current = { ...quotationData, _id: response._id } as QuotationData;
+        lastSavedRef.current = { ...quotationData, id: response.id } as QuotationData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
         setShowPreviewModal(true);
@@ -581,8 +581,10 @@ const Quotation: React.FC = () => {
   const handleLoadQuotation = (quotation: any, mode: 'view' | 'edit') => {
     const mappedItems: QuotationItem[] = quotation.items.map((item: any, index: number) => ({
       id: (Date.now() + index).toString(),
-      item: item.item._id || item.item,
-      itemName: item.item.product_name || item.itemName || 'Unknown Item',
+      inventoryItemId: item.inventoryItemId,
+      inventoryItem: item.inventoryItem,
+      itemName: item.itemName || item.inventoryItem?.productName || 'Unknown Item',
+      productCode: item.productCode || item.inventoryItem?.productCode,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       total: item.total
@@ -593,9 +595,9 @@ const Quotation: React.FC = () => {
       : 0;
 
     setQuotationData({
-      _id: quotation._id,
-      quotationId: quotation.quotationId,
-      customer: quotation.customer._id || quotation.customer,
+      id: quotation.id,
+      quotationNumber: quotation.quotationNumber,
+      customer: quotation.customer.id || quotation.customer,
       customerDetails: quotation.customer,
       items: mappedItems,
       subTotal: quotation.subTotal,
@@ -610,9 +612,9 @@ const Quotation: React.FC = () => {
     });
 
     lastSavedRef.current = {
-      _id: quotation._id,
-      quotationId: quotation.quotationId,
-      customer: quotation.customer._id || quotation.customer,
+      id: quotation.id,
+      quotationNumber: quotation.quotationNumber,
+      customer: quotation.customer.id || quotation.customer,
       customerDetails: quotation.customer,
       items: mappedItems,
       subTotal: quotation.subTotal,
@@ -635,7 +637,7 @@ const Quotation: React.FC = () => {
     }
   };
 
-  const handleDeleteQuotation = async (quotationId: string, quotationNumber: string) => {
+  const handleDeleteQuotation = async (id: string, quotationNumber: string) => {
     setConfirmConfig({
       isOpen: true,
       title: "Delete Quotation",
@@ -644,7 +646,7 @@ const Quotation: React.FC = () => {
       type: "danger",
       onConfirm: async () => {
         try {
-          await quotationService.delete(quotationId);
+          await quotationService.delete(id);
           setAlert({
             type: 'success',
             message: `Quotation ${quotationNumber} deleted successfully`
@@ -674,16 +676,16 @@ const Quotation: React.FC = () => {
         : String(quotation.customer || 'Unknown');
 
     const conversionItems: POConversionItem[] = (quotation.items || []).map((it: any) => ({
-      sku: it.item?.product_code || (typeof it.item === 'string' ? it.item : undefined),
-      productName: it.itemName || it.item?.product_name || 'Item',
+      sku: it.productCode || it.inventoryItem?.productCode || it.inventoryItemId,
+      productName: it.itemName || it.inventoryItem?.productName || 'Item',
       quantity: it.quantity,
       sellingPrice: it.unitPrice,
     }));
 
     setPoModalInitialData({
-      referenceOrderNum: quotation.quotationId,
+      sourceOrderNumber: quotation.quotationNumber,
       customerName,
-      notes: `Converted from Quotation #${quotation.quotationId}`,
+      notes: `Converted from Quotation #${quotation.quotationNumber}`,
       items: conversionItems,
     });
     setShowPOModal(true);
@@ -711,15 +713,12 @@ const Quotation: React.FC = () => {
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const getCustomerDisplay = (customer: any) => {
-    if (!customer) return '';
-    if (typeof customer === 'object') return String(customer.fullName || customer.name || '');
-    return String(customer);
-  };
+  const getCustomerDisplay = (customer: QuotationResponse['customer']) =>
+    customer.shopName || customer.fullName || '';
 
   const filteredQuotations = manageSearch.trim()
     ? allQuotations.filter(q => {
-      const idMatch = String(q.quotationId).toLowerCase().includes(manageSearch.toLowerCase());
+      const idMatch = String(q.quotationNumber).toLowerCase().includes(manageSearch.toLowerCase());
       const customerDisplay = getCustomerDisplay(q.customer);
       const customerMatch = customerDisplay.toLowerCase().includes(manageSearch.toLowerCase());
       return idMatch || customerMatch;
@@ -791,8 +790,8 @@ const Quotation: React.FC = () => {
               <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
                 {viewMode === 'manage'
                   ? 'View Quotations'
-                  : quotationData._id
-                    ? `Edit Quotation – ${quotationData.quotationId}`
+                  : quotationData.id
+                    ? `Edit Quotation – ${quotationData.quotationNumber}`
                     : 'Create New Quotation'}
               </div>
             </div>
@@ -824,7 +823,7 @@ const Quotation: React.FC = () => {
             ) : (
               <>
                 {(() => {
-                  const isQuotationSaved = Boolean(quotationData._id);
+                  const isQuotationSaved = Boolean(quotationData.id);
                   return (
                     <>
                       <button
@@ -954,12 +953,12 @@ const Quotation: React.FC = () => {
                               const statusConfig = quotation.status ? statusBadgeMap[quotation.status as keyof typeof statusBadgeMap] : null;
                               return (
                                 <tr
-                                  key={quotation._id}
+                                  key={quotation.id}
                                   className="hover:bg-[#243244]/50 transition"
                                 >
                                   {/* Quotation ID */}
                                   <td className="px-2 md:px-4 py-3 font-medium text-blue-400">
-                                    {quotation.quotationId}
+                                    {quotation.quotationNumber}
                                   </td>
 
                                   {/* Customer */}
@@ -1022,13 +1021,13 @@ const Quotation: React.FC = () => {
                                       </button>
 
                                       <button
-                                        onClick={() => handleCopyQuotationLink(quotation._id!, quotation.quotationId)}
+                                        onClick={() => handleCopyQuotationLink(quotation.id!, quotation.quotationNumber)}
                                         title="Copy Quotation Link"
-                                        className={`p-2 rounded-md transition ${copiedQuotationId === quotation._id 
+                                        className={`p-2 rounded-md transition ${copiedQuotationId === quotation.id
                                           ? 'text-green-400 bg-green-500/20' 
                                           : 'text-purple-400 hover:bg-purple-500/20'}`}
                                       >
-                                        {copiedQuotationId === quotation._id ? (
+                                        {copiedQuotationId === quotation.id ? (
                                           <Check className="w-4 h-4" />
                                         ) : (
                                           <Copy className="w-4 h-4" />
@@ -1045,8 +1044,8 @@ const Quotation: React.FC = () => {
 
                                       <button
                                         onClick={() => {
-                                          if (quotation._id && quotation.quotationId) {
-                                            handleDeleteQuotation(quotation._id, quotation.quotationId);
+                                          if (quotation.id && quotation.quotationNumber) {
+                                            handleDeleteQuotation(quotation.id, quotation.quotationNumber);
                                           }
                                         }}
                                         title="Delete"
@@ -1142,7 +1141,7 @@ const Quotation: React.FC = () => {
                     )}
 
                     {(() => {
-                      const isQuotationSaved = Boolean(quotationData._id);
+                      const isQuotationSaved = Boolean(quotationData.id);
                       return (
                         <>
                           <button

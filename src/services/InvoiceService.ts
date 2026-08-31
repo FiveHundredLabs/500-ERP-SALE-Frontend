@@ -5,9 +5,25 @@ import type {
   InvoiceCustomer
 } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory"; 
-import { extractCityFromAddress } from "../types/customers";
+import { moneyToApi, moneyToNumber } from '../utils/money';
+import { mapCustomer, mapInventoryItem, mapInvoice } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+function toInvoicePayload(data: Partial<BackendInvoiceData>) {
+  const encodeMoney = (value: number | undefined) => value === undefined ? undefined : moneyToApi(value);
+  return {
+    ...data,
+    subTotal: encodeMoney(data.subTotal), discount: encodeMoney(data.discount),
+    totalAmount: encodeMoney(data.totalAmount), paidAmount: encodeMoney(data.paidAmount),
+    remainingAmount: encodeMoney(data.remainingAmount), vatAmount: encodeMoney(data.vatAmount),
+    taxRate: encodeMoney(data.taxRate),
+    items: data.items?.map(item => ({
+      ...item, unitPrice: encodeMoney(item.unitPrice), discount: encodeMoney(item.discount), total: encodeMoney(item.total),
+    })),
+    payments: data.payments?.map(payment => ({ ...payment, amount: moneyToApi(payment.amount) })),
+  };
+}
 
 function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
   const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
@@ -18,8 +34,8 @@ function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
   return headers;
 }
 
-export interface NextInvoiceIdResponse {
-  nextInvoiceId: string;
+export interface NextInvoiceNumberResponse {
+  nextInvoiceNumber: string;
 }
 
 export interface DeleteInvoiceResponse {
@@ -45,7 +61,7 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Failed to fetch invoices: ${res.statusText}`);
-    return res.json();
+    return ((await res.json()) as unknown[]).map(mapInvoice);
   },
 
   // Get all customers
@@ -55,24 +71,7 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
-    const data = await res.json();
-    return (data || []).map((c: any) => ({
-      _id: c._id || c.id,
-      id: c._id || c.id,
-      customerId: c.customerCode || c.customerId || 'cus-100',
-      customerCode: c.customerCode || c.customerId || 'cus-100',
-      shopName: c.shopName || c.name || c.businessName || 'Customer',
-      fullName: c.fullName || c.name || c.shopName || 'Customer',
-      contactPerson: c.contactPerson || '',
-      phone: c.phone || '',
-      phone2: c.phone2 || '',
-      phone3: c.phone3 || '',
-      creditLimit: c.creditLimit || 1000000,
-      salesRep: c.salesRep,
-      salesRepName: c.salesRepName,
-      address: c.address || '',
-      city: c.city || extractCityFromAddress(c.address || ''),
-    }));
+    return ((await res.json()) as unknown[]).map(mapCustomer);
   },
 
   // Get next invoice ID
@@ -83,7 +82,7 @@ export const invoiceService = {
     });
     if (!res.ok) throw new Error(`Failed to fetch next invoice ID: ${res.statusText}`);
     const data = await res.json();
-    return data.nextInvoiceId || `INV-${Date.now()}`;
+    return data.nextInvoiceNumber || `INV-${Date.now()}`;
   },
 
   // Get invoice by ID
@@ -93,17 +92,17 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Invoice with ID "${id}" not found.`);
-    return res.json();
+    return mapInvoice(await res.json());
   },
 
-  // Get invoice by invoiceId
-  async getByInvoiceId(invoiceId: string): Promise<InvoiceResponse> {
-    const res = await fetch(`${API_BASE}/invoices/invoice-id/${invoiceId}`, {
+  // Get invoice by invoiceNumber
+  async getByInvoiceId(invoiceNumber: string): Promise<InvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/number/${encodeURIComponent(invoiceNumber)}`, {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    if (!res.ok) throw new Error(`Invoice "${invoiceId}" not found.`);
-    return res.json();
+    if (!res.ok) throw new Error(`Invoice "${invoiceNumber}" not found.`);
+    return mapInvoice(await res.json());
   },
 
   // Create new invoice
@@ -112,28 +111,28 @@ export const invoiceService = {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
-      body: JSON.stringify(invoiceData),
+      body: JSON.stringify(toInvoicePayload(invoiceData)),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `Failed to create invoice`);
     }
-    return res.json();
+    return mapInvoice(await res.json());
   },
 
   // Update invoice
-  async update(invoiceId: string, updateData: Partial<BackendInvoiceData>): Promise<InvoiceResponse> {
-    const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
+  async update(id: string, updateData: Partial<BackendInvoiceData>): Promise<InvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
-      body: JSON.stringify(updateData),
+      body: JSON.stringify(toInvoicePayload(updateData)),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `Failed to update invoice`);
     }
-    return res.json();
+    return mapInvoice(await res.json());
   },
 
   // Update payment status
@@ -145,7 +144,7 @@ export const invoiceService = {
       body: JSON.stringify({ paymentStatus }),
     });
     if (!res.ok) throw new Error(`Failed to update payment status`);
-    return res.json();
+    return mapInvoice(await res.json());
   },
 
   // Delete invoice
@@ -156,7 +155,8 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Failed to delete invoice`);
-    return res.json();
+    const value = await res.json();
+    return { ...value, creditLimit: moneyToNumber(value.creditLimit), fullName: value.fullName ?? value.shopName };
   },
 
   // Search items
@@ -166,12 +166,12 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) return [];
-    const items: InventoryItem[] = await res.json();
+    const items: InventoryItem[] = ((await res.json()) as unknown[]).map(mapInventoryItem);
     if (!query) return items;
     const lower = query.toLowerCase();
     return items.filter(i => 
-      i.product_name?.toLowerCase().includes(lower) || 
-      i.product_code?.toLowerCase().includes(lower)
+      i.productName?.toLowerCase().includes(lower) ||
+      i.productCode?.toLowerCase().includes(lower)
     );
   },
 
@@ -184,7 +184,8 @@ export const invoiceService = {
       body: JSON.stringify(customer),
     });
     if (!res.ok) throw new Error('Failed to create customer');
-    return res.json();
+    const value = await res.json();
+    return { ...value, creditLimit: moneyToNumber(value.creditLimit), fullName: value.fullName ?? value.shopName };
   },
 
   async updateCustomer(id: string, customer: any): Promise<InvoiceCustomer> {

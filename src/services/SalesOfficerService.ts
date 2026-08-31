@@ -29,12 +29,12 @@ export class SalesOfficerService {
           const salesmen = users.filter((u: any) => u.role === 'salesman');
           if (salesmen.length > 0) {
             return salesmen.map((u: any, idx: number) => ({
-              id: u._id || u.id,
+              id: u.id,
               officerId: `SO-${String(idx + 1).padStart(3, '0')}`,
               fullName: u.fullName || u.email,
               contactNumber: u.phone || '+94705787818',
               phone: u.phone || '+94705787818',
-              joiningDate: u.created_at ? u.created_at.split('T')[0] : '2026-01-01',
+              joiningDate: u.createdAt ? u.createdAt.split('T')[0] : '2026-01-01',
               username: u.email ? u.email.split('@')[0] : `user${idx + 1}`,
               email: u.email,
               status: 'Active' as const,
@@ -43,8 +43,8 @@ export class SalesOfficerService {
               monthlyTarget: 1000000,
               commissionRate: 5,
               assignedCustomerIds: [],
-              createdAt: u.created_at || u.createdAt || new Date().toISOString(),
-              updatedAt: u.updated_at || u.updatedAt || new Date().toISOString(),
+              createdAt: u.createdAt || new Date().toISOString(),
+              updatedAt: u.updatedAt || new Date().toISOString(),
             }));
           }
         }
@@ -98,13 +98,13 @@ export class SalesOfficerService {
     return true;
   }
 
-  filterRecordsByPeriod<T extends { issueDate?: string; created_at?: string; orderDate?: string; createdAt?: string }>(
+  filterRecordsByPeriod<T extends { issueDate?: string; createdAt?: string; orderDate?: string }>(
     records: T[],
     period: SalesOfficerFilterPeriod
   ): T[] {
     const now = new Date();
     return records.filter((r) => {
-      const dateStr = r.issueDate || r.orderDate || r.created_at || r.createdAt;
+      const dateStr = r.issueDate || r.orderDate || r.createdAt;
       if (!dateStr) return true;
       const d = new Date(dateStr);
 
@@ -144,17 +144,14 @@ export class SalesOfficerService {
 
     const officerInvoices = invoices.filter((inv) => {
       if (officer === 'ALL') return true;
-      const sName =
-        typeof inv.salesman === 'object' && inv.salesman !== null
-          ? inv.salesman.name || (inv.salesman as any).fullName
-          : inv.salesmanName || (typeof inv.salesman === 'string' ? inv.salesman : '');
-      return sName === officer.fullName || (inv.salesman as any)?._id === officer.id;
+      const sName = inv.salesman?.fullName || inv.salesmanName || '';
+      return sName === officer.fullName || inv.salesman?.id === officer.id;
     });
 
     const officerOrders = orders.filter((ord) => {
       if (officer === 'ALL') return true;
       return (
-        ord.salesman?.name === officer.fullName ||
+        ord.salesman?.fullName === officer.fullName ||
         ord.salesman?.id === officer.id ||
         ord.salesman?.id === officer.officerId
       );
@@ -162,14 +159,14 @@ export class SalesOfficerService {
 
     const totalSalesValue = officerInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
     const completedInvoices = officerInvoices.filter(
-      (inv) => inv.paymentStatus === 'Completed' || inv.paymentStatus === 'Paid'
+      (inv) => inv.paymentStatus === 'completed' || inv.paymentStatus === 'paid'
     );
     const completedSalesValue = completedInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
     const collectedAmount = completedSalesValue;
     const pendingCreditAmount = totalSalesValue - completedSalesValue;
 
     const overdueInvoices = officerInvoices.filter((inv) => {
-      if (inv.paymentStatus === 'Completed' || inv.paymentStatus === 'Paid') return false;
+      if (inv.paymentStatus === 'completed' || inv.paymentStatus === 'paid') return false;
       const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
       return dueDate && dueDate < now;
     });

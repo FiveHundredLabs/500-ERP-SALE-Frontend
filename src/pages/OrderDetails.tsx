@@ -86,15 +86,15 @@ const OrderDetails: React.FC = () => {
 
     const updatedOrder: Order = {
       ...order,
-      status: 'Converted to PO',
-      convertedPOId: createdPO.poNumber,
+      status: 'converted_to_po',
+      convertedPurchaseOrder: { id: createdPO.id, poNumber: createdPO.poNumber },
       timeline: [
         ...order.timeline,
         {
           id: Math.random().toString(),
-          event: 'Converted to PO',
+          event: 'converted_to_po',
           description: `Converted to Purchase Order ${createdPO.poNumber} for Supplier ${createdPO.supplierName}`,
-          timestamp: new Date().toISOString(),
+          occurredAt: new Date().toISOString(),
           actor: 'Admin User',
         },
       ],
@@ -102,7 +102,7 @@ const OrderDetails: React.FC = () => {
 
     setOrder(updatedOrder);
     setShowConvertToPOModal(false);
-    success('Converted to PO Successfully!', `Created Purchase Order ${createdPO.poNumber} from Order ${order.orderId}.`);
+    success('Converted to PO Successfully!', `Created Purchase Order ${createdPO.poNumber} from Order ${order.orderNumber}.`);
   };
 
   const handleUpdateStatus = async (newStatus: OrderStatusType) => {
@@ -113,23 +113,23 @@ const OrderDetails: React.FC = () => {
     } catch {
       setOrder(prev => prev ? { ...prev, status: newStatus } : undefined);
     }
-    info('Status Updated', `Order ${order.orderId} status changed to ${newStatus}.`);
+    info('Status Updated', `Order ${order.orderNumber} status changed to ${newStatus}.`);
   };
 
   return (
     <AppLayout
       headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
-      headerTitle={`Order ${order.orderId}`}
-      headerSubtitle={`Created on ${order.orderDate} by ${typeof order.salesman === 'object' && order.salesman ? order.salesman.name : (order.salesman || 'Sales Representative')}`}
+      headerTitle={`Order ${order.orderNumber}`}
+      headerSubtitle={`Created on ${order.orderDate} by ${typeof order.salesman === 'object' && order.salesman ? order.salesman.fullName : (order.salesman || 'Sales Representative')}`}
     >
       <PageHeader
-        title={`Order: ${order.orderId}`}
+        title={`Order: ${order.orderNumber}`}
         description={`Sales order details for ${order.customerName}`}
         breadcrumbs={[
           { label: 'Dashboard', path: '/dashboard' },
           { label: 'Sales' },
           { label: 'Orders', path: '/orders' },
-          { label: order.orderId },
+          { label: order.orderNumber },
         ]}
         actions={
           <div className="flex items-center gap-2">
@@ -143,11 +143,11 @@ const OrderDetails: React.FC = () => {
             <button
               onClick={() => {
                 const text = generateOrderWhatsAppMessage({
-                  orderId: order.orderId,
+                  orderNumber: order.orderNumber,
                   customerName: order.customerName,
                   totalAmount: order.grandTotal,
                   orderDate: order.orderDate,
-                  itemsCount: order.products?.length || 0,
+                  itemsCount: order.items?.length || 0,
                   remarks: order.notes,
                 });
                 const url = getWhatsAppUrl(order.contactPhone || '', text);
@@ -166,7 +166,7 @@ const OrderDetails: React.FC = () => {
               <Printer size={14} /> Print Order
             </button>
 
-            {order.status !== 'Converted to PO' && order.status !== 'Completed' && (
+            {order.status !== 'converted_to_po' && order.status !== 'completed' && (
               <button
                 onClick={() => setShowConvertToPOModal(true)}
                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20"
@@ -273,7 +273,7 @@ const OrderDetails: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Name:</span>
-                  <span className="font-semibold text-gray-200">{order.salesman?.name || '—'}</span>
+                  <span className="font-semibold text-gray-200">{order.salesman?.fullName || '—'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Employee ID:</span>
@@ -296,16 +296,16 @@ const OrderDetails: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => handleUpdateStatus('Approved')}
-                  disabled={order.status === 'Approved'}
+                  onClick={() => handleUpdateStatus('approved')}
+                  disabled={order.status === 'approved'}
                   className="w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                 >
                   <CheckCircle size={14} /> Approve Order
                 </button>
 
                 <button
-                  onClick={() => handleUpdateStatus('Rejected')}
-                  disabled={order.status === 'Rejected'}
+                  onClick={() => handleUpdateStatus('rejected')}
+                  disabled={order.status === 'rejected'}
                   className="w-full py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                 >
                   <XCircle size={14} /> Reject Order
@@ -321,7 +321,7 @@ const OrderDetails: React.FC = () => {
               <div className="px-5 py-4 border-b border-[#334155] flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-200">Ordered Products</h3>
                 <span className="text-xs text-gray-400 bg-[#0f172a] border border-[#334155] px-2.5 py-1 rounded-full">
-                  {order.products.length} items
+                  {order.items.length} items
                 </span>
               </div>
 
@@ -338,7 +338,7 @@ const OrderDetails: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {order.products.map((item, idx) => (
+                    {order.items.map((item, idx) => (
                       <tr
                         key={item.id || idx}
                         className={`border-b border-[#334155]/60 text-xs transition-colors hover:bg-[#334155]/20 ${
@@ -411,7 +411,7 @@ const OrderDetails: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <p className="font-semibold text-gray-200">{event.event}</p>
-                        <span className="text-[10px] text-gray-400">{event.timestamp}</span>
+                        <span className="text-[10px] text-gray-400">{event.occurredAt}</span>
                       </div>
                       {event.description && <p className="text-gray-400 text-[11px] mt-0.5">{event.description}</p>}
                       {event.actor && <span className="text-[10px] text-blue-400 font-medium mt-0.5 inline-block">By: {event.actor}</span>}
@@ -431,11 +431,11 @@ const OrderDetails: React.FC = () => {
           onClose={() => setShowConvertToPOModal(false)}
           onSubmit={handleCreateConvertedPO}
           initialData={{
-            referenceOrderId: order.orderId,
-            referenceOrderNum: order.orderId,
+            sourceOrderId: order.id,
+            sourceOrderNumber: order.orderNumber,
             customerName: order.customerName,
-            notes: `Converted from Customer Order #${order.orderId}`,
-            items: order.products.map((p) => ({
+            notes: `Converted from Customer Order #${order.orderNumber}`,
+            items: order.items.map((p) => ({
               sku: p.sku,
               productName: p.productName,
               quantity: p.quantity,

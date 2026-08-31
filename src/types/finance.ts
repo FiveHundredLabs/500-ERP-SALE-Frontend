@@ -1,29 +1,21 @@
-export interface PaymentMethodDetails {
-  type: 'Cash' | 'Card' | 'Bank Deposit' | 'Bank Transfer' | 'Cheque' | 'Credit';
-  bankName: string;
-  accountNumber: string;
-  transactionRef: string;
-}
-
-export interface InvoiceReference {
-  invoiceId: string;
-}
+import type { PaymentMethodType } from './invoice';
 
 export interface FinanceTransaction {
-  _id: string;
-  transactionId: string;
+  id: string;
+  transactionNumber: string;
   transactionDate: string;
-  paymentMethod: PaymentMethodDetails;
-  invoice: InvoiceReference;
-  amount: string;
-  created_at: string;
-  updated_at: string;
+  paymentMethod: PaymentMethodType;
+  bankName?: string;
+  accountNumber?: string;
+  transactionRef?: string;
+  invoiceId?: string | null;
+  invoiceNumber: string;
+  invoice?: { id: string; invoiceNumber: string } | null;
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface FinancePaymentData {
-  transactionId: string;
-  transactionDate: string;
-  paymentMethod: PaymentMethodDetails;
-  invoice: InvoiceReference;
-  amount: string;
-}
+export type FinancePaymentData = Omit<FinanceTransaction, 'id' | 'invoice' | 'createdAt' | 'updatedAt'> & {
+  transactionNumber?: string;
+};

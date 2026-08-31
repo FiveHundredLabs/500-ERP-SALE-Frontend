@@ -1,70 +1,81 @@
+import type { InventoryItem } from './inventory';
+
 export const PaymentMethod = {
-  CASH: 'Cash',
-  CREDIT: 'Credit',
-  CARD: 'Card',
-  BANK_DEPOSIT: 'Bank Deposit',
-  BANK_TRANSFER: 'Bank Transfer',
-  CHEQUE: 'Cheque',
+  CASH: 'cash',
+  CREDIT: 'credit',
+  CARD: 'card',
+  BANK_DEPOSIT: 'bank_deposit',
+  BANK_TRANSFER: 'bank_transfer',
+  CHEQUE: 'cheque',
 } as const;
 
 export const PaymentStatus = {
-  PENDING: 'Pending',
-  COMPLETED: 'Completed',
-  REJECTED: 'Rejected',
-  PARTIALLY_PAID: 'Partially Paid',
-  PAID: 'Paid',
-  OUTSTANDING: 'Outstanding',
-  OVERDUE: 'Overdue',
-  DUE_SOON: 'Due Soon',
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  REJECTED: 'rejected',
+  PARTIALLY_PAID: 'partially_paid',
+  PAID: 'paid',
+  OUTSTANDING: 'outstanding',
+  OVERDUE: 'overdue',
+  DUE_SOON: 'due_soon',
+  CANCELLED: 'cancelled',
 } as const;
 
 export type PaymentMethodType = typeof PaymentMethod[keyof typeof PaymentMethod];
-export type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus] | 'Pending' | 'Completed' | 'Rejected' | 'Partially Paid' | 'Paid' | 'Outstanding' | 'Overdue' | 'Due Soon';
+export type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus];
+
+export const paymentMethodLabels: Record<PaymentMethodType, string> = {
+  cash: 'Cash', credit: 'credit', card: 'Card', bank_deposit: 'Bank Deposit',
+  bank_transfer: 'Bank Transfer', cheque: 'Cheque',
+};
+
+export const paymentStatusLabels: Record<PaymentStatusType, string> = {
+  pending: 'pending', completed: 'completed', rejected: 'rejected',
+  partially_paid: 'partially_paid', paid: 'paid', outstanding: 'outstanding',
+  overdue: 'overdue', due_soon: 'due_soon', cancelled: 'cancelled',
+};
 
 export interface InvoicePaymentRecord {
   id?: string;
-  transactionId: string;
+  transactionId?: string;
   amount: number;
-  date: string;
-  paymentMethod: string;
+  paidAt: string;
+  paymentMethod: PaymentMethodType;
   reference?: string;
   bankName?: string;
   notes?: string;
 }
 
 export interface InvoiceCustomer {
-  _id: string;
-  shopName?: string;
+  id: string;
+  customerCode: string;
+  shopName: string;
   fullName: string;
   contactPerson?: string;
-  phone: string;              // WhatsApp (Primary)
-  phone2?: string;            // Secondary
-  phone3?: string;            // Alternative
-  address?: string | {
-    street?: string;
-    city?: string;
-    country?: string;
-    zip?: string;
-  };
+  phone: string;
+  phone2?: string;
+  phone3?: string;
+  email?: string;
+  vatNumber?: string;
+  address?: string;
   city?: string;
-  customerCode?: string;
   creditLimit?: number;
-  salesRep?: { id: string; name: string } | string;
+  salesRepId?: string | null;
   salesRepName?: string;
-  vehicle_number?: string;
-  vehicle_model?: string;
-  year_of_manufacture?: number;
 }
 
 export interface InvoiceItem {
   id: string;
-  item: string;
+  inventoryItemId: string;
+  inventoryItem?: InventoryItem;
+  itemCode?: string;
+  productCode?: string;
+  itemName: string;
   quantity: number;
   unitPrice: number;
+  discount?: number;
   total: number;
-  itemName?: string;
   description?: string;
-  product_code?: string;
   costPrice?: number;
   discountType?: 'percentage' | 'amount';
   discountScope?: 'per_unit' | 'total_qty';
@@ -72,34 +83,24 @@ export interface InvoiceItem {
   discountAmount?: number;
 }
 
-export interface InvoiceItemBackend {
-  item: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  _id?: string;
-}
-
 export interface InvoiceData {
-  _id?: string;
-  invoiceId: string;
+  id?: string;
+  documentTitle?: string;
+  invoiceNumber: string;
   customer: string;
   customerDetails?: InvoiceCustomer;
-  salesman?: { _id: string; name: string } | null;
+  salesman?: { id: string; fullName?: string; name?: string } | null;
+  salesmanName?: string;
   items: InvoiceItem[];
+  payments?: InvoicePaymentRecord[];
   subTotal: number;
   discount: number;
-  discountPercentage: number;
-  totalDiscountType?: 'percentage' | 'amount';
-  totalDiscountValue?: number;
   totalAmount: number;
   paidAmount?: number;
   remainingAmount?: number;
-  payments?: InvoicePaymentRecord[];
   paymentStatus: PaymentStatusType;
   paymentMethod: PaymentMethodType;
-  creditPeriod?: number;
-  bankDepositDate?: string;
+  bankDepositDate?: string | null;
   issueDate: string;
   dueDate: string;
   vehicleNumber: string;
@@ -107,128 +108,97 @@ export interface InvoiceData {
   applyVat: boolean;
   vatAmount: number;
   taxRate: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface BackendInvoiceData {
-  invoiceId: string;
-  customer: string;
-  salesman?: string | null;
-  items: Array<{
-    item: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-  }>;
-  subTotal: number;
-  discount: number;
-  totalAmount: number;
-  paidAmount?: number;
-  remainingAmount?: number;
-  payments?: InvoicePaymentRecord[];
-  paymentStatus: PaymentStatusType;
-  paymentMethod: PaymentMethodType;
-  vehicleNumber: string;
-  issueDate: string;
-  dueDate: string;
-  notes?: string;
-  bankDepositDate?: string;
-  applyVat?: boolean;
-  vatAmount?: number;
-  taxRate?: number;
-  _id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  discountPercentage?: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
+  creditPeriod?: number;
 }
 
 export interface InvoiceResponse {
-  _id: string;
-  invoiceId: string;
-  customer: InvoiceCustomer;
-  items: Array<{
-    item: any;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-    _id?: string;
-  }>;
+  id: string;
+  invoiceNumber: string;
+  customerId?: string | null;
+  customer: InvoiceCustomer | null;
+  customerDetails?: InvoiceCustomer | null;
+  salesmanId?: string | null;
+  salesman?: { id: string; fullName?: string; name?: string; email?: string } | null;
+  salesmanName?: string;
+  items: InvoiceItem[];
+  payments: InvoicePaymentRecord[];
   subTotal: number;
   discount: number;
   totalAmount: number;
-  paidAmount?: number;
-  remainingAmount?: number;
-  payments?: InvoicePaymentRecord[];
+  paidAmount: number;
+  remainingAmount: number;
   paymentStatus: PaymentStatusType;
   paymentMethod: PaymentMethodType;
-  salesman?: { _id: string; name: string } | string | null;
-  salesmanName?: string;
-  bankDepositDate?: string;
+  bankDepositDate?: string | null;
   issueDate: string;
   dueDate: string;
   vehicleNumber: string;
   notes?: string;
+  applyVat: boolean;
+  vatAmount: number;
+  taxRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BackendInvoiceData {
+  id?: string;
+  invoiceNumber?: string;
+  customerId?: string | null;
+  customerDetails?: InvoiceCustomer;
+  salesmanId?: string | null;
+  salesmanName?: string;
+  items: Array<{
+    inventoryItemId: string;
+    quantity: number;
+    unitPrice?: number;
+    discount?: number;
+    total?: number;
+  }>;
+  payments?: InvoicePaymentRecord[];
+  subTotal?: number;
+  discount?: number;
+  totalAmount?: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  paymentStatus?: PaymentStatusType;
+  paymentMethod?: PaymentMethodType;
+  vehicleNumber?: string;
+  issueDate?: string;
+  dueDate?: string;
+  notes?: string;
+  bankDepositDate?: string;
   applyVat?: boolean;
   vatAmount?: number;
   taxRate?: number;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface SalesOverviewResponse {
   period: string;
   totalSales: number;
   totalProducts: number;
-  weeklyData: Array<{
-    week: string;
-    sales: number;
-    products: number;
-  }>;
+  weeklyData: Array<{ week: string; sales: number; products: number }>;
 }
 
-/**
- * Calculates effective invoice status based on due date, paid amount, and total amount.
- */
 export function getInvoiceCalculatedStatus(invoice: {
-  totalAmount: number;
-  paidAmount?: number;
-  paymentStatus?: string;
-  dueDate?: string;
-}): {
-  status: 'Paid' | 'Partially Paid' | 'Outstanding' | 'Overdue' | 'Due Soon';
-  paidAmount: number;
-  remainingAmount: number;
-  diffDays: number;
-} {
+  totalAmount: number; paidAmount?: number; paymentStatus?: string; dueDate?: string;
+}) {
   const total = invoice.totalAmount || 0;
-  let paid = invoice.paidAmount ?? (invoice.paymentStatus === 'Completed' ? total : 0);
+  let paid = invoice.paidAmount ?? (invoice.paymentStatus === 'completed' || invoice.paymentStatus === 'paid' ? total : 0);
   if (paid > total) paid = total;
-  const remaining = Math.max(0, total - paid);
-
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  let diffDays = 0;
-  if (invoice.dueDate) {
-    const due = new Date(invoice.dueDate);
-    due.setHours(0, 0, 0, 0);
-    diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  }
-
-  if (remaining <= 0 || paid >= total || invoice.paymentStatus === 'Completed' || invoice.paymentStatus === 'Paid') {
-    return { status: 'Paid', paidAmount: total, remainingAmount: 0, diffDays };
-  }
-
-  if (paid > 0) {
-    if (diffDays < 0) return { status: 'Overdue', paidAmount: paid, remainingAmount: remaining, diffDays };
-    if (diffDays <= 7) return { status: 'Due Soon', paidAmount: paid, remainingAmount: remaining, diffDays };
-    return { status: 'Partially Paid', paidAmount: paid, remainingAmount: remaining, diffDays };
-  }
-
-  if (diffDays < 0) {
-    return { status: 'Overdue', paidAmount: 0, remainingAmount: remaining, diffDays };
-  }
-  if (diffDays <= 7) {
-    return { status: 'Due Soon', paidAmount: 0, remainingAmount: remaining, diffDays };
-  }
-
-  return { status: 'Outstanding', paidAmount: 0, remainingAmount: remaining, diffDays };
+  const remainingAmount = Math.max(0, total - paid);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const due = invoice.dueDate ? new Date(invoice.dueDate) : now; due.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((due.getTime() - now.getTime()) / 86400000);
+  let status: PaymentStatusType = 'outstanding';
+  if (remainingAmount <= 0) status = 'paid';
+  else if (diffDays < 0) status = 'overdue';
+  else if (diffDays <= 7) status = 'due_soon';
+  else if (paid > 0) status = 'partially_paid';
+  return { status, paidAmount: paid, remainingAmount, diffDays };
 }

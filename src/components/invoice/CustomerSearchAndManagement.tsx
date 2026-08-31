@@ -120,7 +120,7 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
               ) : (
                 filteredCustomers.map((customer) => (
                   <div
-                    key={customer._id}
+                    key={customer.id}
                     className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150 text-xs"
                     onClick={() => onCustomerSelect(customer)}
                   >
@@ -131,9 +131,7 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
                     </div>
                     {customer.address && (
                       <div className="text-[11px] text-gray-400 mt-0.5">
-                        Address: {typeof customer.address === 'string'
-                          ? customer.address
-                          : `${customer.address.street || ''} ${customer.address.city || ''}`}
+                        Address: {customer.address}
                       </div>
                     )}
                   </div>

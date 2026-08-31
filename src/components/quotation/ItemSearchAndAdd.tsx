@@ -11,9 +11,9 @@ interface ItemSearchAndAddProps {
   onShowSuggestionsChange: (show: boolean) => void;
   filteredItems: InventoryItem[];
   newItem: {
-    item: string;
+    inventoryItemId: string;
     itemName: string;
-    product_code?: string;
+    productCode?: string;
     quantity: string | number;
     unitPrice: string | number;
     costPrice?: number;
@@ -29,9 +29,9 @@ interface ItemSearchAndAddProps {
     discountValue: string;
   }) => void;
   onAddItem: (itemData?: {
-    item: string;
+    inventoryItemId: string;
     itemName: string;
-    product_code?: string;
+    productCode?: string;
     quantity: number;
     unitPrice: number;
     costPrice: number;
@@ -72,7 +72,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
     onShowSuggestionsChange(false);
   });
 
-  const isItemAlreadyAdded = quotationItems.some(item => item.item === newItem.item);
+  const isItemAlreadyAdded = quotationItems.some(item => item.inventoryItemId === newItem.inventoryItemId);
 
   // Numeric parsing
   const qty = Math.max(1, parseInt(newItem.quantity?.toString() || '1') || 1);
@@ -109,15 +109,15 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   const marginPct = unitPrice > 0 ? ((profitPerUnit / unitPrice) * 100).toFixed(1) : "0.0";
 
   const handleAddClick = () => {
-    if (!newItem.item || qty <= 0 || unitPrice <= 0) {
+    if (!newItem.inventoryItemId || qty <= 0 || unitPrice <= 0) {
       alert("Please select a product from search.");
       return;
     }
 
     onAddItem({
-      item: newItem.item,
+      inventoryItemId: newItem.inventoryItemId,
       itemName: newItem.itemName,
-      product_code: newItem.product_code,
+      productCode: newItem.productCode,
       quantity: qty,
       unitPrice,
       costPrice,
@@ -136,14 +136,14 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
         <button
           type="button"
           onClick={handleAddClick}
-          disabled={!newItem.item}
+          disabled={!newItem.inventoryItemId}
           className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
         >
           <Plus size={14} />
           {isItemAlreadyAdded ? 'Update Line Item' : 'Add Line Item'}
         </button>
 
-        {newItem.item && (
+        {newItem.inventoryItemId && (
           <button
             type="button"
             onClick={onClearSelection}
@@ -204,12 +204,12 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
                 </div>
               ) : (
                 filteredItems.map((item) => {
-                  const profit = (item.sell_price || 0) - (item.purchase_price || 0);
-                  const margin = item.sell_price > 0 ? ((profit / item.sell_price) * 100).toFixed(0) : "0";
+                  const profit = (item.sellPrice || 0) - (item.purchasePrice || 0);
+                  const margin = item.sellPrice > 0 ? ((profit / item.sellPrice) * 100).toFixed(0) : "0";
 
                   return (
                     <div
-                      key={item._id || item.id || item.product_code}
+                      key={item.id || item.productCode}
                       className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer transition-colors duration-150 flex justify-between items-center text-xs"
                       onClick={() => {
                         onItemSelect(item);
@@ -217,15 +217,15 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
                       }}
                     >
                       <div className="truncate pr-2">
-                        <div className="font-semibold text-white truncate">{item.product_name}</div>
+                        <div className="font-semibold text-white truncate">{item.productName}</div>
                         <div className="text-[10px] font-mono text-gray-400 mt-0.5">
-                          Code: <span className="text-blue-400">{item.product_code}</span>
+                          Code: <span className="text-blue-400">{item.productCode}</span>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
                         <div className="font-mono font-bold text-emerald-400 text-xs">
-                          LKR {(item.sell_price || 0).toLocaleString()}
+                          LKR {(item.sellPrice || 0).toLocaleString()}
                         </div>
                         <div className="text-[10px] text-gray-400">
                           Margin: {margin}%
@@ -260,7 +260,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               min="0"
               value={newItem.quantity === '0' || newItem.quantity === 0 ? '0' : newItem.quantity || ''}
               onChange={(e) => onQuantityChange(e.target.value)}
-              disabled={!newItem.item}
+              disabled={!newItem.inventoryItemId}
               placeholder="0"
               className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-7 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-center"
             />
@@ -303,7 +303,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               min="0"
               value={discountValue}
               onChange={(e) => onDiscountChange({ discountType, discountScope, discountValue: e.target.value })}
-              disabled={!newItem.item}
+              disabled={!newItem.inventoryItemId}
               placeholder="0"
               className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7 text-right"
             />
@@ -321,7 +321,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[32px]">
             <button
               type="button"
-              disabled={!newItem.item}
+              disabled={!newItem.inventoryItemId}
               onClick={() => onDiscountChange({ discountType, discountScope: 'per_unit', discountValue })}
               className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
                 discountScope === 'per_unit' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
@@ -332,7 +332,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
             </button>
             <button
               type="button"
-              disabled={!newItem.item}
+              disabled={!newItem.inventoryItemId}
               onClick={() => onDiscountChange({ discountType, discountScope: 'total_qty', discountValue })}
               className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
                 discountScope === 'total_qty' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
@@ -346,13 +346,13 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
       </div>
 
       {/* Selected Product Pill & Margin */}
-      {newItem.item && (
+      {newItem.inventoryItemId && (
         <div className="px-3 py-1.5 bg-[#0f172a] border border-blue-500/20 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-white">{newItem.itemName}</span>
-            {newItem.product_code && (
+            {newItem.productCode && (
               <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-                {newItem.product_code}
+                {newItem.productCode}
               </span>
             )}
           </div>

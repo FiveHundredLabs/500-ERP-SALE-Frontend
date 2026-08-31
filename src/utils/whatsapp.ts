@@ -71,7 +71,7 @@ export const getWhatsAppUrl = (phone: string, text: string): string => {
  * Generates formatted WhatsApp text message for Quotations.
  */
 export const generateQuotationWhatsAppMessage = (params: {
-  quotationId: string;
+  quotationNumber: string;
   customerName: string;
   totalAmount: number;
   issueDate: string;
@@ -89,7 +89,7 @@ export const generateQuotationWhatsAppMessage = (params: {
   const remarksText = (params.remarks || params.notes || '').trim();
 
   const lines: string[] = [
-    `S & K Enterprices — QUOTATION ${params.quotationId}`,
+    `S & K Enterprices — QUOTATION ${params.quotationNumber}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `Customer: ${params.customerName}`,
     `Quotation Date: ${formattedIssueDate}`,
@@ -115,7 +115,7 @@ export const generateQuotationWhatsAppMessage = (params: {
  * Generates formatted WhatsApp text message for Invoices.
  */
 export const generateInvoiceWhatsAppMessage = (params: {
-  invoiceId: string;
+  invoiceNumber: string;
   customerName: string;
   totalAmount: number;
   paymentStatus?: string;
@@ -136,7 +136,7 @@ export const generateInvoiceWhatsAppMessage = (params: {
   const remarksText = (params.remarks || params.notes || '').trim();
 
   const lines: string[] = [
-    `S & K Enterprices — INVOICE ${params.invoiceId}`,
+    `S & K Enterprices — INVOICE ${params.invoiceNumber}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `Customer: ${params.customerName}`,
     `Invoice Date: ${formattedIssueDate}`,
@@ -211,7 +211,7 @@ export const generatePOWhatsAppMessage = (params: {
  * Generates formatted WhatsApp text message for Sales Orders.
  */
 export const generateOrderWhatsAppMessage = (params: {
-  orderId: string;
+  orderNumber: string;
   customerName: string;
   totalAmount: number;
   orderDate: string;
@@ -229,7 +229,7 @@ export const generateOrderWhatsAppMessage = (params: {
   const remarksText = (params.remarks || params.notes || '').trim();
 
   const lines: string[] = [
-    `S & K Enterprices — SALES ORDER ${params.orderId}`,
+    `S & K Enterprices — SALES ORDER ${params.orderNumber}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `Customer: ${params.customerName}`,
     `Order Date: ${formattedOrderDate}`,

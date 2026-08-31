@@ -14,6 +14,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
+import PurchaseOrderViewModal from '../components/orders/PurchaseOrderViewModal';
 
 const PurchaseOrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ const PurchaseOrderDetails: React.FC = () => {
 
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -106,7 +108,7 @@ const PurchaseOrderDetails: React.FC = () => {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => window.print()}
+                onClick={() => setShowPrintModal(true)}
                 className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
               >
                 <Printer size={14} /> Print
@@ -127,7 +129,7 @@ const PurchaseOrderDetails: React.FC = () => {
                   const message = generatePOWhatsAppMessage({
                     poNumber: po.poNumber,
                     supplierName: po.supplierName,
-                    totalAmount: po.grandTotal,
+                    totalAmount: po.totalAmount,
                     poDate: po.poDate,
                     itemsCount: po.items.length,
                     remarks: po.notes,
@@ -215,9 +217,9 @@ const PurchaseOrderDetails: React.FC = () => {
                         <span className="text-xs text-gray-600">—</span>
                       )}
                     </td>
-                    <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantity}</td>
+                    <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantityOrdered}</td>
                     <td className="p-3 text-right text-gray-300 text-sm font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.total)}</td>
+                    <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.totalPrice)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -252,13 +254,17 @@ const PurchaseOrderDetails: React.FC = () => {
               )}
               <div className="pt-3 border-t border-[#334155] flex justify-between items-center">
                 <span className="font-bold text-gray-100">Grand Total:</span>
-                <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.grandTotal)}</span>
+                <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.totalAmount)}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
-
+      <PurchaseOrderViewModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        selectedPO={po}
+      />
     </AppLayout>
   );
 };
