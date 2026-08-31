@@ -109,7 +109,7 @@ const CustomersTab: React.FC = () => {
 
     // 1. Customer Names
     customers.forEach(c => {
-      const name = c.shopName || c.businessName || (c as any).fullName || 'Customer';
+      const name = c.shopName || c.fullName || 'Customer';
       const rep = c.salesRepName || c.salesRep?.fullName || '';
       suggestions.push({
         id: `c-name-${c.id}`,
@@ -127,7 +127,7 @@ const CustomersTab: React.FC = () => {
         suggestions.push({
           id: `c-id-${c.id}`,
           title: code,
-          subtitle: `${c.shopName || c.businessName || (c as any).fullName || ''} · ${c.city || extractCityFromAddress(c.address || '')}`,
+          subtitle: `${c.shopName || c.fullName || ''} · ${c.city || extractCityFromAddress(c.address || '')}`,
           category: 'Customer ID',
           value: code,
         });
@@ -139,7 +139,7 @@ const CustomersTab: React.FC = () => {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
-      const name = (c.shopName || c.businessName || '').toLowerCase();
+      const name = (c.shopName || '').toLowerCase();
       const contact = (c.contactPerson || '').toLowerCase();
       const rep = (c.salesRepName || c.salesRep?.fullName || '').toLowerCase();
       const city = (c.city || extractCityFromAddress(c.address) || '').toLowerCase();
@@ -170,8 +170,8 @@ const CustomersTab: React.FC = () => {
       let valA = (a as any)[sortColumn];
       let valB = (b as any)[sortColumn];
       if (sortColumn === 'shopName') {
-        valA = a.shopName || a.businessName || '';
-        valB = b.shopName || b.businessName || '';
+        valA = a.shopName || '';
+        valB = b.shopName || '';
       }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
@@ -245,7 +245,7 @@ const CustomersTab: React.FC = () => {
     setEditCustomer(customer);
     const rep = customer.salesRepName || customer.salesRep?.fullName || '';
     setFormData({
-      shopName: customer.shopName || customer.businessName || '',
+      shopName: customer.shopName || '',
       contactPerson: customer.contactPerson || '',
       phone: customer.phone,
       phone2: customer.phone2 || '',
@@ -269,7 +269,7 @@ const CustomersTab: React.FC = () => {
         method: 'DELETE',
         credentials: 'include',
       });
-      success('Customer Deleted', `Deleted customer ${deleteCustomer.shopName || deleteCustomer.businessName}.`);
+      success('Customer Deleted', `Deleted customer ${deleteCustomer.shopName}.`);
       fetchCustomers();
     } catch {
       setCustomers((prev) => prev.filter((c) => c.id !== deleteCustomer.id));
@@ -311,7 +311,7 @@ const CustomersTab: React.FC = () => {
         const city = row.city || extractCityFromAddress(row.address);
         return (
           <div className="min-w-0">
-            <p className="font-bold text-slate-100 text-xs leading-tight truncate">{row.shopName || row.businessName}</p>
+            <p className="font-bold text-slate-100 text-xs leading-tight truncate">{row.shopName}</p>
             <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-400 truncate">
               <MapPin size={10} className="text-slate-500 shrink-0" />
               <span className="truncate">{row.address}</span>
@@ -814,7 +814,7 @@ const CustomersTab: React.FC = () => {
       <ConfirmDialog
         isOpen={!!deleteCustomer}
         title="Delete Customer"
-        message={`Are you sure you want to delete ${deleteCustomer?.shopName || deleteCustomer?.businessName}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${deleteCustomer?.shopName}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         type="danger"

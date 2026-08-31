@@ -25,7 +25,6 @@ export interface Customer {
   customerCode: string;       // CUS-XXXXX
   shopName: string;           // Shop / Business Name (Required)
   fullName: string;
-  businessName?: string;      // Backwards-compatible alias for shopName
   contactPerson?: string;     // Contact Person (Optional)
   phone: string;              // Primary / WhatsApp number (Required)
   phone2?: string;            // Second phone number (Optional)
@@ -63,7 +62,6 @@ export interface CustomerCreateDto {
   customerCode?: string;
   shopName: string;           // Required
   fullName?: string;
-  businessName?: string;      // Compatibility alias
   contactPerson?: string;     // Optional
   phone: string;              // Primary / WhatsApp (Required)
   phone2?: string;            // Optional

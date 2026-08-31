@@ -83,44 +83,9 @@ export interface InvoiceItem {
   discountAmount?: number;
 }
 
-export interface InvoiceItemBackend {
-  item: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  _id?: string;
-}
-
-export interface InvoiceData {
-  _id?: string;
-  documentTitle?: string;
-  invoiceId: string;
-  customer: string;
-  customerDetails?: InvoiceCustomer;
-  salesman?: { _id: string; name: string } | null;
-  items: InvoiceItem[];
-  payments: InvoicePaymentRecord[];
-  subTotal: number;
-  discount: number;
-  totalAmount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  paymentStatus: PaymentStatusType;
-  paymentMethod: PaymentMethodType;
-  bankDepositDate?: string | null;
-  issueDate: string;
-  dueDate: string;
-  vehicleNumber: string;
-  notes?: string;
-  applyVat: boolean;
-  vatAmount: number;
-  taxRate: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface InvoiceData {
   id?: string;
+  documentTitle?: string;
   invoiceNumber: string;
   customer: string;
   customerDetails?: InvoiceCustomer;
@@ -149,6 +114,36 @@ export interface InvoiceData {
   totalDiscountType?: 'percentage' | 'amount';
   totalDiscountValue?: number;
   creditPeriod?: number;
+}
+
+export interface InvoiceResponse {
+  id: string;
+  invoiceNumber: string;
+  customerId?: string | null;
+  customer: InvoiceCustomer | null;
+  customerDetails?: InvoiceCustomer | null;
+  salesmanId?: string | null;
+  salesman?: { id: string; fullName?: string; name?: string; email?: string } | null;
+  salesmanName?: string;
+  items: InvoiceItem[];
+  payments: InvoicePaymentRecord[];
+  subTotal: number;
+  discount: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentStatus: PaymentStatusType;
+  paymentMethod: PaymentMethodType;
+  bankDepositDate?: string | null;
+  issueDate: string;
+  dueDate: string;
+  vehicleNumber: string;
+  notes?: string;
+  applyVat: boolean;
+  vatAmount: number;
+  taxRate: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BackendInvoiceData {

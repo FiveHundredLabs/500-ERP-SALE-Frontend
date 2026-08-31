@@ -713,11 +713,8 @@ const Quotation: React.FC = () => {
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const getCustomerDisplay = (customer: any) => {
-    if (!customer) return '';
-    if (typeof customer === 'object') return String(customer.fullName || customer.name || '');
-    return String(customer);
-  };
+  const getCustomerDisplay = (customer: QuotationResponse['customer']) =>
+    customer.shopName || customer.fullName || '';
 
   const filteredQuotations = manageSearch.trim()
     ? allQuotations.filter(q => {

@@ -165,7 +165,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </style>
           </head>
           <body>
-            <img src="${imageData}" alt="Invoice ${selectedInvoice.invoiceNumber}" class="invoice-image" />
+            ${imgTags}
             <script>
               window.onload = function() {
                 setTimeout(function() {

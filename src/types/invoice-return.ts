@@ -1,4 +1,4 @@
-import type { InvoiceCustomer, InvoiceResponse } from './invoice';
+import type { InvoiceCustomer, PaymentMethodType, PaymentStatusType } from './invoice';
 import type { InventoryItem } from './inventory';
 
 export const ReturnStatus = {
@@ -19,7 +19,12 @@ export interface InvoiceReturn {
   id: string;
   returnNumber: string;
   invoiceId: string;
-  invoice: InvoiceResponse;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    paymentStatus: PaymentStatusType;
+    paymentMethod: PaymentMethodType;
+  };
   customerId: string;
   customer: InvoiceCustomer;
   items: InvoiceReturnItem[];

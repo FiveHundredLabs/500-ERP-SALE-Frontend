@@ -67,7 +67,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
       const assignedNames = availableCustomers
         .filter(c => assignedIds.includes(c.id))
-        .map(c => c.shopName || c.businessName || '');
+        .map(c => c.shopName || '');
 
       setFormData({
         fullName: initialData.fullName || "",
@@ -113,7 +113,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
   const handleToggleCustomer = (customer: Customer) => {
     const custId = customer.id;
-    const custName = customer.shopName || customer.businessName || '';
+    const custName = customer.shopName || '';
     if (!custId) return;
 
     setFormData(prev => {
@@ -136,7 +136,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
   const handleSelectAllFiltered = () => {
     const filteredIds = filteredCustomers.map(c => c.id).filter(Boolean);
-    const filteredNames = filteredCustomers.map(c => c.shopName || c.businessName || '').filter(Boolean);
+    const filteredNames = filteredCustomers.map(c => c.shopName || '').filter(Boolean);
 
     setFormData(prev => {
       const newIds = Array.from(new Set([...prev.assignedCustomerIds, ...filteredIds]));
@@ -160,7 +160,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
   const filteredCustomers = availableCustomers.filter(c => {
     const q = customerSearch.toLowerCase().trim();
     if (!q) return true;
-    const name = (c.shopName || c.businessName || '').toLowerCase();
+    const name = (c.shopName || '').toLowerCase();
     const contact = (c.contactPerson || '').toLowerCase();
     const city = (c.city || (typeof c.address === 'string' ? c.address : '')).toLowerCase();
     const phone = (c.phone || '').toLowerCase();
@@ -386,7 +386,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
               <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-[#0f172a]/60 rounded-lg border border-[#334155]/60">
                 {formData.assignedCustomerIds.map(id => {
                   const cust = availableCustomers.find(c => c.id === id);
-                  const name = cust ? (cust.shopName || cust.businessName || id) : id;
+                  const name = cust ? (cust.shopName || id) : id;
                   return (
                     <span 
                       key={id}
@@ -417,7 +417,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
                 filteredCustomers.map(cust => {
                   const custId = cust.id;
                   const isChecked = formData.assignedCustomerIds.includes(custId);
-                  const shopName = cust.shopName || cust.businessName || 'Customer';
+                  const shopName = cust.shopName || 'Customer';
                   const city = cust.city || (typeof cust.address === 'string' ? cust.address.split(',').pop()?.trim() : '');
 
                   return (

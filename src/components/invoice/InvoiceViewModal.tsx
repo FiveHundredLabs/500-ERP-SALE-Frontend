@@ -95,7 +95,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
-      const fileName = `Invoice-${invoiceData.invoiceId || 'draft'}.pdf`;
+      const fileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {

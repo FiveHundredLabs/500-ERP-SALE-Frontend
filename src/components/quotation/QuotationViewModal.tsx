@@ -95,7 +95,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
-      const fileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+      const fileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {
@@ -371,13 +371,14 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
               <InvoiceCanvas 
                 invoiceData={{
                   documentTitle: "QUOTATION",
-                  invoiceId: quotationData.quotationId || "Draft",
+                  invoiceNumber: quotationData.quotationNumber || "Draft",
                   customer: quotationData.customer,
                   customerDetails: quotationData.customerDetails as any,
                   items: quotationData.items.map(item => ({
                     id: item.id || Date.now().toString(),
-                    item: item.item,
-                    itemName: item.itemName || item.item,
+                    inventoryItemId: item.inventoryItemId,
+                    itemName: item.itemName || item.inventoryItem?.productName || 'Item',
+                    itemCode: item.productCode || item.inventoryItem?.productCode,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                     total: item.total,
@@ -386,7 +387,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
                   discount: quotationData.discount,
                   discountPercentage: quotationData.discountPercentage || 0,
                   totalAmount: quotationData.totalAmount,
-                  paymentStatus: 'Pending',
+                  paymentStatus: 'pending',
                   paymentMethod: quotationData.paymentMethod as any,
                   issueDate: quotationData.issueDate,
                   dueDate: quotationData.validUntil,

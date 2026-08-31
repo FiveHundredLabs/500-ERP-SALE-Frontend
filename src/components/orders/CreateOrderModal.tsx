@@ -105,12 +105,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     const activeCusts = allCustomers.filter(c => c.status !== 'Inactive');
     const q = customerSearch.trim().toLowerCase();
     if (!q) {
-      return [...activeCusts].sort((a, b) => (a.shopName || a.fullName || a.businessName || '').localeCompare(b.shopName || b.fullName || b.businessName || ''));
+      return [...activeCusts].sort((a, b) => (a.shopName || a.fullName || '').localeCompare(b.shopName || b.fullName || ''));
     }
-    const matching = activeCusts.filter(c => (c.shopName || c.fullName || c.businessName || '').toLowerCase().includes(q));
+    const matching = activeCusts.filter(c => (c.shopName || c.fullName || '').toLowerCase().includes(q));
     return matching.sort((a, b) => {
-      const aName = a.shopName || a.fullName || a.businessName || '';
-      const bName = b.shopName || b.fullName || b.businessName || '';
+      const aName = a.shopName || a.fullName || '';
+      const bName = b.shopName || b.fullName || '';
       const aStarts = aName.toLowerCase().startsWith(q);
       const bStarts = bName.toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
@@ -315,7 +315,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       updatedAt: now,
       salesman: selectedSalesman || null,
       customerId: selectedCustomer!.id,
-      customerName: selectedCustomer!.shopName || selectedCustomer!.businessName || 'Customer',
+      customerName: selectedCustomer!.shopName || selectedCustomer!.fullName || 'Customer',
       contactPerson: selectedCustomer!.contactPerson || '',
       contactPhone: selectedCustomer!.phone,
       customerAddress: selectedCustomer!.address || '',
@@ -533,7 +533,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         errors.customer ? 'border-red-500' : 'border-[#334155]'
                       }`}
                       placeholder="Select a customer..."
-                      value={selectedCustomer ? selectedCustomer.businessName : customerSearch}
+                      value={selectedCustomer ? selectedCustomer.shopName : customerSearch}
                       onChange={e => {
                         setCustomerSearch(e.target.value);
                         setSelectedCustomerId('');
@@ -585,7 +585,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                               selectedCustomerId === c.id ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'hover:bg-[#1e293b] text-gray-200'
                             }`}
                           >
-                            <span>{c.businessName}</span>
+                            <span>{c.shopName}</span>
                           </div>
                         ))
                       )}
