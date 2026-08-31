@@ -2,14 +2,13 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { StatusBadge, useToast } from '../components/erp';
-import { mockCustomers } from '../data/mockCustomers';
-import { mockInvoicesList } from '../data/mockInvoices';
-import { mockOrders } from '../data/mockOrders';
 import { invoiceService } from '../services/InvoiceService';
 import { financeService } from '../services/FinanceService';
+import { orderService } from '../services/OrderService';
 import type { Customer } from '../types/customers';
 import { extractCityFromAddress } from '../types/customers';
 import type { InvoiceResponse, InvoicePaymentRecord, PaymentMethodType } from '../types/invoice';
+import type { Order } from '../types/orders';
 import { getInvoiceCalculatedStatus, PaymentMethod } from '../types/invoice';
 import InvoiceViewModal from '../components/invoice/InvoiceViewModal';
 import {
@@ -38,11 +37,9 @@ const CustomerDetails: React.FC = () => {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
-  const [customer, setCustomer] = useState<Customer | undefined>(() =>
-    mockCustomers.find((c) => c.id === id || c.customerId === id)
-  );
-
+  const [customer, setCustomer] = useState<Customer | undefined>(undefined);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'due_soon' | 'partially_paid' | 'paid' | 'payments' | 'orders'>('all');
 
   // Modal states
@@ -78,15 +75,21 @@ const CustomerDetails: React.FC = () => {
   useEffect(() => {
     const loadCustomerData = async () => {
       try {
-        const foundCustomer = mockCustomers.find((c) => c.id === id || c.customerId === id);
-        setCustomer(foundCustomer);
+        const allCustomers = await invoiceService.getAllCustomers();
+        const foundCustomer = allCustomers.find((c: any) => c.id === id);
+        setCustomer(foundCustomer as any);
 
-        const allInvoices = await invoiceService.getAll();
+        const [allInvoices, allOrders] = await Promise.all([
+          invoiceService.getAll(),
+          orderService.getAll().catch(() => []),
+        ]);
+        setOrders(allOrders);
+
         const customerInvoices = allInvoices.filter((inv) => {
-          const invCustId = inv.customer?._id || (inv.customer as any)?.id;
+          const invCustId = inv.customer?.id;
           const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
-          const targetName = foundCustomer?.shopName || foundCustomer?.businessName;
-          const targetId = foundCustomer?.customerId || foundCustomer?.id;
+          const targetName = foundCustomer?.shopName || foundCustomer?.fullName;
+          const targetId = foundCustomer?.id || foundCustomer?.customerCode;
 
           return (
             invCustId === targetId ||
@@ -95,16 +98,7 @@ const CustomerDetails: React.FC = () => {
           );
         });
 
-        if (customerInvoices.length > 0) {
-          setInvoices(customerInvoices);
-        } else {
-          const mockMatch = mockInvoicesList.filter(
-            (inv) =>
-              inv.customer?.fullName === (foundCustomer?.shopName || foundCustomer?.businessName) ||
-              inv.customer?.customerCode === foundCustomer?.customerId
-          );
-          setInvoices(mockMatch.length > 0 ? mockMatch : mockInvoicesList.slice(0, 3));
-        }
+        setInvoices(customerInvoices);
       } catch (err) {
         console.error('Failed to load customer details:', err);
       }
@@ -133,38 +127,38 @@ const CustomerDetails: React.FC = () => {
   }, [invoices]);
 
   // Categorization
-  const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Overdue'), [trackedInvoices]);
-  const dueSoonInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Due Soon'), [trackedInvoices]);
-  const partiallyPaidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Partially Paid'), [trackedInvoices]);
-  const paidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Paid'), [trackedInvoices]);
+  const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'overdue'), [trackedInvoices]);
+  const dueSoonInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'due_soon'), [trackedInvoices]);
+  const partiallyPaidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'partially_paid'), [trackedInvoices]);
+  const paidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'paid'), [trackedInvoices]);
 
   // Aggregate stats
-  const totalInvoicedAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.totalAmount, 0), [trackedInvoices]);
+  const totalInvoicedAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0), [trackedInvoices]);
   const totalPaidAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.effectivePaidAmount, 0), [trackedInvoices]);
   const totalOutstandingAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.effectiveRemainingAmount, 0), [trackedInvoices]);
 
   // Payment history ledger
   const paymentHistoryRecords = useMemo(() => {
-    const records: Array<InvoicePaymentRecord & { invoiceId: string }> = [];
+    const records: Array<InvoicePaymentRecord & { invoiceNumber: string }> = [];
     trackedInvoices.forEach(inv => {
       if (inv.payments && inv.payments.length > 0) {
         inv.payments.forEach(p => {
           records.push({
             ...p,
-            invoiceId: inv.invoiceId,
+            invoiceNumber: inv.invoiceNumber,
           });
         });
       }
     });
-    return records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return records.sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
   }, [trackedInvoices]);
 
   const customerOrders = useMemo(() => {
     if (!customer) return [];
-    return mockOrders.filter(
-      (o) => o.customerId === customer.customerId || o.customerName === (customer.shopName || customer.businessName)
+    return orders.filter(
+      (o) => o.customerId === customer.id || o.customerName === (customer.shopName || customer.businessName || customer.fullName)
     );
-  }, [customer]);
+  }, [customer, orders]);
 
   // Filtered invoices by active tab
   const filteredInvoices = useMemo(() => {
@@ -213,14 +207,14 @@ const CustomerDetails: React.FC = () => {
 
       const newPaid = inv.effectivePaidAmount + allocated;
       const newRemaining = Math.max(0, inv.totalAmount - newPaid);
-      let newStatus: 'Paid' | 'Partially Paid' | 'Outstanding' | 'Overdue' | 'Due Soon' = 'Outstanding';
+      let newStatus: 'paid' | 'partially_paid' | 'outstanding' | 'overdue' | 'due_soon' = 'outstanding';
 
       if (newRemaining <= 0) {
-        newStatus = 'Paid';
+        newStatus = 'paid';
       } else if (newPaid > 0) {
-        newStatus = inv.diffDays < 0 ? 'Overdue' : inv.diffDays <= 7 ? 'Due Soon' : 'Partially Paid';
+        newStatus = inv.diffDays < 0 ? 'overdue' : inv.diffDays <= 7 ? 'due_soon' : 'partially_paid';
       } else {
-        newStatus = inv.diffDays < 0 ? 'Overdue' : inv.diffDays <= 7 ? 'Due Soon' : 'Outstanding';
+        newStatus = inv.diffDays < 0 ? 'overdue' : inv.diffDays <= 7 ? 'due_soon' : 'outstanding';
       }
 
       return {
@@ -255,33 +249,19 @@ const CustomerDetails: React.FC = () => {
       const allocationList = bulkAllocations
         .filter((a) => a.allocated > 0)
         .map((a) => ({
-          invoiceId: a.invoice._id,
+          invoiceNumber: a.invoice.id,
           amount: a.allocated,
         }));
 
-      await invoiceService.recordBulkPayment(
-        allocationList,
-        {
-          transactionId: `TXN-${Date.now()}`,
-          paymentMethod: bulkPaymentForm.paymentMethod,
-          reference: bulkPaymentForm.reference,
-          bankName: bulkPaymentForm.bankName,
-          date: bulkPaymentForm.date,
-          notes: bulkPaymentForm.notes,
-        }
-      );
-
       await financeService.create({
-        transactionId: `TXN-${Date.now()}`,
+        transactionNumber: `TXN-${Date.now()}`,
         transactionDate: bulkPaymentForm.date,
-        paymentMethod: {
-          type: (bulkPaymentForm.paymentMethod || 'Cheque') as any,
-          bankName: bulkPaymentForm.bankName || '',
-          accountNumber: '',
-          transactionRef: bulkPaymentForm.reference || '',
-        },
-        amount: totalAllocated.toString(),
-        invoice: { invoiceId: allocationList[0]?.invoiceId || 'BULK' },
+        paymentMethod: bulkPaymentForm.paymentMethod === 'cheque' ? 'cheque' : 'bank_transfer',
+        bankName: bulkPaymentForm.bankName || undefined,
+        transactionRef: bulkPaymentForm.reference || undefined,
+        amount: totalAllocated,
+        invoiceId: bulkAllocations.find(a => a.allocated > 0)?.invoice.id,
+        invoiceNumber: bulkAllocations.find(a => a.allocated > 0)?.invoice.invoiceNumber || 'BULK',
       });
 
       const updatedInvoicesList = await invoiceService.getAll();
@@ -303,10 +283,6 @@ const CustomerDetails: React.FC = () => {
         totalPaid: (customer!.totalPaid || 0) + totalAllocated,
       };
       setCustomer(updatedCustomer);
-      const cIdx = mockCustomers.findIndex(c => c.id === customer!.id);
-      if (cIdx !== -1) {
-        mockCustomers[cIdx] = updatedCustomer;
-      }
 
       success(
         'Payment Recorded Successfully',
@@ -364,13 +340,13 @@ const CustomerDetails: React.FC = () => {
   }
 
   const city = customer.city || extractCityFromAddress(customer.address);
-  const repName = customer.salesRepName || (typeof customer.salesRep === 'object' ? customer.salesRep.name : customer.salesRep) || 'Unassigned';
+  const repName = customer.salesRepName || customer.salesRep?.fullName || 'Unassigned';
 
   return (
     <AppLayout
       headerIcon={<Building2 size={20} className="text-blue-400" />}
       headerTitle="Customer Details"
-      headerSubtitle={customer.customerId}
+      headerSubtitle={customer.customerCode}
     >
       <div className="space-y-5">
         {/* ── Breadcrumb Navigation ── */}
@@ -404,7 +380,7 @@ const CustomerDetails: React.FC = () => {
                   {customer.shopName || customer.businessName}
                 </h1>
                 <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-md">
-                  {customer.customerId}
+                  {customer.customerCode}
                 </span>
                 <StatusBadge status={customer.status} />
               </div>
@@ -580,10 +556,10 @@ const CustomerDetails: React.FC = () => {
             <div className="flex flex-wrap items-center gap-1">
               {[
                 { id: 'all', label: 'All Invoices', count: trackedInvoices.length },
-                { id: 'overdue', label: 'Overdue', count: overdueInvoices.length, color: 'text-red-400' },
-                { id: 'due_soon', label: 'Due Soon', count: dueSoonInvoices.length, color: 'text-amber-400' },
-                { id: 'partially_paid', label: 'Partially Paid', count: partiallyPaidInvoices.length, color: 'text-purple-400' },
-                { id: 'paid', label: 'Paid', count: paidInvoices.length, color: 'text-emerald-400' },
+                { id: 'overdue', label: 'overdue', count: overdueInvoices.length, color: 'text-red-400' },
+                { id: 'due_soon', label: 'due_soon', count: dueSoonInvoices.length, color: 'text-amber-400' },
+                { id: 'partially_paid', label: 'partially_paid', count: partiallyPaidInvoices.length, color: 'text-purple-400' },
+                { id: 'paid', label: 'paid', count: paidInvoices.length, color: 'text-emerald-400' },
                 { id: 'payments', label: 'Payment Ledger', count: paymentHistoryRecords.length, icon: History },
                 { id: 'orders', label: 'Orders', count: customerOrders.length, icon: ShoppingBag },
               ].map((tab) => {
@@ -640,16 +616,16 @@ const CustomerDetails: React.FC = () => {
                     </tr>
                   ) : (
                     filteredInvoices.map((inv) => {
-                      const isMenuOpen = activeInvoiceMenuId === inv._id;
+                      const isMenuOpen = activeInvoiceMenuId === inv.id;
 
                       return (
                         <tr 
-                          key={inv._id}
+                          key={inv.id}
                           className="hover:bg-[#1e293b]/70 transition cursor-pointer"
                           onClick={() => setSelectedInvoiceForView(inv)}
                         >
                           <td className="p-3 font-mono font-bold text-blue-400">
-                            {inv.invoiceId}
+                            {inv.invoiceNumber}
                           </td>
                           <td className="p-3 text-gray-300 font-mono">
                             {formatDate(inv.issueDate)}
@@ -657,12 +633,12 @@ const CustomerDetails: React.FC = () => {
                           <td className="p-3">
                             <div className="flex items-center gap-1.5">
                               <span className="font-mono text-gray-300">{formatDate(inv.dueDate)}</span>
-                              {inv.calculatedStatus === 'Overdue' && (
+                              {inv.calculatedStatus === 'overdue' && (
                                 <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                                   {Math.abs(inv.diffDays)}d overdue
                                 </span>
                               )}
-                              {inv.calculatedStatus === 'Due Soon' && (
+                              {inv.calculatedStatus === 'due_soon' && (
                                 <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                   due in {inv.diffDays}d
                                 </span>
@@ -679,27 +655,27 @@ const CustomerDetails: React.FC = () => {
                             {formatCurrency(inv.effectiveRemainingAmount)}
                           </td>
                           <td className="p-3 text-center">
-                            {inv.calculatedStatus === 'Paid' && (
+                            {inv.calculatedStatus === 'paid' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 <CheckCircle size={10} /> Paid
                               </span>
                             )}
-                            {inv.calculatedStatus === 'Partially Paid' && (
+                            {inv.calculatedStatus === 'partially_paid' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
                                 <Clock size={10} /> Partially Paid
                               </span>
                             )}
-                            {inv.calculatedStatus === 'Overdue' && (
+                            {inv.calculatedStatus === 'overdue' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                                 <AlertTriangle size={10} /> Overdue
                               </span>
                             )}
-                            {inv.calculatedStatus === 'Due Soon' && (
+                            {inv.calculatedStatus === 'due_soon' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                 <Clock size={10} /> Due Soon
                               </span>
                             )}
-                            {inv.calculatedStatus === 'Outstanding' && (
+                            {inv.calculatedStatus === 'outstanding' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#0f172a] text-gray-300 border border-[#334155]">
                                 Outstanding
                               </span>
@@ -708,7 +684,7 @@ const CustomerDetails: React.FC = () => {
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="relative flex justify-end">
                               <button
-                                onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : inv._id)}
+                                onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : inv.id)}
                                 className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#334155] transition"
                                 title="Invoice actions"
                               >
@@ -739,7 +715,7 @@ const CustomerDetails: React.FC = () => {
                                           setBulkPaymentForm(prev => ({
                                             ...prev,
                                             amount: inv.effectiveRemainingAmount.toString(),
-                                            notes: `Payment for ${inv.invoiceId}`,
+                                            notes: `Payment for ${inv.invoiceNumber}`,
                                           }));
                                           setShowBulkPaymentModal(true);
                                         }}
@@ -789,9 +765,9 @@ const CustomerDetails: React.FC = () => {
                   ) : (
                     paymentHistoryRecords.map((p, idx) => (
                       <tr key={p.id || idx} className="hover:bg-[#1e293b]/70 transition">
-                        <td className="p-3 font-mono text-gray-300">{formatDate(p.date)}</td>
+                        <td className="p-3 font-mono text-gray-300">{formatDate(p.paidAt)}</td>
                         <td className="p-3 font-mono text-cyan-400 font-semibold">{p.id || `TXN-${idx + 1}`}</td>
-                        <td className="p-3 font-mono text-blue-400 font-bold">{p.invoiceId}</td>
+                        <td className="p-3 font-mono text-blue-400 font-bold">{p.invoiceNumber}</td>
                         <td className="p-3">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
                             {p.paymentMethod || (p as any).method || 'Payment'}
@@ -838,15 +814,15 @@ const CustomerDetails: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    customerOrders.map((ord) => (
+                    customerOrders.map((ord: Order) => (
                       <tr 
                         key={ord.id} 
                         onClick={() => navigate(`/orders/${ord.id}`)}
                         className="hover:bg-[#1e293b]/70 transition cursor-pointer"
                       >
-                        <td className="p-3 font-mono font-bold text-blue-400">{ord.orderId}</td>
+                        <td className="p-3 font-mono font-bold text-blue-400">{ord.orderNumber}</td>
                         <td className="p-3 font-mono text-gray-300">{ord.orderDate}</td>
-                        <td className="p-3 text-gray-300">{typeof ord.salesman === 'object' && ord.salesman ? ord.salesman.name : (ord.salesman || '—')}</td>
+                        <td className="p-3 text-gray-300">{typeof ord.salesman === 'object' && ord.salesman ? ord.salesman.fullName : (ord.salesman || '—')}</td>
                         <td className="p-3 text-right font-mono font-semibold">{ord.numberOfProducts}</td>
                         <td className="p-3 text-right font-mono font-bold text-gray-100">{formatCurrency(ord.grandTotal)}</td>
                         <td className="p-3 text-center"><StatusBadge status={ord.paymentStatus} /></td>
@@ -879,7 +855,7 @@ const CustomerDetails: React.FC = () => {
                     </span>
                   </h2>
                   <p className="text-xs text-gray-400">
-                    Applying payment for <strong className="text-white">{customer.shopName || customer.businessName}</strong> ({customer.customerId})
+                    Applying payment for <strong className="text-white">{customer.shopName || customer.businessName}</strong> ({customer.customerCode})
                   </p>
                 </div>
               </div>
@@ -1041,11 +1017,11 @@ const CustomerDetails: React.FC = () => {
                           const isAllocated = alloc.allocated > 0;
                           return (
                             <tr
-                              key={alloc.invoice._id}
+                              key={alloc.invoice.id}
                               className={isAllocated ? 'bg-emerald-950/10' : 'opacity-60'}
                             >
                               <td className="p-2.5 font-mono font-bold text-blue-400">
-                                {alloc.invoice.invoiceId}
+                                {alloc.invoice.invoiceNumber}
                               </td>
                               <td className="p-2.5 font-mono text-gray-300">
                                 {formatDate(alloc.invoice.dueDate)}
@@ -1063,27 +1039,27 @@ const CustomerDetails: React.FC = () => {
                                 {formatCurrency(alloc.newRemaining)}
                               </td>
                               <td className="p-2.5 text-center">
-                                {alloc.newStatus === 'Paid' && (
+                                {alloc.newStatus === 'paid' && (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                     Paid
                                   </span>
                                 )}
-                                {alloc.newStatus === 'Partially Paid' && (
+                                {alloc.newStatus === 'partially_paid' && (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
                                     Partially Paid
                                   </span>
                                 )}
-                                {alloc.newStatus === 'Overdue' && (
+                                {alloc.newStatus === 'overdue' && (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                                     Overdue
                                   </span>
                                 )}
-                                {alloc.newStatus === 'Due Soon' && (
+                                {alloc.newStatus === 'due_soon' && (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                     Due Soon
                                   </span>
                                 )}
-                                {alloc.newStatus === 'Outstanding' && (
+                                {alloc.newStatus === 'outstanding' && (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1e293b] text-gray-400 border border-[#334155]">
                                     Outstanding
                                   </span>
@@ -1141,13 +1117,15 @@ const CustomerDetails: React.FC = () => {
             ...selectedInvoiceForView,
             salesman: typeof selectedInvoiceForView.salesman === 'object' && selectedInvoiceForView.salesman !== null
               ? selectedInvoiceForView.salesman
-              : { _id: 'so-001', name: typeof selectedInvoiceForView.salesman === 'string' ? selectedInvoiceForView.salesman : 'Kasun Perera' },
-            customer: selectedInvoiceForView.customer?._id || '',
-            customerDetails: selectedInvoiceForView.customer,
+              : { id: 'so-001', name: typeof selectedInvoiceForView.salesman === 'string' ? selectedInvoiceForView.salesman : 'Kasun Perera' },
+            customer: selectedInvoiceForView.customer?.id || '',
+            customerDetails: selectedInvoiceForView.customer ?? undefined,
             items: selectedInvoiceForView.items.map(item => ({
-              id: item._id || Math.random().toString(),
-              item: typeof item.item === 'object' ? item.item?._id : item.item,
-              itemName: typeof item.item === 'object' ? item.item?.product_name || item.item?.itemName : 'Product',
+              id: item.id || Math.random().toString(),
+              inventoryItemId: item.inventoryItemId,
+              itemName: item.itemName || item.inventoryItem?.productName || 'Product',
+              itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+              discount: item.discount || 0,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               total: item.total,

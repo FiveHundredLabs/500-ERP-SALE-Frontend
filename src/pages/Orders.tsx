@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { mockOrders as initialOrders } from '../data/mockOrders';
 import type { Order } from '../types/orders';
 import { Eye, Download, ShoppingBag, Plus, MessageCircle } from 'lucide-react';
 import CreateOrderModal from '../components/orders/CreateOrderModal';
@@ -35,9 +34,9 @@ const Orders: React.FC = () => {
       setLoading(true);
       try {
         const data = await orderService.getAll();
-        setOrders(data);
+        setOrders(data || []);
       } catch (err) {
-        setOrders(initialOrders);
+        setOrders([]);
       } finally {
         setLoading(false);
       }
@@ -46,24 +45,24 @@ const Orders: React.FC = () => {
   }, []);
 
   const salesmenOptions = useMemo(() => {
-    const names = Array.from(new Set(orders.map((o) => o.salesman?.name).filter(Boolean))) as string[];
+    const names = Array.from(new Set(orders.map((o) => o.salesman?.fullName).filter(Boolean))) as string[];
     return names.map((name) => ({ value: name, label: name }));
   }, [orders]);
 
   const statusOptions = [
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Reviewing', label: 'Reviewing' },
-    { value: 'Approved', label: 'Approved' },
-    { value: 'Rejected', label: 'Rejected' },
-    { value: 'Converted to PO', label: 'Converted to PO' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Cancelled', label: 'Cancelled' },
+    { value: 'pending', label: 'pending' },
+    { value: 'reviewing', label: 'reviewing' },
+    { value: 'approved', label: 'approved' },
+    { value: 'rejected', label: 'rejected' },
+    { value: 'converted_to_po', label: 'converted_to_po' },
+    { value: 'completed', label: 'completed' },
+    { value: 'cancelled', label: 'cancelled' },
   ];
 
   const paymentOptions = [
-    { value: 'Unpaid', label: 'Unpaid' },
-    { value: 'Paid', label: 'Paid' },
-    { value: 'Partial', label: 'Partial' },
+    { value: 'unpaid', label: 'unpaid' },
+    { value: 'paid', label: 'paid' },
+    { value: 'partial', label: 'partial' },
   ];
 
   // Dynamic suggestions for FilterBar instant dropdown (Customer Name only)
@@ -96,7 +95,7 @@ const Orders: React.FC = () => {
 
       const matchesStatus = statusFilter === '' || ord.status === statusFilter;
       const matchesPayment = paymentFilter === '' || ord.paymentStatus === paymentFilter;
-      const matchesSalesman = salesmanFilter === '' || ord.salesman?.name === salesmanFilter;
+      const matchesSalesman = salesmanFilter === '' || ord.salesman?.fullName === salesmanFilter;
 
       const ordDate = ord.orderDate;
       const matchesDateFrom = dateFrom === '' || ordDate >= dateFrom;
@@ -110,7 +109,7 @@ const Orders: React.FC = () => {
     return [...filteredOrders].sort((a, b) => {
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
-      if (sortColumn === 'salesman') { valA = a.salesman?.name || ''; valB = b.salesman?.name || ''; }
+      if (sortColumn === 'salesman') { valA = a.salesman?.fullName || ''; valB = b.salesman?.fullName || ''; }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
@@ -135,8 +134,8 @@ const Orders: React.FC = () => {
   const handleExportCSV = () => {
     const headers = ['Order ID', 'Order Date', 'Customer', 'Contact Phone', 'Salesman', 'Items', 'Total', 'Payment Status', 'Status'];
     const rows = sortedOrders.map((o) => [
-      o.orderId, o.orderDate, `"${o.customerName}"`, o.contactPhone,
-      `"${o.salesman?.name || 'Unassigned'}"`, o.numberOfProducts, o.grandTotal, o.paymentStatus, o.status,
+      o.orderNumber, o.orderDate, `"${o.customerName}"`, o.contactPhone,
+      `"${o.salesman?.fullName || 'Unassigned'}"`, o.numberOfProducts, o.grandTotal, o.paymentStatus, o.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -166,7 +165,7 @@ const Orders: React.FC = () => {
       header: 'Order ID',
       sortable: true,
       minWidth: '110px',
-      render: (row) => <span className="font-mono text-blue-400 font-bold text-xs">{row.orderId}</span>,
+      render: (row) => <span className="font-mono text-blue-400 font-bold text-xs">{row.orderNumber}</span>,
     },
     {
       key: 'orderDate',
@@ -194,7 +193,7 @@ const Orders: React.FC = () => {
       minWidth: '140px',
       render: (row) => (
         <div>
-          <p className="text-xs font-semibold text-gray-300">{row.salesman?.name || '—'}</p>
+          <p className="text-xs font-semibold text-gray-300">{row.salesman?.fullName || '—'}</p>
           {row.salesman?.area && <p className="text-[11px] text-gray-400">{row.salesman.area}</p>}
         </div>
       ),
@@ -241,11 +240,11 @@ const Orders: React.FC = () => {
           <button
             onClick={() => {
               const text = generateOrderWhatsAppMessage({
-                orderId: row.orderId,
+                orderNumber: row.orderNumber,
                 customerName: row.customerName,
                 totalAmount: row.grandTotal,
                 orderDate: row.orderDate,
-                itemsCount: row.numberOfProducts || row.products?.length || 0,
+                itemsCount: row.numberOfProducts || row.items?.length || 0,
                 remarks: row.notes,
               });
               const url = getWhatsAppUrl(row.contactPhone || '', text);

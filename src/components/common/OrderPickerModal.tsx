@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, ShoppingBag, ChevronRight, User, Calendar, Package, CheckCircle } from 'lucide-react';
 import type { Order } from '../../types/orders';
 import { orderService } from '../../services/OrderService';
-import { mockOrders } from '../../data/mockOrders';
 
 interface OrderPickerModalProps {
   isOpen: boolean;
@@ -23,9 +22,9 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
       setLoading(true);
       try {
         const data = await orderService.getAll();
-        setOrders(data);
+        setOrders(data || []);
       } catch {
-        setOrders(mockOrders);
+        setOrders([]);
       } finally {
         setLoading(false);
       }
@@ -38,9 +37,9 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
       const q = search.toLowerCase();
       const matchSearch =
         !q ||
-        o.orderId.toLowerCase().includes(q) ||
+        o.orderNumber.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
-        (o.salesman?.name || '').toLowerCase().includes(q) ||
+        (o.salesman?.fullName || '').toLowerCase().includes(q) ||
         o.contactPerson.toLowerCase().includes(q);
       const matchStatus = !statusFilter || o.status === statusFilter;
       return matchSearch && matchStatus;
@@ -52,12 +51,12 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
 
   const statusColor = (status: string) => {
     switch (status) {
-      case 'Approved': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-      case 'Pending': return 'text-amber-400 bg-amber-400/10 border-amber-400/30';
-      case 'Reviewing': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
-      case 'Converted to PO': return 'text-purple-400 bg-purple-400/10 border-purple-400/30';
-      case 'Completed': return 'text-teal-400 bg-teal-400/10 border-teal-400/30';
-      case 'Rejected': return 'text-red-400 bg-red-400/10 border-red-400/30';
+      case 'approved': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
+      case 'pending': return 'text-amber-400 bg-amber-400/10 border-amber-400/30';
+      case 'reviewing': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
+      case 'converted_to_po': return 'text-purple-400 bg-purple-400/10 border-purple-400/30';
+      case 'completed': return 'text-teal-400 bg-teal-400/10 border-teal-400/30';
+      case 'rejected': return 'text-red-400 bg-red-400/10 border-red-400/30';
       default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
     }
   };
@@ -109,11 +108,11 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
             onChange={e => setStatusFilter(e.target.value)}
           >
             <option value="">All Statuses</option>
-            <option value="Pending">Pending</option>
-            <option value="Reviewing">Reviewing</option>
-            <option value="Approved">Approved</option>
-            <option value="Converted to PO">Converted to PO</option>
-            <option value="Completed">Completed</option>
+            <option value="pending">Pending</option>
+            <option value="reviewing">Reviewing</option>
+            <option value="approved">Approved</option>
+            <option value="converted_to_po">Converted to PO</option>
+            <option value="completed">Completed</option>
           </select>
         </div>
 
@@ -149,7 +148,7 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
                     {/* Left: Order info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="font-mono text-blue-400 font-bold text-sm">{order.orderId}</span>
+                        <span className="font-mono text-blue-400 font-bold text-sm">{order.orderNumber}</span>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor(order.status)}`}>
                           {order.status}
                         </span>
@@ -172,7 +171,7 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
 
                       {/* Products preview */}
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {order.products.slice(0, 3).map((p, idx) => (
+                        {order.items.slice(0, 3).map((p, idx) => (
                           <span
                             key={idx}
                             className="text-[10px] bg-[#1e293b] text-gray-300 border border-[#334155] px-2 py-0.5 rounded font-mono"
@@ -180,9 +179,9 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
                             {p.sku}
                           </span>
                         ))}
-                        {order.products.length > 3 && (
+                        {order.items.length > 3 && (
                           <span className="text-[10px] text-gray-500 px-1 py-0.5">
-                            +{order.products.length - 3} more
+                            +{order.items.length - 3} more
                           </span>
                         )}
                       </div>

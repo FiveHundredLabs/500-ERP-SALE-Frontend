@@ -5,13 +5,23 @@ import type {
   QuotationCustomer 
 } from "../types/quotation";
 import type { InventoryItem } from "../types/inventory"; 
-import { mockQuotationsList } from "../data/mockQuotations";
-import { mockCustomers } from "../data/mockCustomers";
-import { mockInventoryItems } from "../data/mockInventory";
 import { extractCityFromAddress } from "../types/customers";
+import { moneyToApi, moneyToNumber } from '../utils/money';
+import { mapInventoryItem, mapQuotation } from './apiMappers';
 
-export interface NextQuotationIdResponse {
-  nextQuotationId: string;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+function toQuotationPayload(data: Partial<BackendQuotationData>) {
+  const encodeMoney = (value: number | undefined) => value === undefined ? undefined : moneyToApi(value);
+  return {
+    ...data,
+    subTotal: encodeMoney(data.subTotal), discount: encodeMoney(data.discount), totalAmount: encodeMoney(data.totalAmount),
+    items: data.items?.map(item => ({ ...item, unitPrice: encodeMoney(item.unitPrice), total: encodeMoney(item.total) })),
+  };
+}
+
+export interface NextQuotationNumberResponse {
+  nextQuotationNumber: string;
 }
 
 export interface DeleteQuotationResponse {
@@ -21,135 +31,143 @@ export interface DeleteQuotationResponse {
 export const quotationService = {
   // Get all quotations
   async getAll(): Promise<QuotationResponse[]> {
-    return [...mockQuotationsList];
+    const res = await fetch(`${API_BASE}/quotations`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch quotations: ${res.statusText}`);
+    return ((await res.json()) as unknown[]).map(mapQuotation);
   },
 
   // Get all customers
   async getAllCustomers(): Promise<QuotationCustomer[]> {
-    return mockCustomers.map((c) => ({
-      _id: c.id,
-      shopName: c.shopName || c.businessName,
-      fullName: c.shopName || c.businessName || 'Customer',
+    const res = await fetch(`${API_BASE}/customers`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
+    const data = await res.json();
+    return (data || []).map((c: any) => ({
+      id: c.id,
+      shopName: c.shopName || c.name || c.businessName || 'Customer',
+      fullName: c.fullName || c.name || c.shopName || 'Customer',
       contactPerson: c.contactPerson || '',
-      email: '',
-      phone: c.phone || '+94705787818',
+      email: c.email || '',
+      phone: c.phone || '',
       phone2: c.phone2 || '',
       phone3: c.phone3 || '',
-      vatNumber: '',
-      customerCode: c.customerId,
-      creditPeriod: 30,
-      paymentTerms: 'Net 30',
-      creditLimit: c.creditLimit || 1000000,
-      address: {
-        street: c.address,
-        city: c.city || extractCityFromAddress(c.address),
-        country: 'Sri Lanka',
-        zip: '00100'
-      }
+      vatNumber: c.vatNumber || '',
+      customerCode: c.customerCode || c.id || 'CUST',
+      creditPeriod: c.creditPeriod || 30,
+      paymentTerms: c.paymentTerms || 'Net 30',
+      creditLimit: moneyToNumber(c.creditLimit),
+      address: c.address || '',
+      city: c.city || extractCityFromAddress(c.address || ''),
     }));
   },
 
   // Get next quotation ID
   async getNextId(): Promise<string> {
-    const nextNum = mockQuotationsList.length + 1;
-    const pad = nextNum.toString().padStart(3, '0');
-    return `QUO-2026-${pad}`;
+    const res = await fetch(`${API_BASE}/quotations/next-id`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch next quotation ID: ${res.statusText}`);
+    const data = await res.json();
+    return data.nextQuotationNumber || `QUO-${Date.now()}`;
   },
 
-  // Get quotation by ID - Public
+  // Get quotation by ID
   async getById(id: string): Promise<QuotationResponse> {
-    const found = mockQuotationsList.find(q => q._id === id || q.quotationId === id);
-    if (found) return found;
-    return mockQuotationsList[0];
+    const res = await fetch(`${API_BASE}/quotations/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Quotation with ID "${id}" not found.`);
+    return mapQuotation(await res.json());
   },
 
-  // Get quotation by quotationId
-  async getByQuotationId(quotationId: string): Promise<QuotationResponse> {
-    const found = mockQuotationsList.find(q => q.quotationId === quotationId || q._id === quotationId);
-    if (found) return found;
-    return mockQuotationsList[0];
+  // Get quotation by quotationNumber
+  async getByQuotationId(quotationNumber: string): Promise<QuotationResponse> {
+    const res = await fetch(`${API_BASE}/quotations/number/${encodeURIComponent(quotationNumber)}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Quotation "${quotationNumber}" not found.`);
+    return res.json();
   },
 
   // Create new quotation
   async create(quotationData: BackendQuotationData): Promise<QuotationResponse> {
-    const nextIdStr = `QUO-2026-${(mockQuotationsList.length + 1).toString().padStart(3, '0')}`;
-    const newQuo: QuotationResponse = {
-      _id: `quo-${Date.now()}`,
-      quotationId: quotationData.quotationId || nextIdStr,
-      customer: typeof quotationData.customer === 'string' ? {
-        _id: quotationData.customer,
-        fullName: 'Customer ' + quotationData.customer,
-        email: '',
-        phone: '',
-        vatNumber: '',
-        customerCode: 'CUST-001'
-      } : (quotationData.customer as any),
-      items: quotationData.items || [],
-      subTotal: quotationData.subTotal || 0,
-      discount: quotationData.discount || 0,
-      totalAmount: quotationData.totalAmount || 0,
-      paymentMethod: quotationData.paymentMethod || 'Cash',
-      issueDate: quotationData.issueDate || new Date().toISOString(),
-      validUntil: quotationData.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      status: quotationData.status || 'Pending',
-      notes: quotationData.notes,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    mockQuotationsList.unshift(newQuo);
-    return newQuo;
+    const res = await fetch(`${API_BASE}/quotations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(toQuotationPayload(quotationData)),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to create quotation`);
+    }
+    return mapQuotation(await res.json());
   },
 
   // Update quotation
-  async update(quotationId: string, updateData: Partial<BackendQuotationData>): Promise<QuotationResponse> {
-    const found = mockQuotationsList.find(q => q._id === quotationId || q.quotationId === quotationId);
-    if (found) {
-      Object.assign(found, updateData, { updatedAt: new Date().toISOString() });
-      return found;
+  async update(id: string, updateData: Partial<BackendQuotationData>): Promise<QuotationResponse> {
+    const res = await fetch(`${API_BASE}/quotations/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(toQuotationPayload(updateData)),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update quotation`);
     }
-    return mockQuotationsList[0];
+    return mapQuotation(await res.json());
   },
 
   // Update status
-  async updateStatus(quotationId: string, status: QuotationStatusType): Promise<QuotationResponse> {
-    const found = mockQuotationsList.find(q => q._id === quotationId || q.quotationId === quotationId);
-    if (found) {
-      found.status = status;
-      return found;
+  async updateStatus(id: string, status: QuotationStatusType): Promise<QuotationResponse> {
+    const res = await fetch(`${API_BASE}/quotations/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update status`);
     }
-    return mockQuotationsList[0];
+    return mapQuotation(await res.json());
   },
 
   // Delete quotation
-  async delete(quotationId: string): Promise<DeleteQuotationResponse> {
-    const index = mockQuotationsList.findIndex(q => q._id === quotationId || q.quotationId === quotationId);
-    if (index !== -1) {
-      mockQuotationsList.splice(index, 1);
+  async delete(id: string): Promise<DeleteQuotationResponse> {
+    const res = await fetch(`${API_BASE}/quotations/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to delete quotation`);
     }
-    return { message: "Quotation deleted successfully" };
+    return res.json();
   },
 
   // Get inventory items for dropdown
   async getInventoryItems(): Promise<InventoryItem[]> {
-    return mockInventoryItems;
+    const res = await fetch(`${API_BASE}/inventory-items`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch inventory items`);
+    return ((await res.json()) as unknown[]).map(mapInventoryItem);
   },
 
   // Create new customer
-  async createCustomer(customerData: Omit<QuotationCustomer, '_id' | 'customerCode'>) {
-    const newCust: QuotationCustomer = {
-      ...customerData,
-      _id: `cust-${Date.now()}`,
-      customerCode: `CUST-${Math.floor(100 + Math.random() * 900)}`
-    };
-    return newCust;
+  async createCustomer(customerData: Omit<QuotationCustomer, 'id' | 'customerCode'>) {
+    const res = await fetch(`${API_BASE}/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(customerData),
+    });
+    if (!res.ok) throw new Error(`Failed to create customer`);
+    return res.json();
   },
 
   // Update customer
-  async updateCustomer(customerId: string, customerData: Omit<QuotationCustomer, '_id' | 'customerCode'>) {
-    return {
-      ...customerData,
-      _id: customerId,
-      customerCode: 'CUST-001'
-    };
+  async updateCustomer(customerId: string, customerData: Omit<QuotationCustomer, 'id' | 'customerCode'>) {
+    const res = await fetch(`${API_BASE}/customers/${customerId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(customerData),
+    });
+    if (!res.ok) throw new Error(`Failed to update customer`);
+    return res.json();
   }
 };

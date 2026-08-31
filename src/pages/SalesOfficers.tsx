@@ -22,7 +22,7 @@ import type { InvoiceResponse } from "../types/invoice";
 import type { Order } from "../types/orders";
 import { salesOfficerService } from "../services/SalesOfficerService";
 import { invoiceService } from "../services/InvoiceService";
-import { mockOrders } from "../data/mockOrders";
+import { orderService } from "../services/OrderService";
 import SalesOfficerModal from "../components/salesOfficers/SalesOfficerModal";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
 import CustomAlert from "../components/CustomAlert";
@@ -49,7 +49,7 @@ export const SalesOfficers: React.FC = () => {
   // Data states
   const [officers, setOfficers] = useState<SalesOfficer[]>([]);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -88,13 +88,14 @@ export const SalesOfficers: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [officersData, invoicesData] = await Promise.all([
+      const [officersData, invoicesData, ordersData] = await Promise.all([
         salesOfficerService.getAll(),
         invoiceService.getAll(),
+        orderService.getAll().catch(() => []),
       ]);
       setOfficers(officersData);
       setInvoices(invoicesData);
-      setOrders(mockOrders);
+      setOrders(ordersData);
     } catch (error) {
       setAlert({
         type: "error",
@@ -142,28 +143,28 @@ export const SalesOfficers: React.FC = () => {
     if (selectedOfficerId !== "ALL") {
       const officer = officers.find((o) => o.id === selectedOfficerId || o.officerId === selectedOfficerId);
       const officerName = officer ? officer.fullName : "";
-      list = list.filter((inv) => {
+      list = list.filter((inv: InvoiceResponse) => {
         const sName =
           typeof inv.salesman === "object" && inv.salesman !== null
-            ? inv.salesman.name || (inv.salesman as any).fullName
+            ? inv.salesman.fullName
             : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
-        return sName === officerName || (inv.salesman as any)?._id === selectedOfficerId;
+        return sName === officerName || inv.salesman?.id === selectedOfficerId;
       });
     }
 
     // Filter by Tab (all, completed, pending, overdue)
     const now = new Date();
     if (activeTab === "completed") {
-      list = list.filter((inv) => inv.paymentStatus === "Completed");
+      list = list.filter((inv: InvoiceResponse) => inv.paymentStatus === "completed");
     } else if (activeTab === "pending") {
-      list = list.filter((inv) => {
-        if (inv.paymentStatus === "Completed") return false;
+      list = list.filter((inv: InvoiceResponse) => {
+        if (inv.paymentStatus === "completed") return false;
         const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
         return !dueDate || dueDate >= now;
       });
     } else if (activeTab === "overdue") {
-      list = list.filter((inv) => {
-        if (inv.paymentStatus === "Completed") return false;
+      list = list.filter((inv: InvoiceResponse) => {
+        if (inv.paymentStatus === "completed") return false;
         const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
         return dueDate && dueDate < now;
       });
@@ -172,12 +173,12 @@ export const SalesOfficers: React.FC = () => {
     // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      list = list.filter((inv) => {
-        const idMatch = inv.invoiceId.toLowerCase().includes(q);
+      list = list.filter((inv: InvoiceResponse) => {
+        const idMatch = inv.invoiceNumber.toLowerCase().includes(q);
         const custMatch = inv.customer?.fullName?.toLowerCase().includes(q);
         const sName =
           typeof inv.salesman === "object" && inv.salesman !== null
-            ? inv.salesman.name || (inv.salesman as any).fullName || ""
+            ? inv.salesman.fullName || ""
             : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
         const salesMatch = sName.toLowerCase().includes(q);
         return idMatch || custMatch || salesMatch;
@@ -249,7 +250,7 @@ export const SalesOfficers: React.FC = () => {
   };
 
   const getCreditBadge = (inv: InvoiceResponse) => {
-    if (inv.paymentStatus === "Completed") {
+    if (inv.paymentStatus === "completed") {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
           <CheckCircle size={11} /> Settled
@@ -452,7 +453,7 @@ export const SalesOfficers: React.FC = () => {
                 </div>
                 <div className="text-xs text-blue-400 font-mono font-bold mt-2">
                   {formatLKR(
-                    periodFilteredInvoices.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0)
+                    periodFilteredInvoices.reduce((acc: number, inv: InvoiceResponse) => acc + (inv.totalAmount || 0), 0)
                   )}
                 </div>
               </button>
@@ -460,14 +461,14 @@ export const SalesOfficers: React.FC = () => {
               {/* 10 Individual Sales Officer Cards */}
               {officers.map((officer) => {
                 const isSelected = selectedOfficerId === officer.id || selectedOfficerId === officer.officerId;
-                const officerInvoices = periodFilteredInvoices.filter((inv) => {
+                const officerInvoices = periodFilteredInvoices.filter((inv: InvoiceResponse) => {
                   const sName =
                     typeof inv.salesman === "object" && inv.salesman !== null
-                      ? inv.salesman.name || (inv.salesman as any).fullName
+                      ? inv.salesman.fullName
                       : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
                   return sName === officer.fullName;
                 });
-                const officerSales = officerInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+                const officerSales = officerInvoices.reduce((sum: number, i: InvoiceResponse) => sum + (i.totalAmount || 0), 0);
 
                 return (
                   <div
@@ -687,19 +688,19 @@ export const SalesOfficers: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    displayedInvoices.map((inv) => {
+                    displayedInvoices.map((inv: InvoiceResponse) => {
                       const sName =
                         typeof inv.salesman === "object" && inv.salesman !== null
-                          ? inv.salesman.name || (inv.salesman as any).fullName
+                          ? inv.salesman.fullName
                           : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
 
                       return (
                         <tr
-                          key={inv._id || inv.invoiceId}
+                          key={inv.id || inv.invoiceNumber}
                           className="hover:bg-[#0f172a]/50 transition-colors"
                         >
                           <td className="p-3.5 font-mono font-bold text-blue-400">
-                            {inv.invoiceId}
+                            {inv.invoiceNumber}
                           </td>
                           <td className="p-3.5">
                             <div>
@@ -707,9 +708,7 @@ export const SalesOfficers: React.FC = () => {
                                 {inv.customer?.fullName || "Walk-in Customer"}
                               </p>
                               {(() => {
-                                const city = typeof inv.customer?.address === 'object' 
-                                  ? inv.customer?.address?.city 
-                                  : (inv.customer as any)?.city;
+                                const city = inv.customer?.city;
                                 return city ? (
                                   <p className="text-[11px] text-gray-400 flex items-center gap-1">
                                     <MapPin size={10} />
@@ -746,12 +745,12 @@ export const SalesOfficers: React.FC = () => {
                           <td className="p-3.5">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                inv.paymentStatus === "Completed"
+                                inv.paymentStatus === "completed"
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                                   : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                               }`}
                             >
-                              {inv.paymentStatus || "Pending"}
+                              {inv.paymentStatus || "pending"}
                             </span>
                           </td>
                           <td className="p-3.5 text-right">
@@ -812,12 +811,14 @@ export const SalesOfficers: React.FC = () => {
           }}
           invoiceData={{
             ...selectedInvoice,
-            customer: selectedInvoice.customer?._id || '',
-            customerDetails: selectedInvoice.customer,
+            customer: selectedInvoice.customer?.id || '',
+            customerDetails: selectedInvoice.customer ?? undefined,
             items: selectedInvoice.items.map(item => ({
-              id: item._id || Math.random().toString(),
-              item: typeof item.item === 'object' ? item.item?._id : item.item,
-              itemName: typeof item.item === 'object' ? item.item?.product_name || item.item?.itemName : 'Product',
+              id: item.id || Math.random().toString(),
+              inventoryItemId: item.inventoryItemId,
+              itemName: item.itemName || item.inventoryItem?.productName || 'Product',
+              itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+              discount: item.discount || 0,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               total: item.total,
@@ -830,7 +831,7 @@ export const SalesOfficers: React.FC = () => {
             taxRate: selectedInvoice.taxRate || 0,
             salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null
               ? selectedInvoice.salesman
-              : { _id: 'so-001', name: typeof selectedInvoice.salesman === 'string' ? selectedInvoice.salesman : 'Kasun Perera' },
+              : { id: 'so-001', name: typeof selectedInvoice.salesman === 'string' ? selectedInvoice.salesman : 'Kasun Perera' },
           }}
         />
       )}

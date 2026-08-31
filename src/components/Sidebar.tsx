@@ -20,6 +20,7 @@ import {
   UserCheck,
   BarChart3,
   Smartphone,
+  RotateCcw,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -76,6 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         { name: "Quotations", icon: FileText, path: "/quotations", roles: ['admin'] },
         { name: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", roles: ['admin', 'inventory_manager'] },
         { name: "Invoices", icon: Receipt, path: "/invoice", roles: ['admin'] },
+        { name: "Invoice Returns", icon: RotateCcw, path: "/invoice-returns", roles: ['admin'] },
         { name: "Accounts", icon: DollarSign, path: "/finance", roles: ['admin'] },
       ],
     },

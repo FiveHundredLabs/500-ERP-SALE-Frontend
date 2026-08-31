@@ -65,12 +65,13 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
   const filteredSuggestions = useMemo(() => {
     if (!suggestions || suggestions.length === 0) return [];
-    const q = searchValue.toLowerCase().trim();
+    const q = (searchValue || '').toLowerCase().trim();
     if (!q) {
-      return [...suggestions].sort((a, b) => a.title.localeCompare(b.title));
+      return [...suggestions].sort((a, b) => (a?.title || '').localeCompare(b?.title || ''));
     }
     const matching = suggestions.filter(item => {
-      const matchTitle = item.title.toLowerCase().includes(q);
+      if (!item) return false;
+      const matchTitle = item.title ? item.title.toLowerCase().includes(q) : false;
       const matchSubtitle = item.subtitle ? item.subtitle.toLowerCase().includes(q) : false;
       const matchCategory = item.category ? item.category.toLowerCase().includes(q) : false;
       const matchValue = item.value ? item.value.toLowerCase().includes(q) : false;
@@ -78,11 +79,15 @@ const FilterBar: React.FC<FilterBarProps> = ({
     });
 
     return matching.sort((a, b) => {
-      const aStarts = a.title.toLowerCase().startsWith(q) || (a.value && a.value.toLowerCase().startsWith(q));
-      const bStarts = b.title.toLowerCase().startsWith(q) || (b.value && b.value.toLowerCase().startsWith(q));
+      const aTitle = a?.title || '';
+      const bTitle = b?.title || '';
+      const aVal = a?.value || '';
+      const bVal = b?.value || '';
+      const aStarts = aTitle.toLowerCase().startsWith(q) || (aVal && aVal.toLowerCase().startsWith(q));
+      const bStarts = bTitle.toLowerCase().startsWith(q) || (bVal && bVal.toLowerCase().startsWith(q));
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return a.title.localeCompare(b.title);
+      return aTitle.localeCompare(bTitle);
     });
   }, [suggestions, searchValue]);
 

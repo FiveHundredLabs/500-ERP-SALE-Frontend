@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import type { Customer } from '../../hooks/useCustomerSearch';
 import { extractCityFromAddress } from '../../types/customers';
-import { mockSalesOfficers } from '../../data/mockSalesOfficers';
+import { salesOfficerService } from '../../services/SalesOfficerService';
+import type { SalesOfficer } from '../../types/salesOfficer';
 
 export interface CustomerFormData {
   fullName: string;
@@ -47,6 +48,13 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const [salesOfficers, setSalesOfficers] = useState<SalesOfficer[]>([]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      salesOfficerService.getAll().then(s => setSalesOfficers(s || [])).catch(() => {});
+    }
+  }, [isOpen]);
   const [formData, setFormData] = useState<CustomerFormData>(() => {
     if (initialData) {
       const initialAddress = typeof initialData.address === 'object' 
@@ -314,9 +322,9 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                   className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-inner"
                 >
                   <option value="">Unassigned</option>
-                  {mockSalesOfficers.map((so) => (
+                  {salesOfficers.map((so) => (
                     <option key={so.id} value={so.fullName}>
-                      {so.fullName} ({so.assignedTerritory})
+                      {so.fullName} - {so.assignedArea}
                     </option>
                   ))}
                 </select>

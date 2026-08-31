@@ -69,7 +69,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
               </h3>
               {transaction && (
                 <p className="text-xs sm:text-sm text-gray-400 truncate">
-                  Transaction: {transaction.transactionId}
+                  Transaction: {transaction.transactionNumber}
                 </p>
               )}
             </div>
@@ -89,7 +89,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
               <div className="bg-[#0f172a] rounded-lg p-4 border border-[#334155] space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
                   <span className="text-gray-400">Transaction ID:</span>
-                  <span className="font-mono text-cyan-400 font-bold">{transaction.transactionId}</span>
+                  <span className="font-mono text-cyan-400 font-bold">{transaction.transactionNumber}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
                   <span className="text-gray-400">Date:</span>
@@ -97,18 +97,18 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
                   <span className="text-gray-400">Payment Method:</span>
-                  <span className="text-emerald-400 font-bold">{transaction.paymentMethod?.type}</span>
+                  <span className="text-emerald-400 font-bold">{transaction.paymentMethod.replaceAll('_', ' ')}</span>
                 </div>
-                {transaction.paymentMethod?.transactionRef && (
+                {transaction.transactionRef && (
                   <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
                     <span className="text-gray-400">Cheque / Reference:</span>
-                    <span className="font-mono text-gray-200">{transaction.paymentMethod.transactionRef}</span>
+                    <span className="font-mono text-gray-200">{transaction.transactionRef}</span>
                   </div>
                 )}
-                {transaction.paymentMethod?.bankName && (
+                {transaction.bankName && (
                   <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
                     <span className="text-gray-400">Bank:</span>
-                    <span className="text-gray-200">{transaction.paymentMethod.bankName}</span>
+                    <span className="text-gray-200">{transaction.bankName}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-1">
@@ -178,10 +178,10 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
     });
   }, [invoices]);
 
-  const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Overdue'), [trackedInvoices]);
-  const nearDueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Due Soon'), [trackedInvoices]);
-  const partiallyPaidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Partially Paid'), [trackedInvoices]);
-  const completedInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Paid'), [trackedInvoices]);
+  const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'overdue'), [trackedInvoices]);
+  const nearDueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'due_soon'), [trackedInvoices]);
+  const partiallyPaidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'partially_paid'), [trackedInvoices]);
+  const completedInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'paid'), [trackedInvoices]);
 
   const totalOverdueAmount = useMemo(() => overdueInvoices.reduce((sum, i) => sum + i.effectiveRemainingAmount, 0), [overdueInvoices]);
   const totalNearDueAmount = useMemo(() => nearDueInvoices.reduce((sum, i) => sum + i.effectiveRemainingAmount, 0), [nearDueInvoices]);
@@ -196,21 +196,21 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   }, [trackedInvoices, overdueInvoices, nearDueInvoices, partiallyPaidInvoices, completedInvoices, activeTab]);
 
   // Find transaction for a specific invoice
-  const getTransactionForInvoice = (invoiceId: string) => {
+  const getTransactionForInvoice = (invoiceNumber: string) => {
     return financeTransactions.find(transaction => 
-      transaction?.invoice?.invoiceId === invoiceId || transaction?.invoice?.invoiceId?.includes(invoiceId)
+      transaction?.invoice?.invoiceNumber === invoiceNumber || transaction?.invoice?.invoiceNumber?.includes(invoiceNumber)
     ) || null;
   };
 
   // Handle Paid button click
   const handlePaidClick = (invoice: InvoiceResponse) => {
-    const transaction = getTransactionForInvoice(invoice.invoiceId);
+    const transaction = getTransactionForInvoice(invoice.invoiceNumber);
     if (transaction) {
       setSelectedTransaction(transaction);
       setShowTransactionDetails(true);
     } else {
       const alternativeTransaction = financeTransactions.find(t => 
-        t.invoice?.invoiceId === invoice.invoiceId || t.invoice?.invoiceId?.includes(invoice.invoiceId)
+        t.invoice?.invoiceNumber === invoice.invoiceNumber || t.invoice?.invoiceNumber?.includes(invoice.invoiceNumber)
       );
       if (alternativeTransaction) {
         setSelectedTransaction(alternativeTransaction);
@@ -349,7 +349,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
             { id: 'all', label: 'All Invoices', count: trackedInvoices.length },
             { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
             { id: 'near_due', label: 'Near Due (7 Days)', count: nearDueInvoices.length, badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-            { id: 'partially_paid', label: 'Partially Paid', count: partiallyPaidInvoices.length, badge: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+            { id: 'partially_paid', label: 'partially_paid', count: partiallyPaidInvoices.length, badge: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
             { id: 'completed', label: 'Completed / Paid', count: completedInvoices.length, badge: 'bg-green-500/20 text-green-400 border-green-500/30' },
           ].map(tab => (
             <button
@@ -390,23 +390,23 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
               </thead>
               <tbody className="divide-y divide-[#334155]/60 text-xs">
                 {paginatedInvoices.map((invoice, idx) => {
-                  const isMenuOpen = activeMenuId === invoice._id;
-                  const transaction = getTransactionForInvoice(invoice.invoiceId);
-                  const hasTransaction = invoice.calculatedStatus === "Paid" && transaction;
+                  const isMenuOpen = activeMenuId === invoice.id;
+                  const transaction = getTransactionForInvoice(invoice.invoiceNumber);
+                  const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
 
                   const sName = typeof invoice.salesman === 'object' && invoice.salesman !== null
-                    ? invoice.salesman.name || (invoice.salesman as any).fullName
+                    ? invoice.salesman.fullName
                     : (invoice.salesmanName || (typeof invoice.salesman === 'string' ? invoice.salesman : ''));
 
                   return (
                     <tr
-                      key={invoice._id}
+                      key={invoice.id}
                       className={`transition-colors hover:bg-[#1e293b] ${
-                        invoice.calculatedStatus === 'Overdue' ? "bg-red-950/15" : (idx % 2 === 0 ? "bg-[#1e293b]/30" : "bg-[#1e293b]/10")
+                        invoice.calculatedStatus === 'overdue' ? "bg-red-950/15" : (idx % 2 === 0 ? "bg-[#1e293b]/30" : "bg-[#1e293b]/10")
                       }`}
                     >
                       <td className="py-3 px-3 font-mono font-bold text-blue-400">
-                        <div>{invoice.invoiceId}</div>
+                        <div>{invoice.invoiceNumber}</div>
                         <div className="text-[10px] text-gray-400 font-sans">{formatDate(invoice.issueDate)}</div>
                       </td>
 
@@ -460,27 +460,27 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                           remainingAmount={invoice.effectiveRemainingAmount}
                           statusText={invoice.calculatedStatus}
                         >
-                          {invoice.calculatedStatus === 'Paid' && (
+                          {invoice.calculatedStatus === 'paid' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
                               <CheckCircle className="w-3 h-3" /> Paid
                             </span>
                           )}
-                          {invoice.calculatedStatus === 'Partially Paid' && (
+                          {invoice.calculatedStatus === 'partially_paid' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
                               <Clock className="w-3 h-3" /> Partially Paid
                             </span>
                           )}
-                          {invoice.calculatedStatus === 'Overdue' && (
+                          {invoice.calculatedStatus === 'overdue' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
                               <ShieldAlert className="w-3 h-3" /> Overdue
                             </span>
                           )}
-                          {invoice.calculatedStatus === 'Due Soon' && (
+                          {invoice.calculatedStatus === 'due_soon' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                               <Clock className="w-3 h-3" /> Due Soon
                             </span>
                           )}
-                          {invoice.calculatedStatus === 'Outstanding' && (
+                          {invoice.calculatedStatus === 'outstanding' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700">
                               Outstanding
                             </span>
@@ -490,10 +490,10 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
 
                       <td className="py-3 px-2.5 text-gray-300 font-mono text-xs whitespace-nowrap">
                         <div>{formatDate(invoice.dueDate)}</div>
-                        {invoice.calculatedStatus === 'Overdue' && (
+                        {invoice.calculatedStatus === 'overdue' && (
                           <div className="text-[10px] text-red-400 font-bold">{Math.abs(invoice.diffDays)}d overdue</div>
                         )}
-                        {invoice.calculatedStatus === 'Due Soon' && (
+                        {invoice.calculatedStatus === 'due_soon' && (
                           <div className="text-[10px] text-amber-400 font-bold">in {invoice.diffDays}d</div>
                         )}
                       </td>
@@ -502,7 +502,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                       <td className="py-3 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="relative flex justify-end">
                           <button
-                            onClick={() => setActiveMenuId(isMenuOpen ? null : invoice._id)}
+                            onClick={() => setActiveMenuId(isMenuOpen ? null : invoice.id)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition"
                             title="Invoice Actions"
                           >

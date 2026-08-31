@@ -2,17 +2,41 @@ import type {
   InvoiceResponse,
   BackendInvoiceData,
   PaymentStatusType,
-  InvoiceCustomer,
-  InvoicePaymentRecord 
+  InvoiceCustomer
 } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory"; 
-import { mockInvoicesList } from "../data/mockInvoices";
-import { mockCustomers } from "../data/mockCustomers";
-import { mockInventoryItems } from "../data/mockInventory";
 import { extractCityFromAddress } from "../types/customers";
+import { moneyToApi, moneyToNumber } from '../utils/money';
+import { mapInventoryItem, mapInvoice } from './apiMappers';
 
-export interface NextInvoiceIdResponse {
-  nextInvoiceId: string;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+function toInvoicePayload(data: Partial<BackendInvoiceData>) {
+  const encodeMoney = (value: number | undefined) => value === undefined ? undefined : moneyToApi(value);
+  return {
+    ...data,
+    subTotal: encodeMoney(data.subTotal), discount: encodeMoney(data.discount),
+    totalAmount: encodeMoney(data.totalAmount), paidAmount: encodeMoney(data.paidAmount),
+    remainingAmount: encodeMoney(data.remainingAmount), vatAmount: encodeMoney(data.vatAmount),
+    taxRate: encodeMoney(data.taxRate),
+    items: data.items?.map(item => ({
+      ...item, unitPrice: encodeMoney(item.unitPrice), discount: encodeMoney(item.discount), total: encodeMoney(item.total),
+    })),
+    payments: data.payments?.map(payment => ({ ...payment, amount: moneyToApi(payment.amount) })),
+  };
+}
+
+function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export interface NextInvoiceNumberResponse {
+  nextInvoiceNumber: string;
 }
 
 export interface DeleteInvoiceResponse {
@@ -33,198 +57,172 @@ export interface SalesOverviewResponse {
 export const invoiceService = {
   // Get all invoices
   async getAll(): Promise<InvoiceResponse[]> {
-    return [...mockInvoicesList];
+    const res = await fetch(`${API_BASE}/invoices`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch invoices: ${res.statusText}`);
+    return ((await res.json()) as unknown[]).map(mapInvoice);
   },
 
   // Get all customers
   async getAllCustomers(): Promise<InvoiceCustomer[]> {
-    return mockCustomers.map((c) => ({
-      _id: c.id,
-      shopName: c.shopName || c.businessName,
-      fullName: c.shopName || c.businessName || 'Customer',
+    const res = await fetch(`${API_BASE}/customers`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
+    const data = await res.json();
+    return (data || []).map((c: any) => ({
+      id: c.id,
+      customerCode: c.customerCode,
+      shopName: c.shopName || c.name || c.businessName || 'Customer',
+      fullName: c.fullName || c.name || c.shopName || 'Customer',
       contactPerson: c.contactPerson || '',
-      phone: c.phone || '+94705787818',
+      phone: c.phone || '',
       phone2: c.phone2 || '',
       phone3: c.phone3 || '',
-      customerCode: c.customerId,
-      creditLimit: c.creditLimit || 1000000,
+      creditLimit: moneyToNumber(c.creditLimit),
+      salesRepId: c.salesRepId,
       salesRep: c.salesRep,
       salesRepName: c.salesRepName,
-      address: c.address,
-      city: c.city || extractCityFromAddress(c.address),
+      address: c.address || '',
+      city: c.city || extractCityFromAddress(c.address || ''),
     }));
   },
 
   // Get next invoice ID
   async getNextId(): Promise<string> {
-    const nextNum = mockInvoicesList.length + 1;
-    return `INV-2026-${nextNum.toString().padStart(3, '0')}`;
+    const res = await fetch(`${API_BASE}/invoices/next-id`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch next invoice ID: ${res.statusText}`);
+    const data = await res.json();
+    return data.nextInvoiceNumber || `INV-${Date.now()}`;
   },
 
   // Get invoice by ID
   async getById(id: string): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i._id === id || i.invoiceId === id);
-    if (found) return found;
-    return mockInvoicesList[0];
+    const res = await fetch(`${API_BASE}/invoices/${id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Invoice with ID "${id}" not found.`);
+    return mapInvoice(await res.json());
   },
 
-  // Get invoice by invoiceId
-  async getByInvoiceId(invoiceId: string): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i.invoiceId === invoiceId || i._id === invoiceId);
-    if (found) return found;
-    return mockInvoicesList[0];
+  // Get invoice by invoiceNumber
+  async getByInvoiceId(invoiceNumber: string): Promise<InvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/number/${encodeURIComponent(invoiceNumber)}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Invoice "${invoiceNumber}" not found.`);
+    return mapInvoice(await res.json());
   },
 
   // Create new invoice
   async create(invoiceData: BackendInvoiceData): Promise<InvoiceResponse> {
-    const nextIdStr = `INV-2026-${(mockInvoicesList.length + 1).toString().padStart(3, '0')}`;
-    const totalAmount = invoiceData.totalAmount || 0;
-    const paidAmount = invoiceData.paidAmount || (invoiceData.paymentStatus === 'Completed' ? totalAmount : 0);
-    const remainingAmount = Math.max(0, totalAmount - paidAmount);
-
-    const newInv: InvoiceResponse = {
-      _id: `inv-${Date.now()}`,
-      invoiceId: invoiceData.invoiceId || nextIdStr,
-      customer: typeof invoiceData.customer === 'string' ? {
-        _id: invoiceData.customer,
-        shopName: 'Customer ' + invoiceData.customer,
-        fullName: 'Customer ' + invoiceData.customer,
-        phone: '',
-        customerCode: 'CUST-001'
-      } : (invoiceData.customer as any),
-      items: invoiceData.items || [],
-      subTotal: invoiceData.subTotal || 0,
-      discount: invoiceData.discount || 0,
-      totalAmount,
-      paidAmount,
-      remainingAmount,
-      payments: invoiceData.payments || [],
-      paymentStatus: invoiceData.paymentStatus || 'Pending',
-      paymentMethod: invoiceData.paymentMethod || 'Cash',
-      issueDate: invoiceData.issueDate || new Date().toISOString(),
-      dueDate: invoiceData.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-      vehicleNumber: invoiceData.vehicleNumber || '',
-      notes: invoiceData.notes,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    mockInvoicesList.unshift(newInv);
-    return newInv;
+    const res = await fetch(`${API_BASE}/invoices`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(toInvoicePayload(invoiceData)),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to create invoice`);
+    }
+    return mapInvoice(await res.json());
   },
 
   // Update invoice
-  async update(invoiceId: string, updateData: Partial<BackendInvoiceData>): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
-    if (found) {
-      Object.assign(found, updateData, { updated_at: new Date().toISOString() });
-      if (updateData.paidAmount !== undefined) {
-        found.remainingAmount = Math.max(0, found.totalAmount - updateData.paidAmount);
-      }
-      return found;
+  async update(id: string, updateData: Partial<BackendInvoiceData>): Promise<InvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(toInvoicePayload(updateData)),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update invoice`);
     }
-    return mockInvoicesList[0];
+    return mapInvoice(await res.json());
   },
 
-  // Update status and payment amount
-  async updatePaymentStatus(
-    invoiceId: string, 
-    paymentStatus: PaymentStatusType, 
-    paymentRecord?: InvoicePaymentRecord
-  ): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
-    if (found) {
-      found.paymentStatus = paymentStatus;
-      if (paymentRecord) {
-        if (!found.payments) found.payments = [];
-        found.payments.unshift(paymentRecord);
-        found.paidAmount = (found.paidAmount || 0) + paymentRecord.amount;
-        found.remainingAmount = Math.max(0, found.totalAmount - found.paidAmount);
-      } else if (paymentStatus === 'Completed' || paymentStatus === 'Paid') {
-        found.paidAmount = found.totalAmount;
-        found.remainingAmount = 0;
-      }
-      found.updated_at = new Date().toISOString();
-      return found;
-    }
-    return mockInvoicesList[0];
-  },
-
-  // Record bulk payment against multiple invoices
-  async recordBulkPayment(
-    allocations: Array<{ invoiceId: string; amount: number }>,
-    paymentDetails: {
-      transactionId: string;
-      paymentMethod: string;
-      reference?: string;
-      bankName?: string;
-      date?: string;
-      notes?: string;
-    }
-  ): Promise<InvoiceResponse[]> {
-    const updatedInvoices: InvoiceResponse[] = [];
-    const date = paymentDetails.date || new Date().toISOString();
-
-    for (const alloc of allocations) {
-      if (alloc.amount <= 0) continue;
-      const invoice = mockInvoicesList.find(i => i._id === alloc.invoiceId || i.invoiceId === alloc.invoiceId);
-      if (invoice) {
-        if (!invoice.payments) invoice.payments = [];
-        const record: InvoicePaymentRecord = {
-          id: `pay-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          transactionId: paymentDetails.transactionId,
-          amount: alloc.amount,
-          date: date,
-          paymentMethod: paymentDetails.paymentMethod,
-          reference: paymentDetails.reference,
-          bankName: paymentDetails.bankName,
-          notes: paymentDetails.notes,
-        };
-        invoice.payments.unshift(record);
-        invoice.paidAmount = (invoice.paidAmount || 0) + alloc.amount;
-        invoice.remainingAmount = Math.max(0, invoice.totalAmount - invoice.paidAmount);
-        
-        if (invoice.remainingAmount <= 0) {
-          invoice.paymentStatus = 'Completed';
-        } else {
-          invoice.paymentStatus = 'Partially Paid';
-        }
-        invoice.updated_at = new Date().toISOString();
-        updatedInvoices.push(invoice);
-      }
-    }
-    return updatedInvoices;
+  // Update payment status
+  async updatePaymentStatus(id: string, paymentStatus: PaymentStatusType): Promise<InvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/${id}/payment-status`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify({ paymentStatus }),
+    });
+    if (!res.ok) throw new Error(`Failed to update payment status`);
+    return mapInvoice(await res.json());
   },
 
   // Delete invoice
-  async delete(invoiceId: string): Promise<DeleteInvoiceResponse> {
-    const index = mockInvoicesList.findIndex(i => i._id === invoiceId || i.invoiceId === invoiceId);
-    if (index !== -1) {
-      mockInvoicesList.splice(index, 1);
-    }
-    return { message: "Invoice deleted successfully" };
+  async delete(id: string): Promise<DeleteInvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to delete invoice`);
+    const value = await res.json();
+    return { ...value, creditLimit: moneyToNumber(value.creditLimit), fullName: value.fullName ?? value.shopName };
   },
 
-  // Get inventory items for dropdown
-  async getInventoryItems(): Promise<InventoryItem[]> {
-    return mockInventoryItems;
+  // Search items
+  async searchItems(query: string): Promise<InventoryItem[]> {
+    const res = await fetch(`${API_BASE}/inventory-items`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) return [];
+    const items: InventoryItem[] = ((await res.json()) as unknown[]).map(mapInventoryItem);
+    if (!query) return items;
+    const lower = query.toLowerCase();
+    return items.filter(i => 
+      i.productName?.toLowerCase().includes(lower) ||
+      i.productCode?.toLowerCase().includes(lower)
+    );
   },
 
-  // Create new customer
-  async createCustomer(customerData: Omit<InvoiceCustomer, '_id' | 'customerCode'>) {
-    const newCust: InvoiceCustomer = {
-      ...customerData,
-      _id: `cust-${Date.now()}`,
-      customerCode: `CUST-${Math.floor(100 + Math.random() * 900)}`
-    };
-    return newCust;
+  // Customer Management CRUD
+  async createCustomer(customer: any): Promise<InvoiceCustomer> {
+    const res = await fetch(`${API_BASE}/customers`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(customer),
+    });
+    if (!res.ok) throw new Error('Failed to create customer');
+    const value = await res.json();
+    return { ...value, creditLimit: moneyToNumber(value.creditLimit), fullName: value.fullName ?? value.shopName };
   },
 
-  // Update customer
-  async updateCustomer(customerId: string, customerData: Omit<InvoiceCustomer, '_id' | 'customerCode'>) {
-    return {
-      ...customerData,
-      _id: customerId,
-      customerCode: 'CUST-001'
-    };
-  }
+  async updateCustomer(id: string, customer: any): Promise<InvoiceCustomer> {
+    const res = await fetch(`${API_BASE}/customers/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(customer),
+    });
+    if (!res.ok) throw new Error('Failed to update customer');
+    return res.json();
+  },
+
+  async deleteCustomer(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/customers/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete customer');
+    return res.json();
+  },
 };

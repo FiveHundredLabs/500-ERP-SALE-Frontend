@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, ShoppingCart, ChevronRight, Truck, Calendar, Package, CheckCircle } from 'lucide-react';
 import type { PurchaseOrder } from '../../types/purchaseOrders';
 import { purchaseOrderService } from '../../services/PurchaseOrderService';
-import { mockPurchaseOrders } from '../../data/mockPurchaseOrders';
 
 interface POPickerModalProps {
   isOpen: boolean;
@@ -23,9 +22,9 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
       setLoading(true);
       try {
         const data = await purchaseOrderService.getAll();
-        setPOs(data);
+        setPOs(data || []);
       } catch {
-        setPOs(mockPurchaseOrders);
+        setPOs([]);
       } finally {
         setLoading(false);
       }
@@ -40,7 +39,7 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
         !q ||
         po.poNumber.toLowerCase().includes(q) ||
         po.supplierName.toLowerCase().includes(q) ||
-        (po.referenceOrderNum || '').toLowerCase().includes(q) ||
+        (po.sourceOrderNumber || '').toLowerCase().includes(q) ||
         (po.customerName || '').toLowerCase().includes(q);
       const matchStatus = !statusFilter || po.status === statusFilter;
       return matchSearch && matchStatus;
@@ -52,12 +51,12 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
 
   const statusColor = (status: string) => {
     switch (status) {
-      case 'Approved': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-      case 'Draft': return 'text-slate-400 bg-slate-400/10 border-slate-400/30';
-      case 'Pending Approval': return 'text-amber-400 bg-amber-400/10 border-amber-400/30';
-      case 'Processing': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
-      case 'Completed': return 'text-teal-400 bg-teal-400/10 border-teal-400/30';
-      case 'Cancelled': return 'text-red-400 bg-red-400/10 border-red-400/30';
+      case 'approved': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
+      case 'draft': return 'text-slate-400 bg-slate-400/10 border-slate-400/30';
+      case 'pending_approval': return 'text-amber-400 bg-amber-400/10 border-amber-400/30';
+      case 'processing': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
+      case 'completed': return 'text-teal-400 bg-teal-400/10 border-teal-400/30';
+      case 'cancelled': return 'text-red-400 bg-red-400/10 border-red-400/30';
       default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
     }
   };
@@ -109,11 +108,11 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
             onChange={e => setStatusFilter(e.target.value)}
           >
             <option value="">All Statuses</option>
-            <option value="Draft">Draft</option>
-            <option value="Pending Approval">Pending Approval</option>
-            <option value="Approved">Approved</option>
-            <option value="Processing">Processing</option>
-            <option value="Completed">Completed</option>
+            <option value="draft">Draft</option>
+            <option value="pending_approval">Pending Approval</option>
+            <option value="approved">Approved</option>
+            <option value="processing">Processing</option>
+            <option value="completed">Completed</option>
           </select>
         </div>
 
@@ -153,9 +152,9 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor(po.status)}`}>
                           {po.status}
                         </span>
-                        {po.referenceOrderNum && (
+                        {po.sourceOrderNumber && (
                           <span className="text-[10px] text-blue-400 font-mono bg-blue-400/10 border border-blue-400/20 px-1.5 py-0.5 rounded">
-                            Ref: {po.referenceOrderNum}
+                            Ref: {po.sourceOrderNumber}
                           </span>
                         )}
                       </div>
@@ -171,7 +170,7 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
                         </span>
                         <span className="flex items-center gap-1">
                           <Package size={11} />
-                          {po.numberOfItems} item{po.numberOfItems !== 1 ? 's' : ''}
+                          {po.totalItems} item{po.totalItems !== 1 ? 's' : ''}
                         </span>
                       </div>
 
@@ -195,7 +194,7 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
 
                     {/* Right: Amount & action */}
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <span className="font-mono text-white font-bold text-sm">{formatCurrency(po.grandTotal)}</span>
+                      <span className="font-mono text-white font-bold text-sm">{formatCurrency(po.totalAmount)}</span>
                       <div className={`flex items-center gap-1 text-xs font-semibold transition-all ${
                         hoveredId === po.id ? 'text-purple-400' : 'text-gray-500'
                       }`}>

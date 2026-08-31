@@ -1,89 +1,48 @@
 import type { Supplier } from '../types/suppliers';
-import { mockSuppliers } from '../data/mockSuppliers';
+import { mapSupplier } from './apiMappers';
 
-const STORAGE_KEY = 'erp_suppliers_list';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const supplierService = {
-  getStored(): Supplier[] {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockSuppliers));
-      return mockSuppliers;
-    }
-    try {
-      const items: Supplier[] = JSON.parse(raw);
-      // Map mock suppliers to updated test number +94705787818
-      const updated = items.map(sup => ({
-        ...sup,
-        phone: '+94705787818',
-        phone2: '+94705787818',
-      }));
-      return updated;
-    } catch {
-      return mockSuppliers;
-    }
-  },
-
-  saveStored(data: Supplier[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  },
-
   async getAll(): Promise<Supplier[]> {
-    return this.getStored();
+    const res = await fetch(`${API_BASE}/suppliers`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch suppliers`);
+    return ((await res.json()) as unknown[]).map(mapSupplier);
   },
 
   async getById(id: string): Promise<Supplier | undefined> {
-    const all = this.getStored();
-    return all.find(s => s.id === id || s.supplierId === id);
+    const res = await fetch(`${API_BASE}/suppliers/${id}`, { credentials: 'include' });
+    if (!res.ok) return undefined;
+    return mapSupplier(await res.json());
   },
 
   async create(data: Partial<Supplier>): Promise<Supplier> {
-    const all = this.getStored();
-    const newSup: Supplier = {
-      id: `sup-${Date.now()}`,
-      supplierId: data.supplierId || `SUP-${Math.floor(10000 + Math.random() * 90000)}`,
-      companyName: data.companyName || 'New Supplier',
-      contactPerson: data.contactPerson || '',
-      phone: data.phone || '',
-      phone2: data.phone2 || '',
-      phone3: data.phone3 || '',
-      email: data.email || '',
-      address: data.address || '',
-      city: data.city || (typeof data.address === 'string' ? data.address.split(',').pop()?.trim() : ''),
-      country: data.country || 'Sri Lanka',
-      status: (data.status as any) || 'Active',
-      totalPOs: 0,
-      totalPurchaseAmount: 0,
-      outstandingPayments: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes: data.notes || '',
-    };
-    all.unshift(newSup);
-    this.saveStored(all);
-    return newSup;
+    const res = await fetch(`${API_BASE}/suppliers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Failed to create supplier`);
+    return mapSupplier(await res.json());
   },
 
   async update(id: string, data: Partial<Supplier>): Promise<Supplier> {
-    const all = this.getStored();
-    const index = all.findIndex(s => s.id === id || s.supplierId === id);
-    if (index === -1) {
-      throw new Error(`Supplier with ID ${id} not found`);
-    }
-    const updated = {
-      ...all[index],
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    all[index] = updated;
-    this.saveStored(all);
-    return updated;
+    const res = await fetch(`${API_BASE}/suppliers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Failed to update supplier`);
+    return mapSupplier(await res.json());
   },
 
   async delete(id: string): Promise<boolean> {
-    const all = this.getStored();
-    const filtered = all.filter(s => s.id !== id && s.supplierId !== id);
-    this.saveStored(filtered);
-    return true;
+    const res = await fetch(`${API_BASE}/suppliers/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return res.ok;
   },
 };

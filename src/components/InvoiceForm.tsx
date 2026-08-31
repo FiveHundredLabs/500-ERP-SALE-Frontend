@@ -62,11 +62,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   } = useItemSearch(inventoryItems);
 
   interface NewItemState {
-    item: string;
+    inventoryItemId: string;
     quantity: string;
     unitPrice: string;
     itemName: string;
-    product_code?: string;
+    productCode?: string;
     costPrice?: number;
     discountType?: 'percentage' | 'amount';
     discountScope?: 'per_unit' | 'total_qty';
@@ -74,11 +74,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }
 
   const [newItem, setNewItem] = useState<NewItemState>({
-    item: "",
+    inventoryItemId: "",
     quantity: "0",
     unitPrice: "0",
     itemName: "",
-    product_code: undefined,
+    productCode: undefined,
     costPrice: 0,
     discountType: 'percentage',
     discountScope: 'per_unit',
@@ -97,9 +97,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const handleOrderImport = useCallback((po: PurchaseOrder) => {
     po.items.forEach(p => {
       const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
-        item: p.id || p.sku,
+        inventoryItemId: p.inventoryItemId || p.id,
         itemName: `${p.productName} (${p.sku})`,
-        quantity: p.quantity,
+        quantity: p.quantityOrdered,
+        discount: p.discount || 0,
         unitPrice: p.unitPrice,
       };
       onAddItem(lineItem);
@@ -134,15 +135,15 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const handleItemSelect = useCallback((inventoryItem: InventoryItem) => {
     setNewItem(prev => ({
       ...prev,
-      item: inventoryItem._id,
-      itemName: inventoryItem.product_name,
-      product_code: inventoryItem.product_code,
+      inventoryItemId: inventoryItem.id,
+      itemName: inventoryItem.productName,
+      productCode: inventoryItem.productCode,
       quantity: "0",
-      unitPrice: inventoryItem.sell_price.toString(),
-      costPrice: inventoryItem.purchase_price || 0,
+      unitPrice: inventoryItem.sellPrice.toString(),
+      costPrice: inventoryItem.purchasePrice || 0,
       discountValue: '0',
     }));
-    setItemSearchTerm(`${inventoryItem.product_name} (${inventoryItem.product_code})`);
+    setItemSearchTerm(`${inventoryItem.productName} (${inventoryItem.productCode})`);
     setShowItemSuggestions(false);
   }, [setItemSearchTerm, setShowItemSuggestions]);
 
@@ -190,7 +191,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   // When payment method changes: If Credit -> Pending, else -> Completed
   const handlePaymentMethodChange = (method: string) => {
     onFieldChange('paymentMethod', method);
-    if (method === PaymentMethod.CREDIT || method === 'Credit') {
+    if (method === PaymentMethod.CREDIT || method === 'credit') {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
       const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
       handleCreditPeriodChange(periodToUse);
@@ -201,7 +202,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
-    onCustomerIdChange(customer._id, customer);
+    onCustomerIdChange(customer.id, customer);
     setCustomerSearchTerm(`${customer.fullName} (${customer.phone})`);
     setShowCustomerSuggestions(false);
     setCustomerModalMode(null);
@@ -221,14 +222,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, [onCustomerIdChange, setCustomerSearchTerm]);
 
   const handleClearItemSelection = useCallback(() => {
-    setNewItem({ item: "", quantity: "0", unitPrice: "0", itemName: "", product_code: undefined, costPrice: 0, discountType: 'percentage', discountScope: 'per_unit', discountValue: '0' });
+    setNewItem({ inventoryItemId: "", quantity: "0", unitPrice: "0", itemName: "", productCode: undefined, costPrice: 0, discountType: 'percentage', discountScope: 'per_unit', discountValue: '0' });
     setItemSearchTerm("");
   }, [setItemSearchTerm]);
 
   const handleAddItem = useCallback((itemData?: {
-    item: string;
+    inventoryItemId: string;
     itemName: string;
-    product_code?: string;
+    productCode?: string;
     quantity: number;
     unitPrice: number;
     costPrice: number;
@@ -240,9 +241,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }) => {
     if (!itemData) return;
 
-    const { item, itemName, product_code, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount } = itemData;
+    const { inventoryItemId, itemName, productCode, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount } = itemData;
 
-    const existingItem = invoiceData.items.find(inv => inv.item === item);
+    const existingItem = invoiceData.items.find(inv => inv.inventoryItemId === inventoryItemId);
 
     if (existingItem) {
       const updatedQty = existingItem.quantity + quantity;
@@ -251,7 +252,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         quantity: updatedQty,
         unitPrice,
         total: Math.max(0, newTotal),
-        product_code,
+        productCode,
+        itemCode: productCode,
         costPrice,
         discountType,
         discountScope,
@@ -260,9 +262,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       });
     } else {
       onAddItem({
-        item,
+        inventoryItemId,
         itemName,
-        product_code,
+        itemCode: productCode,
+        discount: 0,
+        productCode,
         quantity,
         unitPrice,
         costPrice,
@@ -282,19 +286,19 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     onUpdateItem(id, { quantity: newQuantity });
   }, [invoiceData.items, onUpdateItem]);
 
-  type CustomerFormData = Omit<Customer, '_id'> | Partial<Customer>;
+  type CustomerFormData = Omit<Customer, 'id'> | Partial<Customer>;
   const handleCustomerFormSubmit = useCallback(async (formData: CustomerFormData) => {
     if (customerModalMode === 'edit' && selectedCustomer) {
-      const updated = await updateCustomer(selectedCustomer._id, formData as Partial<Customer>);
+      const updated = await updateCustomer(selectedCustomer.id, formData as Partial<Customer>);
       setSelectedCustomer(updated);
-      onCustomerIdChange(updated._id, updated);
+      onCustomerIdChange(updated.id, updated);
       setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
       const defaultPeriod = (updated as any).creditPeriod ?? 30;
       handleCreditPeriodChange(String(defaultPeriod));
     } else {
-      const created = await createCustomer(formData as Omit<Customer, '_id'>);
+      const created = await createCustomer(formData as Omit<Customer, 'id'>);
       setSelectedCustomer(created);
-      onCustomerIdChange(created._id, created);
+      onCustomerIdChange(created.id, created);
       setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
       const defaultPeriod = (created as any).creditPeriod ?? 30;
       onFieldChange('paymentMethod', PaymentMethod.CREDIT);
@@ -345,7 +349,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const convertToInvoiceCustomer = (customer: Customer | null): InvoiceCustomer => {
     if (!customer) {
       return {
-        _id: '',
+        id: '',
+        shopName: '',
         fullName: '',
         phone: '',
         customerCode: '',
@@ -353,17 +358,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
     
     return {
-      _id: customer._id,
+      id: customer.id,
       shopName: customer.shopName || customer.fullName,
       fullName: customer.shopName || customer.fullName,
       contactPerson: customer.contactPerson,
       phone: customer.phone,
-      address: customer.address,
+      address: typeof customer.address === 'string' ? customer.address : '',
       city: customer.city,
       customerCode: customer.customerCode || '',
-      vehicle_number: customer.vehicle_number,
-      vehicle_model: customer.vehicle_model,
-      year_of_manufacture: customer.year_of_manufacture
     };
   };
 
@@ -395,8 +397,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         isOpen={showPaymentModal}
         onClose={handlePaymentModalClose}
         selectedInvoice={{
-          invoiceId: invoiceData.invoiceId,
-          _id: invoiceData._id || '',
+          invoiceNumber: invoiceData.invoiceNumber,
+          id: invoiceData.id || '',
           totalAmount: invoiceData.totalAmount,
           customer: convertToInvoiceCustomer(selectedCustomer),
           paymentStatus: invoiceData.paymentStatus,
@@ -409,8 +411,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           items: invoiceData.items,
           subTotal: invoiceData.subTotal,
           discount: invoiceData.discount,
-          created_at: invoiceData.created_at || '',
-          updated_at: invoiceData.updated_at || ''
+          payments: invoiceData.payments || [],
+          paidAmount: invoiceData.paidAmount || 0,
+          remainingAmount: invoiceData.remainingAmount ?? invoiceData.totalAmount,
+          applyVat: invoiceData.applyVat,
+          vatAmount: invoiceData.vatAmount,
+          taxRate: invoiceData.taxRate,
+          createdAt: invoiceData.createdAt || '',
+          updatedAt: invoiceData.updatedAt || ''
         }}
         paymentDetails={paymentDetails}
         onPaymentDetailsChange={(details) => setPaymentDetails(prev => ({
@@ -476,16 +484,16 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Salesman</span>
               </label>
               <select
-                value={invoiceData.salesman?._id || ''}
+                value={invoiceData.salesman?.id || ''}
                 onChange={(e) => {
-                  const selected = salesmen.find(s => s._id === e.target.value);
-                  onFieldChange('salesman', selected ? { _id: selected._id, name: selected.fullName } as any : null as any);
+                  const selected = salesmen.find(s => s.id === e.target.value);
+                  onFieldChange('salesman', selected ? { id: selected.id, name: selected.fullName } as any : null as any);
                 }}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
               >
                 <option value="">— Select Salesman —</option>
                 {salesmen.map(s => (
-                  <option key={s._id} value={s._id}>{s.fullName}</option>
+                  <option key={s.id} value={s.id}>{s.fullName}</option>
                 ))}
               </select>
             </div>
@@ -610,7 +618,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             subTotal={subTotal}
             totalDiscountType={invoiceData.totalDiscountType}
             totalDiscountValue={invoiceData.totalDiscountValue}
-            discountPercentage={invoiceData.discountPercentage}
+            discountPercentage={invoiceData.discountPercentage || 0}
             discountAmount={discountAmount}
             taxAmount={taxAmount}
             totalAmount={totalAmount}

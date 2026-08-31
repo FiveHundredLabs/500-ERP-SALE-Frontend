@@ -6,7 +6,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { QuotationData } from '../../types/quotation';
 import { generateQuotationWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
-import { mockCustomers } from '../../data/mockCustomers';
 
 interface QuotationViewModalProps {
   isOpen: boolean;
@@ -42,9 +41,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (typeof quotationData.customer === 'object' && (quotationData.customer as any)?.phone) {
       return (quotationData.customer as any).phone;
     }
-    const custId = typeof quotationData.customer === 'string' ? quotationData.customer : quotationData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.phone || '+94705787818';
+    return '';
   };
 
   const getCustomerName = (): string => {
@@ -52,16 +49,15 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (typeof quotationData.customer === 'object' && (quotationData.customer as any)?.fullName) {
       return (quotationData.customer as any).fullName;
     }
-    const custId = typeof quotationData.customer === 'string' ? quotationData.customer : quotationData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.businessName || found?.contactPerson || 'Valued Customer';
+    if ((quotationData.customerDetails as any)?.shopName) return (quotationData.customerDetails as any).shopName;
+    return 'Valued Customer';
   };
 
   const customerPhone = getCustomerPhone();
   const customerName = getCustomerName();
 
-  const quotationShareUrl = quotationData._id
-    ? `${window.location.origin}/quotation/view/${quotationData._id}`
+  const quotationShareUrl = quotationData.id
+    ? `${window.location.origin}/quotation/view/${quotationData.id}`
     : window.location.href;
 
   const handleCopyLink = async () => {
@@ -93,7 +89,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      const fileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+      const fileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {
@@ -110,11 +106,11 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     
     // Step 1: Generate & Download PDF
     await generateAndDownloadPDF();
-    const pdfFileName = `Quotation-${quotationData.quotationId || 'draft'}.pdf`;
+    const pdfFileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
 
     // Step 2: Build formatted WhatsApp message
     const message = generateQuotationWhatsAppMessage({
-      quotationId: quotationData.quotationId || 'Draft',
+      quotationNumber: quotationData.quotationNumber || 'draft',
       customerName: customerName,
       totalAmount: quotationData.totalAmount,
       issueDate: quotationData.issueDate || new Date().toISOString().split('T')[0],
@@ -138,8 +134,8 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Quotation ${quotationData.quotationId} from 500Core ERP`;
-    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationId}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500Core!`;
+    const subject = `Quotation ${quotationData.quotationNumber} from 500Core ERP`;
+    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationNumber}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500Core!`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -163,7 +159,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Print Quotation ${quotationData.quotationId}</title>
+            <title>Print Quotation ${quotationData.quotationNumber}</title>
             <style>
               @page { size: A4; margin: 0; }
               body { margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
@@ -193,7 +189,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
         setShareFeedback(null);
         onClose();
       }}
-      title={`Quotation Preview — ${quotationData.quotationId || 'Draft'}`}
+      title={`Quotation Preview — ${quotationData.quotationNumber || 'draft'}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[96vh] max-w-[96vw] flex flex-col"
@@ -273,7 +269,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             </div>
 
             {/* Convert to PO */}
-            {onConvertToPO && quotationData._id && (
+            {onConvertToPO && quotationData.id && (
               <button
                 type="button"
                 onClick={() => onConvertToPO(quotationData)}

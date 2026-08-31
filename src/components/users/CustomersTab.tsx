@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../erp';
 import type { Column } from '../erp/DataTable';
-import { mockCustomers as initialCustomers } from '../../data/mockCustomers';
-import { mockSalesOfficers } from '../../data/mockSalesOfficers';
+import { invoiceService } from '../../services/InvoiceService';
+import { salesOfficerService } from '../../services/SalesOfficerService';
 import type { Customer, CustomerCreateDto, CustomerStatusValue } from '../../types/customers';
+import type { SalesOfficer } from '../../types/salesOfficer';
 import { extractCityFromAddress } from '../../types/customers';
 import { 
   Plus, 
@@ -24,7 +25,25 @@ const CustomersTab: React.FC = () => {
   const navigate = useNavigate();
   const { success } = useToast();
 
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [salesOfficers, setSalesOfficers] = useState<SalesOfficer[]>([]);
+
+  const fetchCustomers = async () => {
+    try {
+      const [custs, officers] = await Promise.all([
+        invoiceService.getAllCustomers(),
+        salesOfficerService.getAll(),
+      ]);
+      setCustomers(custs as any || []);
+      setSalesOfficers(officers || []);
+    } catch {
+      setCustomers([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,8 +86,8 @@ const CustomersTab: React.FC = () => {
     address: '',
     creditLimit: 1000000,
     creditPeriod: 30,
-    salesRep: 'Kasun Perera',
-    salesRepName: 'Kasun Perera',
+    salesRepId: null,
+    salesRepName: '',
     status: 'Active',
     notes: '',
   });
@@ -81,21 +100,21 @@ const CustomersTab: React.FC = () => {
   const salesRepOptions = useMemo(() => {
     return [
       { value: '', label: 'All Sales Reps' },
-      ...mockSalesOfficers.map(s => ({ value: s.fullName, label: s.fullName })),
+      ...salesOfficers.map(s => ({ value: s.fullName, label: s.fullName })),
     ];
-  }, []);
+  }, [salesOfficers]);
 
   const searchSuggestions = useMemo(() => {
     const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
 
     // 1. Customer Names
     customers.forEach(c => {
-      const name = c.shopName || c.businessName || '';
-      const rep = c.salesRepName || (typeof c.salesRep === 'object' ? c.salesRep.name : c.salesRep) || '';
+      const name = c.shopName || c.businessName || (c as any).fullName || 'Customer';
+      const rep = c.salesRepName || c.salesRep?.fullName || '';
       suggestions.push({
         id: `c-name-${c.id}`,
         title: name,
-        subtitle: `${c.contactPerson ? `${c.contactPerson} · ` : ''}WA: ${c.phone} · ${c.city || extractCityFromAddress(c.address)} ${rep ? `· Rep: ${rep}` : ''}`,
+        subtitle: `${c.contactPerson ? `${c.contactPerson} · ` : ''}WA: ${c.phone || ''} · ${c.city || extractCityFromAddress(c.address || '')} ${rep ? `· Rep: ${rep}` : ''}`,
         category: 'Shop / Customer',
         value: name,
       });
@@ -103,13 +122,16 @@ const CustomersTab: React.FC = () => {
 
     // 2. Customer IDs
     customers.forEach(c => {
-      suggestions.push({
-        id: `c-id-${c.id}`,
-        title: c.customerId,
-        subtitle: `${c.shopName || c.businessName} · ${c.city || extractCityFromAddress(c.address)}`,
-        category: 'Customer ID',
-        value: c.customerId,
-      });
+      const code = c.customerCode || c.id || '';
+      if (code) {
+        suggestions.push({
+          id: `c-id-${c.id}`,
+          title: code,
+          subtitle: `${c.shopName || c.businessName || (c as any).fullName || ''} · ${c.city || extractCityFromAddress(c.address || '')}`,
+          category: 'Customer ID',
+          value: code,
+        });
+      }
     });
 
     return suggestions;
@@ -119,7 +141,7 @@ const CustomersTab: React.FC = () => {
     return customers.filter((c) => {
       const name = (c.shopName || c.businessName || '').toLowerCase();
       const contact = (c.contactPerson || '').toLowerCase();
-      const rep = (c.salesRepName || (typeof c.salesRep === 'object' ? c.salesRep.name : c.salesRep) || '').toLowerCase();
+      const rep = (c.salesRepName || c.salesRep?.fullName || '').toLowerCase();
       const city = (c.city || extractCityFromAddress(c.address) || '').toLowerCase();
       const addr = (c.address || '').toLowerCase();
       const query = searchQuery.toLowerCase().trim();
@@ -128,7 +150,7 @@ const CustomersTab: React.FC = () => {
         query === '' ||
         name.includes(query) ||
         contact.includes(query) ||
-        c.customerId.toLowerCase().includes(query) ||
+        c.customerCode.toLowerCase().includes(query) ||
         c.phone.toLowerCase().includes(query) ||
         (c.phone2 && c.phone2.toLowerCase().includes(query)) ||
         (c.phone3 && c.phone3.toLowerCase().includes(query)) ||
@@ -176,7 +198,7 @@ const CustomersTab: React.FC = () => {
     `LKR ${Math.round(val || 0).toLocaleString()}/=`;
 
   // Submit Handler (Add or Edit)
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.shopName || !formData.phone || !formData.address) {
       return;
@@ -186,53 +208,33 @@ const CustomersTab: React.FC = () => {
 
     if (editCustomer) {
       // Edit
-      const updated: Customer = {
-        ...editCustomer,
-        ...formData,
-        shopName: formData.shopName,
-        businessName: formData.shopName,
-        city,
-        updatedAt: new Date().toISOString(),
-      };
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === editCustomer.id ? updated : c))
-      );
-      const foundIdx = initialCustomers.findIndex(c => c.id === editCustomer.id);
-      if (foundIdx !== -1) {
-        initialCustomers[foundIdx] = updated;
+      try {
+        await invoiceService.updateCustomer(editCustomer.id, {
+          ...formData,
+          shopName: formData.shopName,
+          fullName: formData.shopName,
+          city,
+        } as any);
+        success('Customer Updated', `Successfully updated ${formData.shopName}.`);
+        fetchCustomers();
+      } catch (err) {
+        console.error(err);
       }
-      success('Customer Updated', `Successfully updated ${formData.shopName}.`);
       setEditCustomer(null);
     } else {
       // Add
-      const newCust: Customer = {
-        id: Math.random().toString(36).substr(2, 9),
-        customerId: `CUST-${Math.floor(10000 + Math.random() * 90000)}`,
-        shopName: formData.shopName,
-        businessName: formData.shopName,
-        contactPerson: formData.contactPerson || '',
-        phone: formData.phone,
-        phone2: formData.phone2,
-        phone3: formData.phone3,
-        address: formData.address,
-        city,
-        creditLimit: formData.creditLimit,
-        creditPeriod: formData.creditPeriod || 30,
-        salesRep: formData.salesRep,
-        salesRepName: formData.salesRepName || formData.salesRep,
-        status: formData.status || 'Active',
-        totalInvoiced: 0,
-        totalPaid: 0,
-        totalSales: 0,
-        outstandingBalance: 0,
-        totalOrders: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: formData.notes,
-      };
-      setCustomers((prev) => [newCust, ...prev]);
-      initialCustomers.unshift(newCust);
-      success('Customer Created', `Added ${formData.shopName} to database.`);
+      try {
+        await invoiceService.createCustomer({
+          ...formData,
+          shopName: formData.shopName,
+          fullName: formData.shopName,
+          city,
+        } as any);
+        success('Customer Created', `Added ${formData.shopName} to database.`);
+        fetchCustomers();
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     setShowAddModal(false);
@@ -241,7 +243,7 @@ const CustomersTab: React.FC = () => {
 
   const handleOpenEdit = (customer: Customer) => {
     setEditCustomer(customer);
-    const rep = customer.salesRepName || (typeof customer.salesRep === 'object' ? customer.salesRep.name : customer.salesRep) || '';
+    const rep = customer.salesRepName || customer.salesRep?.fullName || '';
     setFormData({
       shopName: customer.shopName || customer.businessName || '',
       contactPerson: customer.contactPerson || '',
@@ -251,7 +253,7 @@ const CustomersTab: React.FC = () => {
       address: customer.address,
       creditLimit: customer.creditLimit || 1000000,
       creditPeriod: customer.creditPeriod ?? 30,
-      salesRep: rep,
+      salesRepId: customer.salesRepId || customer.salesRep?.id || null,
       salesRepName: rep,
       status: customer.status,
       notes: customer.notes || '',
@@ -260,14 +262,18 @@ const CustomersTab: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteCustomer) return;
-    setCustomers((prev) => prev.filter((c) => c.id !== deleteCustomer.id));
-    const foundIdx = initialCustomers.findIndex(c => c.id === deleteCustomer.id);
-    if (foundIdx !== -1) {
-      initialCustomers.splice(foundIdx, 1);
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/customers/${deleteCustomer.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      success('Customer Deleted', `Deleted customer ${deleteCustomer.shopName || deleteCustomer.businessName}.`);
+      fetchCustomers();
+    } catch {
+      setCustomers((prev) => prev.filter((c) => c.id !== deleteCustomer.id));
     }
-    success('Customer Deleted', `Deleted customer ${deleteCustomer.shopName || deleteCustomer.businessName}.`);
     setDeleteCustomer(null);
   };
 
@@ -280,8 +286,8 @@ const CustomersTab: React.FC = () => {
       phone3: '',
       address: '',
       creditLimit: 1000000,
-      salesRep: 'Kasun Perera',
-      salesRepName: 'Kasun Perera',
+      salesRepId: null,
+      salesRepName: '',
       status: 'Active',
       notes: '',
     });
@@ -290,11 +296,11 @@ const CustomersTab: React.FC = () => {
   // Columns: Removed Type, Removed Orders, Added Sales Rep, Compact Three-Dot Menu
   const columns: Column<Customer>[] = [
     {
-      key: 'customerId',
+      key: 'customerCode',
       header: 'Customer ID',
       sortable: true,
       minWidth: '100px',
-      render: (row) => <span className="font-mono text-cyan-400 font-bold text-xs">{row.customerId}</span>,
+      render: (row) => <span className="font-mono text-cyan-400 font-bold text-xs">{row.customerCode}</span>,
     },
     {
       key: 'shopName',
@@ -352,7 +358,7 @@ const CustomersTab: React.FC = () => {
       sortable: true,
       minWidth: '130px',
       render: (row) => {
-        const rep = row.salesRepName || (typeof row.salesRep === 'object' ? row.salesRep.name : row.salesRep);
+        const rep = row.salesRepName || row.salesRep?.fullName;
         return rep ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[11px] font-medium truncate max-w-[130px]">
             <UserCheck size={11} className="text-blue-400 shrink-0" />
@@ -377,7 +383,7 @@ const CustomersTab: React.FC = () => {
     },
     {
       key: 'outstandingBalance',
-      header: 'Outstanding',
+      header: 'outstanding',
       sortable: true,
       align: 'right',
       minWidth: '120px',
@@ -748,20 +754,21 @@ const CustomersTab: React.FC = () => {
                       </div>
                       <select
                         className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-8.5 pr-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
-                        value={formData.salesRepName || formData.salesRep || ''}
+                        value={formData.salesRepId || ''}
                         onChange={(e) => {
-                          const rep = e.target.value;
+                          const repId = e.target.value;
+                          const rep = salesOfficers.find(so => so.id === repId);
                           setFormData({ 
                             ...formData, 
-                            salesRep: rep,
-                            salesRepName: rep 
+                            salesRepId: repId || null,
+                            salesRepName: rep?.fullName || ''
                           });
                         }}
                       >
                         <option value="">Unassigned</option>
-                        {mockSalesOfficers.map((so) => (
-                          <option key={so.id} value={so.fullName}>
-                            {so.fullName} ({so.assignedTerritory})
+                        {salesOfficers.map((so: SalesOfficer) => (
+                          <option key={so.id} value={so.id}>
+                            {so.fullName} ({so.assignedTerritory || so.assignedArea || 'Region'})
                           </option>
                         ))}
                       </select>

@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Search, ShoppingBag, MessageSquare, Percent, Edit2, Check, AlertCircle } from 'lucide-react';
 import type { PurchaseOrder, POItem } from '../../types/purchaseOrders';
-import { mockSuppliers } from '../../data/mockSuppliers';
-import { mockInventoryItems } from '../../data/mockInventory';
 import type { InventoryItem } from '../../types/inventory';
+import type { Supplier } from '../../types/suppliers';
+import { supplierService } from '../../services/SupplierService';
+import { inventoryService } from '../../services/InventoryService';
 import { useToast } from '../erp/Toast';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
@@ -17,8 +18,8 @@ export interface POConversionItem {
 }
 
 export interface POInitialData {
-  referenceOrderId?: string;
-  referenceOrderNum?: string;
+  sourceOrderId?: string;
+  sourceOrderNumber?: string;
   customerName?: string;
   supplierId?: string;
   supplierName?: string;
@@ -107,13 +108,23 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      supplierService.getAll().then(s => setAllSuppliers(s || [])).catch(() => {});
+      inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
+    }
+  }, [isOpen]);
+
   // Lifecycle to populate data on open / change
   useEffect(() => {
     if (!isOpen) return;
 
     if (poToEdit) {
       // Editing existing PO
-      const exists = mockSuppliers.some((s) => s.supplierId === poToEdit.supplierId || s.id === poToEdit.supplierId);
+      const exists = allSuppliers.some((s) => s.id === poToEdit.supplierId);
       if (exists) {
         setSelectedSupplierId(poToEdit.supplierId);
         setSupplierSearch(`${poToEdit.supplierName} (${poToEdit.supplierId})`);
@@ -126,36 +137,38 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
           contactPerson: poToEdit.supplierContact,
           phone: poToEdit.supplierPhone,
           email: poToEdit.supplierEmail || '',
-          address: poToEdit.supplierAddress,
-          city: poToEdit.supplierCity,
+          address: poToEdit.supplierAddress || '',
+          city: poToEdit.supplierCity || '',
         });
       }
       setPoDate(poToEdit.poDate);
-      setReferenceOrderNum(poToEdit.referenceOrderNum || poToEdit.referenceOrderId || '');
+      setReferenceOrderNum(poToEdit.sourceOrderNumber || '');
       setCustomerName(poToEdit.customerName || '');
       setNotes(poToEdit.notes || '');
       setDiscountType(poToEdit.discountType || 'fixed');
       setDiscountValue(poToEdit.discountValue !== undefined ? poToEdit.discountValue : poToEdit.totalDiscount || 0);
 
       const draftItems: DraftItem[] = (poToEdit.items || []).map((item) => {
-        const invItem = mockInventoryItems.find((inv) => inv.product_code === item.sku || inv.product_name.toLowerCase() === item.productName.toLowerCase()) || {
-          _id: item.id,
-          id: item.id,
-          product_code: item.sku || 'PRD-EXT',
-          product_name: item.productName,
+        const invItem = allInventoryItems.find((inv) => inv.productCode === item.sku || inv.productName.toLowerCase() === item.productName.toLowerCase()) || {
+          id: item.inventoryItemId || item.id,
+          inventoryCode: item.sku || 'INV-EXT',
+          productCode: item.sku || 'PRD-EXT',
+          productName: item.productName,
           quantity: 0,
-          sold_count: 0,
+          soldCount: 0,
           status: 'in_stock' as const,
-          vehicle: { brand: 'Universal', model: 'All Models', chassis_no: 'N/A', year: 2026 },
-          purchase_price: item.unitPrice,
-          sell_price: item.unitPrice * 1.3,
-          shipment_code: 'DIRECT',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: 2026,
+          purchasePrice: item.unitPrice,
+          sellPrice: item.unitPrice * 1.3,
+          discountRate: 0,
+          actualSoldPrice: item.unitPrice,
+          shipmentCode: 'DIRECT',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
         return {
           inventoryItem: invItem,
-          quantity: item.quantity,
+          quantity: item.quantityOrdered,
           unitPrice: item.unitPrice,
           remark: item.remark || '',
         };
@@ -163,18 +176,18 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       setItems(draftItems);
     } else if (initialData) {
       // Converting from Order / Quotation
-      setReferenceOrderNum(initialData.referenceOrderNum || initialData.referenceOrderId || '');
+      setReferenceOrderNum(initialData.sourceOrderNumber || '');
       setCustomerName(initialData.customerName || '');
-      setNotes(initialData.notes || (initialData.referenceOrderNum ? `Converted from Order #${initialData.referenceOrderNum}` : ''));
+      setNotes(initialData.notes || (initialData.sourceOrderNumber ? `Converted from Order #${initialData.sourceOrderNumber}` : ''));
       setPoDate(today);
       setDiscountType('percentage');
       setDiscountValue(0);
 
       if (initialData.supplierId) {
-        const found = mockSuppliers.find((s) => s.supplierId === initialData.supplierId || s.id === initialData.supplierId);
+        const found = allSuppliers.find((s) => s.id === initialData.supplierId);
         if (found) {
           setSelectedSupplierId(found.id);
-          setSupplierSearch(`${found.companyName} (${found.supplierId})`);
+          setSupplierSearch(`${found.companyName} (${found.supplierCode})`);
           setIsCustomSupplier(false);
         }
       } else {
@@ -186,33 +199,35 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       // Convert items and retrieve Cost Price from inventory
       const convertedDraftItems: DraftItem[] = (initialData.items || []).map((it) => {
         // Match inventory item by SKU or product name
-        const matchedInv = mockInventoryItems.find(
+        const matchedInv = allInventoryItems.find(
           (inv) =>
-            (it.sku && inv.product_code.toLowerCase() === it.sku.toLowerCase()) ||
-            inv.product_name.toLowerCase() === it.productName.toLowerCase()
+            (it.sku && inv.productCode.toLowerCase() === it.sku.toLowerCase()) ||
+            inv.productName.toLowerCase() === it.productName.toLowerCase()
         );
 
-        // Crucial Business Rule: ALWAYS use matched purchase_price (Cost Price), NEVER selling price
+        // Crucial Business Rule: ALWAYS use matched purchasePrice (Cost Price), NEVER selling price
         const costPrice = matchedInv
-          ? matchedInv.purchase_price
+          ? matchedInv.purchasePrice
           : it.costPrice !== undefined
           ? it.costPrice
           : 0;
 
         const invItem: InventoryItem = matchedInv || {
-          _id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          id: `inv-${Date.now()}`,
-          product_code: it.sku || `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
-          product_name: it.productName,
+          id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          inventoryCode: `INV-${Date.now()}`,
+          productCode: it.sku || `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
+          productName: it.productName,
           quantity: 0,
-          sold_count: 0,
+          soldCount: 0,
           status: 'in_stock' as const,
-          vehicle: { brand: 'Universal', model: 'All Models', chassis_no: 'N/A', year: 2026 },
-          purchase_price: costPrice,
-          sell_price: it.sellingPrice || costPrice * 1.3,
-          shipment_code: 'DIRECT',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: 2026,
+          purchasePrice: costPrice,
+          sellPrice: it.sellingPrice || costPrice * 1.3,
+          discountRate: 0,
+          actualSoldPrice: it.sellingPrice || costPrice * 1.3,
+          shipmentCode: 'DIRECT',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
 
         return {
@@ -227,43 +242,43 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     } else {
       resetState();
     }
-  }, [isOpen, poToEdit, initialData]);
+  }, [isOpen, poToEdit, initialData, allSuppliers, allInventoryItems]);
 
   // Filter suppliers
   const filteredSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    if (!q) return mockSuppliers;
-    return mockSuppliers.filter(
+    if (!q) return allSuppliers;
+    return allSuppliers.filter(
       (s) =>
         s.companyName.toLowerCase().includes(q) ||
         (s.contactPerson && s.contactPerson.toLowerCase().includes(q)) ||
-        s.supplierId.toLowerCase().includes(q)
+        s.supplierCode.toLowerCase().includes(q)
     );
-  }, [supplierSearch]);
+  }, [allSuppliers, supplierSearch]);
 
   // Filter items
   const filteredInventoryItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
-    if (!q) return mockInventoryItems;
-    return mockInventoryItems.filter(
+    if (!q) return allInventoryItems;
+    return allInventoryItems.filter(
       (item) =>
-        item.product_name.toLowerCase().includes(q) ||
-        item.product_code.toLowerCase().includes(q)
+        item.productName.toLowerCase().includes(q) ||
+        item.productCode.toLowerCase().includes(q)
     );
-  }, [itemSearch]);
+  }, [allInventoryItems, itemSearch]);
 
-  const handleSelectSupplier = (sup: typeof mockSuppliers[0]) => {
+  const handleSelectSupplier = (sup: Supplier) => {
     setSelectedSupplierId(sup.id);
-    setSupplierSearch(`${sup.companyName} (${sup.supplierId})`);
+    setSupplierSearch(`${sup.companyName} (${sup.supplierCode})`);
     setShowSupplierDropdown(false);
     setIsCustomSupplier(false);
   };
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItemToAdd(item);
-    setItemSearch(`${item.product_name} (${item.product_code})`);
+    setItemSearch(`${item.productName} (${item.productCode})`);
     // Load existing inventory cost price into unit price
-    setAddPrice(item.purchase_price || 0);
+    setAddPrice(item.purchasePrice || 0);
     setAddQty(0);
     setShowItemDropdown(false);
   };
@@ -278,7 +293,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       return;
     }
 
-    const existingIdx = items.findIndex((it) => it.inventoryItem._id === selectedItemToAdd._id);
+    const existingIdx = items.findIndex((it) => it.inventoryItem.id === selectedItemToAdd.id);
     if (existingIdx !== -1) {
       const updated = [...items];
       updated[existingIdx].quantity += addQty;
@@ -330,7 +345,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   };
 
   // Quick Add Product action
-  const handleSaveNewProduct = (e: React.FormEvent) => {
+  const handleSaveNewProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickProduct.name.trim()) {
       setQuickProductErrors({ name: 'Product name is required' });
@@ -341,22 +356,29 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     const sellPrice = parseFloat(quickProduct.sellPrice) || 0;
 
     const newInvItem: InventoryItem = {
-      _id: `inv-${Date.now()}`,
       id: `inv-${Date.now()}`,
-      product_code: `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
-      product_name: quickProduct.name.trim(),
+      inventoryCode: `INV-${Date.now()}`,
+      productCode: `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
+      productName: quickProduct.name.trim(),
       quantity: 0,
-      sold_count: 0,
+      soldCount: 0,
       status: 'in_stock',
-      vehicle: { brand: 'Universal', model: 'All Models', chassis_no: 'N/A', year: new Date().getFullYear() },
-      purchase_price: cost,
-      sell_price: sellPrice,
-      shipment_code: 'DIRECT',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: new Date().getFullYear(),
+      purchasePrice: cost,
+      sellPrice: sellPrice,
+      discountRate: 0,
+      actualSoldPrice: sellPrice,
+      shipmentCode: 'DIRECT',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    mockInventoryItems.unshift(newInvItem);
+    try {
+      await inventoryService.create(newInvItem);
+    } catch {
+      // ignore
+    }
+    setAllInventoryItems(prev => [newInvItem, ...prev]);
     handleSelectItem(newInvItem);
     setShowAddProductModal(false);
     toast.success('Product Added', `${quickProduct.name} registered in inventory master with cost LKR ${cost.toLocaleString()}.`);
@@ -375,7 +397,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     return { subTotal, discountAmount, grandTotal };
   }, [items, discountType, discountValue]);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -398,7 +420,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
     // Build supplier info
     let supplierInfo = {
-      supplierId: `SUP-${Math.floor(10000 + Math.random() * 90000)}`,
+      supplierId: '',
       supplierName: '',
       supplierContact: '',
       supplierPhone: '',
@@ -407,15 +429,25 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     };
 
     if (isCustomSupplier) {
+      const createdSupplier = await supplierService.create({
+        companyName: customSupplier.companyName,
+        contactPerson: customSupplier.contactPerson || 'N/A',
+        phone: customSupplier.phone,
+        email: customSupplier.email || undefined,
+        address: customSupplier.address || '',
+        city: customSupplier.city || '',
+        status: 'Active',
+      });
+      supplierInfo.supplierId = createdSupplier.id;
       supplierInfo.supplierName = customSupplier.companyName;
       supplierInfo.supplierContact = customSupplier.contactPerson || 'N/A';
       supplierInfo.supplierPhone = customSupplier.phone;
       supplierInfo.supplierAddress = customSupplier.address || 'N/A';
       supplierInfo.supplierCity = customSupplier.city || 'N/A';
     } else {
-      const found = mockSuppliers.find((s) => s.id === selectedSupplierId || s.supplierId === selectedSupplierId);
+      const found = allSuppliers.find((s) => s.id === selectedSupplierId);
       if (found) {
-        supplierInfo.supplierId = found.supplierId;
+        supplierInfo.supplierId = found.id;
         supplierInfo.supplierName = found.companyName;
         supplierInfo.supplierContact = found.contactPerson || 'N/A';
         supplierInfo.supplierPhone = found.phone;
@@ -426,17 +458,18 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
     // Build Items
     const poItems: POItem[] = items.map((it) => ({
-      id: it.inventoryItem._id,
-      sku: it.inventoryItem.product_code,
-      productName: it.inventoryItem.product_name,
+      id: it.inventoryItem.id,
+      sku: it.inventoryItem.productCode,
+      productName: it.inventoryItem.productName,
       category: 'Parts',
-      quantity: it.quantity,
+      quantityOrdered: it.quantity,
+      quantityReceived: 0,
       unit: 'PCS',
       unitPrice: it.unitPrice,
       discount: 0,
       tax: 0,
-      subtotal: it.quantity * it.unitPrice,
-      total: it.quantity * it.unitPrice,
+      subTotal: it.quantity * it.unitPrice,
+      totalPrice: it.quantity * it.unitPrice,
       remark: it.remark?.trim() || undefined,
     }));
 
@@ -445,8 +478,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     const newPO: PurchaseOrder = {
       id: poToEdit ? poToEdit.id : Date.now().toString(),
       poNumber: poToEdit ? poToEdit.poNumber : poId,
-      referenceOrderId: initialData?.referenceOrderId,
-      referenceOrderNum: referenceOrderNum || undefined,
+      sourceOrderId: initialData?.sourceOrderId,
+      sourceOrderNumber: referenceOrderNum || undefined,
       customerName: customerName || (poToEdit ? poToEdit.customerName : undefined),
       supplierId: supplierInfo.supplierId,
       supplierName: supplierInfo.supplierName,
@@ -457,20 +490,20 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       createdById: poToEdit ? poToEdit.createdById : 'admin-1',
       createdByName: poToEdit ? poToEdit.createdByName : 'Admin User',
       poDate,
-      expectedDate: poDate,
+      expectedDeliveryDate: poDate,
       createdAt: poToEdit ? poToEdit.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       items: poItems,
-      numberOfItems: poItems.length,
+      totalItems: poItems.length,
       subTotal: financials.subTotal,
       discountType,
       discountValue,
       totalDiscount: financials.discountAmount,
       totalTax: 0,
       shippingCharges: 0,
-      grandTotal: financials.grandTotal,
-      status: poToEdit ? poToEdit.status : 'Pending Approval',
-      paymentStatus: poToEdit ? poToEdit.paymentStatus : 'Unpaid',
+      totalAmount: financials.grandTotal,
+      status: poToEdit ? poToEdit.status : 'pending_approval',
+      paymentStatus: poToEdit ? poToEdit.paymentStatus : 'unpaid',
       paymentTerms: poToEdit ? poToEdit.paymentTerms : 'Net 30',
       notes,
     };
@@ -661,7 +694,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                               <span className="font-semibold text-white">{s.companyName}</span>
                               <span className="text-slate-400 ml-1.5">({s.contactPerson})</span>
                             </div>
-                            <span className="text-[10px] text-slate-500 font-mono">{s.supplierId}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{s.supplierCode}</span>
                           </div>
                         ))}
                       </div>
@@ -734,14 +767,14 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                       <div className="absolute left-0 right-0 top-full mt-1 max-h-40 bg-[#0f172a] border border-[#1e293b] rounded-lg shadow-2xl overflow-y-auto z-50 p-1">
                         {filteredInventoryItems.map((item) => (
                           <div
-                            key={item._id}
+                            key={item.id}
                             onClick={() => handleSelectItem(item)}
                             className="px-3 py-2 hover:bg-[#1e293b] rounded-lg cursor-pointer transition text-xs flex justify-between items-center"
                           >
-                            <span className="text-white font-medium">{item.product_name}</span>
+                            <span className="text-white font-medium">{item.productName}</span>
                             <div className="text-right">
-                              <span className="text-emerald-400 font-mono text-[11px] block">Cost: LKR {item.purchase_price.toLocaleString()}</span>
-                              <span className="text-slate-500 font-mono text-[10px]">{item.product_code}</span>
+                              <span className="text-emerald-400 font-mono text-[11px] block">Cost: LKR {item.purchasePrice.toLocaleString()}</span>
+                              <span className="text-slate-500 font-mono text-[10px]">{item.productCode}</span>
                             </div>
                           </div>
                         ))}
@@ -814,8 +847,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                         <tr key={idx} className="hover:bg-[#0b1120]/40 transition text-slate-200">
                           <td className="p-3 space-y-1">
                             <div className="flex items-center justify-between">
-                              <p className="font-semibold text-white">{item.inventoryItem.product_name}</p>
-                              <span className="text-[10px] text-slate-500 font-mono">{item.inventoryItem.product_code}</span>
+                              <p className="font-semibold text-white">{item.inventoryItem.productName}</p>
+                              <span className="text-[10px] text-slate-500 font-mono">{item.inventoryItem.productCode}</span>
                             </div>
 
                             {/* Remark display & inline editing */}

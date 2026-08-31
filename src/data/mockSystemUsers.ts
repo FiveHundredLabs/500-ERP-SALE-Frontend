@@ -2,7 +2,7 @@ import type { User } from '../types/users';
 
 export const mockSystemUsers: User[] = [
   {
-    _id: 'usr-001',
+    id: 'usr-001',
     fullName: 'Amara Wickramasinghe',
     email: 'amara.w@500core.lk',
     role: 'admin',
@@ -10,7 +10,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-10T00:00:00.000Z',
   },
   {
-    _id: 'usr-002',
+    id: 'usr-002',
     fullName: 'Dilshan Marasinghe',
     email: 'dilshan.m@500core.lk',
     role: 'admin',
@@ -18,7 +18,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-08T00:00:00.000Z',
   },
   {
-    _id: 'so-001',
+    id: 'so-001',
     fullName: 'Kasun Perera',
     email: 'kasun.p@500core.lk',
     role: 'salesman',
@@ -26,7 +26,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-01T00:00:00.000Z',
   },
   {
-    _id: 'so-002',
+    id: 'so-002',
     fullName: 'Nuwan Silva',
     email: 'nuwan.s@500core.lk',
     role: 'salesman',
@@ -34,7 +34,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-01T00:00:00.000Z',
   },
   {
-    _id: 'so-003',
+    id: 'so-003',
     fullName: 'Dinesh Fernando',
     email: 'dinesh.f@500core.lk',
     role: 'salesman',
@@ -42,7 +42,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-05T00:00:00.000Z',
   },
   {
-    _id: 'so-004',
+    id: 'so-004',
     fullName: 'Ruwan Jayasinghe',
     email: 'ruwan.j@500core.lk',
     role: 'salesman',
@@ -50,7 +50,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-05T00:00:00.000Z',
   },
   {
-    _id: 'so-005',
+    id: 'so-005',
     fullName: 'Sachith Kumara',
     email: 'sachith.k@500core.lk',
     role: 'salesman',
@@ -58,7 +58,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-07-28T00:00:00.000Z',
   },
   {
-    _id: 'so-006',
+    id: 'so-006',
     fullName: 'Chaminda Bandara',
     email: 'chaminda.b@500core.lk',
     role: 'salesman',
@@ -66,7 +66,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-01T00:00:00.000Z',
   },
   {
-    _id: 'so-007',
+    id: 'so-007',
     fullName: 'Tharindu Wickramasinghe',
     email: 'tharindu.w@500core.lk',
     role: 'salesman',
@@ -74,7 +74,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-02T00:00:00.000Z',
   },
   {
-    _id: 'so-008',
+    id: 'so-008',
     fullName: 'Lahiru Senanayake',
     email: 'lahiru.s@500core.lk',
     role: 'salesman',
@@ -82,7 +82,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-05T00:00:00.000Z',
   },
   {
-    _id: 'so-009',
+    id: 'so-009',
     fullName: 'Roshan Abeykoon',
     email: 'roshan.a@500core.lk',
     role: 'salesman',
@@ -90,7 +90,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-08T00:00:00.000Z',
   },
   {
-    _id: 'so-010',
+    id: 'so-010',
     fullName: 'Manjula Dissanaike',
     email: 'manjula.d@500core.lk',
     role: 'salesman',
@@ -98,7 +98,7 @@ export const mockSystemUsers: User[] = [
     updatedAt: '2026-08-10T00:00:00.000Z',
   },
   {
-    _id: 'usr-008',
+    id: 'usr-008',
     fullName: 'Kavinda Jayawardena',
     email: 'kavinda.j@500core.lk',
     role: 'inventory_manager',

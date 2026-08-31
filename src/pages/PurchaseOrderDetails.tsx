@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, useToast } from '../components/erp';
-import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
-import { mockOrders } from '../data/mockOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import {
@@ -33,8 +31,7 @@ const PurchaseOrderDetails: React.FC = () => {
         const data = await purchaseOrderService.getById(id);
         setPo(data);
       } catch {
-        const found = mockPurchaseOrders.find((p) => p.id === id || p.poNumber === id) || mockPurchaseOrders[0];
-        setPo(found);
+        setPo(undefined);
       } finally {
         setLoading(false);
       }
@@ -77,11 +74,7 @@ const PurchaseOrderDetails: React.FC = () => {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
   // Returns salesman from original order if PO was converted from an order
-  const getSalesmanFromPO = (po: PurchaseOrder) => {
-    if (!po.referenceOrderId && !po.referenceOrderNum) return undefined;
-    const refId = po.referenceOrderId || po.referenceOrderNum;
-    const order = mockOrders.find(o => o.orderId === refId || o.id === refId);
-    if (order?.salesman) return { _id: order.salesman.id, name: order.salesman.name };
+  const getSalesmanFromPO = (_po: PurchaseOrder) => {
     return undefined;
   };
 
@@ -134,7 +127,7 @@ const PurchaseOrderDetails: React.FC = () => {
                   const message = generatePOWhatsAppMessage({
                     poNumber: po.poNumber,
                     supplierName: po.supplierName,
-                    totalAmount: po.grandTotal,
+                    totalAmount: po.totalAmount,
                     poDate: po.poDate,
                     itemsCount: po.items.length,
                     remarks: po.notes,
@@ -222,9 +215,9 @@ const PurchaseOrderDetails: React.FC = () => {
                         <span className="text-xs text-gray-600">—</span>
                       )}
                     </td>
-                    <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantity}</td>
+                    <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantityOrdered}</td>
                     <td className="p-3 text-right text-gray-300 text-sm font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.total)}</td>
+                    <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.totalPrice)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -259,7 +252,7 @@ const PurchaseOrderDetails: React.FC = () => {
               )}
               <div className="pt-3 border-t border-[#334155] flex justify-between items-center">
                 <span className="font-bold text-gray-100">Grand Total:</span>
-                <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.grandTotal)}</span>
+                <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.totalAmount)}</span>
               </div>
             </div>
           </div>

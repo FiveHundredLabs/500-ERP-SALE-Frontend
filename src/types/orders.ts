@@ -1,111 +1,57 @@
-// ============= Order Status =============
-
 export const OrderStatus = {
-  PENDING: 'Pending',
-  REVIEWING: 'Reviewing',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  CONVERTED_TO_PO: 'Converted to PO',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
+  PENDING: 'pending', REVIEWING: 'reviewing', APPROVED: 'approved', REJECTED: 'rejected',
+  CONVERTED_TO_PO: 'converted_to_po', COMPLETED: 'completed', CANCELLED: 'cancelled',
 } as const;
-
 export type OrderStatusType = typeof OrderStatus[keyof typeof OrderStatus];
 
-// ============= Payment Status =============
-
-export const OrderPaymentStatus = {
-  UNPAID: 'Unpaid',
-  PAID: 'Paid',
-  PARTIAL: 'Partial',
-} as const;
-
+export const OrderPaymentStatus = { UNPAID: 'unpaid', PAID: 'paid', PARTIAL: 'partial' } as const;
 export type OrderPaymentStatusType = typeof OrderPaymentStatus[keyof typeof OrderPaymentStatus];
-
-// ============= Order Product =============
 
 export interface OrderProduct {
   id: string;
-  sku?: string;
+  inventoryItemId?: string | null;
+  sku: string;
   productName: string;
   category?: string;
   brand?: string;
   quantity: number;
   unit: string;
   unitPrice: number;
-  discount: number;         // percentage
-  tax: number;              // percentage
-  subtotal: number;
+  discount: number;
+  tax: number;
+  subTotal: number;
   total: number;
 }
 
-// ============= Salesman =============
-
-export interface Salesman {
-  id: string;
-  name: string;
-  employeeId: string;
-  phone: string;
-  area: string;             // Assigned territory
-  email?: string;
-}
-
-// ============= Order =============
+export interface Salesman { id: string; fullName: string; email?: string; employeeId?: string; area?: string; phone?: string; }
+export interface OrderTimelineEvent { id: string; event: string; description?: string; occurredAt: string; actor?: string; }
 
 export interface Order {
   id: string;
-  orderId: string;          // ORD-XXXXX
-  orderDate: string;        // ISO date
-  createdAt: string;        // ISO datetime
+  orderNumber: string;
+  orderDate: string;
+  createdAt: string;
   updatedAt: string;
-
-  // Salesman (Optional)
+  salesmanId?: string | null;
   salesman?: Salesman | null;
-
-  // Customer
+  salesmanName?: string;
   customerId: string;
-  customerName: string;     // Shop / Business name
+  customerName: string;
   contactPerson: string;
   contactPhone: string;
-  customerAddress: string;
-  customerCity: string;
-
-  // Products
-  products: OrderProduct[];
+  customerAddress?: string;
+  customerCity?: string;
+  items: OrderProduct[];
   numberOfProducts: number;
-
-  // Financials
   subTotal: number;
   totalDiscount: number;
   totalTax: number;
   grandTotal: number;
-
-  // Status
   status: OrderStatusType;
   paymentStatus: OrderPaymentStatusType;
-
-  // References
-  convertedPOId?: string;   // PO Number if converted
-
-  // Timeline events
+  convertedPurchaseOrder?: { id: string; poNumber: string } | null;
   timeline: OrderTimelineEvent[];
-
   notes?: string;
 }
 
-// ============= Timeline =============
-
-export interface OrderTimelineEvent {
-  id: string;
-  event: string;
-  description?: string;
-  timestamp: string;        // ISO datetime
-  actor?: string;           // Who performed this action
-}
-
-// ============= DTOs =============
-
-export interface UpdateOrderStatusDto {
-  status: OrderStatusType;
-  notes?: string;
-}
+export interface UpdateOrderStatusDto { status: OrderStatusType; notes?: string; }

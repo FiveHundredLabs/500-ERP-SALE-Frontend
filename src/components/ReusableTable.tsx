@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, AlertCircle, Edit, Trash2, Plus, Eye } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../api/axios";
-import { mockInventoryItems } from "../data/mockInventory";
 
 interface TableProps {
   endpoint: string;
@@ -54,31 +53,23 @@ const ReusableTable: React.FC<TableProps> = ({
         setError(null);
         
         const response = await api.get(endpoint);
-        const items = Array.isArray(response.data) && response.data.length > 0
-          ? response.data
-          : (endpoint === "/inventory-items" ? [...mockInventoryItems] : []);
+        const items = Array.isArray(response.data) ? response.data : [];
         setData(items);
         setFilteredData(items);
         setPage(1);
       } catch (error: any) {
-        if (endpoint === "/inventory-items") {
-          setData([...mockInventoryItems]);
-          setFilteredData([...mockInventoryItems]);
-          setPage(1);
-          setError(null);
+        setData([]);
+        setFilteredData([]);
+        setPage(1);
+        console.error(`Error fetching data from ${endpoint}:`, error);
+        if (error.response?.status === 401) {
+          setError("Authentication failed. Please log in again.");
+        } else if (error.response?.status === 403) {
+          setError("You don't have permission to view this data.");
+        } else if (error.response?.status === 404) {
+          setError("Data not found. The endpoint might be incorrect.");
         } else {
-          console.error(`Error fetching data from ${endpoint}:`, error);
-          if (error.response?.status === 401) {
-            setError("Authentication failed. Please log in again.");
-          } else if (error.response?.status === 403) {
-            setError("You don't have permission to view this data.");
-          } else if (error.response?.status === 404) {
-            setError("Data not found. The endpoint might be incorrect.");
-          } else {
-            setError(error.response?.data?.message || error.message || "Failed to fetch data");
-          }
-          setData([]);
-          setFilteredData([]);
+          setError(error.response?.data?.message || error.message || "Failed to fetch data");
         }
       } finally {
         setLoading(false);
@@ -97,18 +88,18 @@ const ReusableTable: React.FC<TableProps> = ({
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase().trim();
       filtered = filtered.filter(item =>
-        item.product_name?.toLowerCase().includes(term) ||
-        item.product_code?.toLowerCase().includes(term) ||
-        item.vehicle?.brand?.toLowerCase().includes(term) ||
-        item.vehicle?.model?.toLowerCase().includes(term)
+        item.productName?.toLowerCase().includes(term) ||
+        item.productCode?.toLowerCase().includes(term) ||
+        item.brand?.toLowerCase().includes(term) ||
+        item.model?.toLowerCase().includes(term)
       );
     }
 
     // category filter
     if (selectedCategory !== "all") {
       filtered = filtered.filter(item => {
-        const productName = item.product_name?.toLowerCase() || '';
-        const productCode = item.product_code?.toLowerCase() || '';
+        const productName = item.productName?.toLowerCase() || '';
+        const productCode = item.productCode?.toLowerCase() || '';
         
         switch (selectedCategory) {
           case 'engine':
@@ -133,8 +124,8 @@ const ReusableTable: React.FC<TableProps> = ({
     if (value === null || value === undefined) return 'N/A';
     
     if (column === 'vehicle' && typeof value === 'object') {
-      const vehicle = value as { brand?: string; model?: string; chassis_no?: string; year?: number };
-      return `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.chassis_no ? `(${vehicle.chassis_no})` : ''} ${vehicle.year ? `- ${vehicle.year}` : ''}`.trim();
+      const vehicle = value as { brand?: string; model?: string; chassisNo?: string; year?: number };
+      return `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.chassisNo ? `(${vehicle.chassisNo})` : ''} ${vehicle.year ? `- ${vehicle.year}` : ''}`.trim();
     }
     
     if (typeof value === 'object') {

@@ -1,61 +1,48 @@
 import type { Order } from '../types/orders';
-import { mockOrders } from '../data/mockOrders';
+import { mapOrder } from './apiMappers';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const orderService = {
   async getAll(): Promise<Order[]> {
-    return [...mockOrders];
+    const res = await fetch(`${API_BASE}/orders`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch orders`);
+    return ((await res.json()) as unknown[]).map(mapOrder);
   },
 
   async getById(id: string): Promise<Order> {
-    const found = mockOrders.find(o => o.id === id || o.orderId === id || (o as any)._id === id);
-    if (found) return found;
-    return mockOrders[0];
+    const res = await fetch(`${API_BASE}/orders/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch order ${id}`);
+    return mapOrder(await res.json());
   },
 
   async create(orderData: Partial<Order>): Promise<Order> {
-    const newOrder: Order = {
-      id: Date.now().toString(),
-      orderId: orderData.orderId || `ORD-${Math.floor(10000 + Math.random() * 90000)}`,
-      orderDate: orderData.orderDate || new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      salesman: orderData.salesman || { id: 'SM001', name: 'Admin User', employeeId: 'EMP-000', phone: '', area: 'Main Office' },
-      customerId: orderData.customerId || '',
-      customerName: orderData.customerName || 'Customer',
-      contactPerson: orderData.contactPerson || '',
-      contactPhone: orderData.contactPhone || '',
-      customerAddress: orderData.customerAddress || '',
-      customerCity: orderData.customerCity || '',
-      products: orderData.products || [],
-      numberOfProducts: orderData.numberOfProducts || (orderData.products ? orderData.products.length : 0),
-      subTotal: orderData.subTotal || 0,
-      totalDiscount: orderData.totalDiscount || 0,
-      totalTax: orderData.totalTax || 0,
-      grandTotal: orderData.grandTotal || 0,
-      status: orderData.status || 'Pending',
-      paymentStatus: orderData.paymentStatus || 'Unpaid',
-      timeline: orderData.timeline || [],
-      notes: orderData.notes,
-    };
-    mockOrders.unshift(newOrder);
-    return newOrder;
+    const res = await fetch(`${API_BASE}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(orderData),
+    });
+    if (!res.ok) throw new Error(`Failed to create order`);
+    return mapOrder(await res.json());
   },
 
   async updateStatus(id: string, status: string, notes?: string): Promise<Order> {
-    const found = mockOrders.find(o => o.id === id || o.orderId === id);
-    if (found) {
-      found.status = status as any;
-      if (notes) found.notes = notes;
-      return found;
-    }
-    return { id, status } as Order;
+    const res = await fetch(`${API_BASE}/orders/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status, notes }),
+    });
+    if (!res.ok) throw new Error(`Failed to update order status`);
+    return mapOrder(await res.json());
   },
 
   async delete(id: string): Promise<boolean> {
-    const index = mockOrders.findIndex(o => o.id === id || o.orderId === id);
-    if (index !== -1) {
-      mockOrders.splice(index, 1);
-    }
-    return true;
+    const res = await fetch(`${API_BASE}/orders/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return res.ok;
   },
 };

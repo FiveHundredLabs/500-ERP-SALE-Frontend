@@ -14,10 +14,10 @@ export const useItemSearch = (inventoryItems: InventoryItem[]) => {
 
     const searchTermLower = searchTerm.toLowerCase().trim();
     const filtered = inventoryItems.filter(item => {
-      const matchesProductName = item.product_name?.toLowerCase().includes(searchTermLower);
-      const matchesProductCode = item.product_code?.toLowerCase().includes(searchTermLower);
-      const matchesVehicleBrand = item.vehicle?.brand?.toLowerCase().includes(searchTermLower);
-      const matchesVehicleModel = item.vehicle?.model?.toLowerCase().includes(searchTermLower);
+      const matchesProductName = item.productName?.toLowerCase().includes(searchTermLower);
+      const matchesProductCode = item.productCode?.toLowerCase().includes(searchTermLower);
+      const matchesVehicleBrand = item.brand?.toLowerCase().includes(searchTermLower);
+      const matchesVehicleModel = item.model?.toLowerCase().includes(searchTermLower);
       
       return matchesProductName || matchesProductCode || matchesVehicleBrand || matchesVehicleModel;
     });

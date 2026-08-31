@@ -1,10 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
-import { mockOrders } from '../data/mockOrders';
 import { Eye, Download, ShoppingCart, Plus, Edit, FileText, MessageCircle } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
@@ -28,11 +26,26 @@ const PurchaseOrders: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPOToUpdate, setSelectedPOToUpdate] = useState<PurchaseOrder | null>(null);
 
-  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
-    const index = initialPOs.findIndex(po => po.id === updatedPO.id);
-    if (index !== -1) {
-      initialPOs[index] = updatedPO;
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPOs = async () => {
+    setLoading(true);
+    try {
+      const data = await purchaseOrderService.getAll();
+      setPurchaseOrders(data || []);
+    } catch {
+      setPurchaseOrders([]);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchPOs();
+  }, []);
+
+  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
     try {
       await purchaseOrderService.updateStatus(updatedPO.id, updatedPO.status);
     } catch {
@@ -43,25 +56,6 @@ const PurchaseOrders: React.FC = () => {
     fetchPOs();
   };
 
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchPOs = async () => {
-    setLoading(true);
-    try {
-      const data = await purchaseOrderService.getAll();
-      setPurchaseOrders(data);
-    } catch {
-      setPurchaseOrders(initialPOs);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchPOs();
-  }, []);
-
   const handleCreatePO = async (newPO: PurchaseOrder) => {
     await purchaseOrderService.create(newPO);
     setShowCreateModal(false);
@@ -69,13 +63,7 @@ const PurchaseOrders: React.FC = () => {
   };
 
   // Returns the salesman from the original order if the PO was converted from one
-  const getSalesmanFromPO = (po: PurchaseOrder): { _id: string; name: string } | undefined => {
-    if (!po.referenceOrderId && !po.referenceOrderNum) return undefined;
-    const refId = po.referenceOrderId || po.referenceOrderNum;
-    const order = mockOrders.find(o => o.orderId === refId || o.id === refId);
-    if (order && order.salesman) {
-      return { _id: order.salesman.id, name: order.salesman.name };
-    }
+  const getSalesmanFromPO = (_po: PurchaseOrder): { id: string; name: string } | undefined => {
     return undefined;
   };
 
@@ -110,7 +98,7 @@ const PurchaseOrders: React.FC = () => {
       suggestions.push({
         id: `po-${po.poNumber}`,
         title: po.poNumber,
-        subtitle: `${po.supplierName} · LKR ${(po.grandTotal || 0).toLocaleString()} · ${po.status}`,
+        subtitle: `${po.supplierName} · LKR ${(po.totalAmount || 0).toLocaleString()} · ${po.status}`,
         category: 'Purchase Order',
         value: po.poNumber,
       });
@@ -118,13 +106,13 @@ const PurchaseOrders: React.FC = () => {
 
     // 3. Reference Orders
     purchaseOrders.forEach(po => {
-      if (po.referenceOrderNum) {
+      if (po.sourceOrderNumber) {
         suggestions.push({
-          id: `ref-${po.referenceOrderNum}`,
-          title: `Ref: ${po.referenceOrderNum}`,
+          id: `ref-${po.sourceOrderNumber}`,
+          title: `Ref: ${po.sourceOrderNumber}`,
           subtitle: `Linked PO: ${po.poNumber} (${po.supplierName})`,
           category: 'Order ID',
-          value: po.referenceOrderNum,
+          value: po.sourceOrderNumber,
         });
       }
     });
@@ -138,7 +126,7 @@ const PurchaseOrders: React.FC = () => {
         searchQuery === '' ||
         po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (po.referenceOrderNum && po.referenceOrderNum.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (po.sourceOrderNumber && po.sourceOrderNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
@@ -179,8 +167,8 @@ const PurchaseOrders: React.FC = () => {
   const handleExportCSV = () => {
     const headers = ['PO Number', 'PO Date', 'Supplier', 'Ref Order', 'Created By', 'Items', 'Total', 'Status'];
     const rows = sortedPOs.map((p) => [
-      p.poNumber, p.poDate, `"${p.supplierName}"`, p.referenceOrderNum || 'Direct PO',
-      `"${p.createdByName}"`, p.numberOfItems, p.grandTotal, p.status,
+      p.poNumber, p.poDate, `"${p.supplierName}"`, p.sourceOrderNumber || 'Direct PO',
+      `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -207,7 +195,7 @@ const PurchaseOrders: React.FC = () => {
       key: 'referenceOrderNum',
       header: 'Ref Order',
       minWidth: '100px',
-      render: (row) => <span className="font-mono text-xs text-[#CBD5E1]">{row.referenceOrderNum || '—'}</span>,
+      render: (row) => <span className="font-mono text-xs text-[#CBD5E1]">{row.sourceOrderNumber || '—'}</span>,
     },
     {
       key: 'supplierName',
@@ -240,7 +228,7 @@ const PurchaseOrders: React.FC = () => {
       minWidth: '60px',
       render: (row) => (
         <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-[#111827] text-[#CBD5E1] border border-[#334155]">
-          {row.numberOfItems}
+          {row.totalItems}
         </span>
       ),
     },
@@ -250,7 +238,7 @@ const PurchaseOrders: React.FC = () => {
       sortable: true,
       align: 'right',
       minWidth: '120px',
-      render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.grandTotal)}</span>,
+      render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.totalAmount)}</span>,
     },
     {
       key: 'actions',
@@ -266,9 +254,9 @@ const PurchaseOrders: React.FC = () => {
                 const text = generatePOWhatsAppMessage({
                   poNumber: row.poNumber,
                   supplierName: row.supplierName,
-                  totalAmount: row.grandTotal,
+                  totalAmount: row.totalAmount,
                   poDate: row.poDate,
-                  itemsCount: row.numberOfItems || row.items?.length || 0,
+                  itemsCount: row.totalItems || row.items?.length || 0,
                   remarks: row.notes,
                   shareUrl: `${window.location.origin}/purchase-orders/${row.id || row.poNumber}`,
                 });

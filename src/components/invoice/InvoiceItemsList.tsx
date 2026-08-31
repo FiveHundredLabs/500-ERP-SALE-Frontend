@@ -140,7 +140,7 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
           </thead>
           <tbody className="divide-y divide-[#334155]/60 text-xs">
             {items.map((item, idx) => {
-              const inventoryItem = inventoryItems.find((inv) => inv._id === item.item);
+              const inventoryItem = inventoryItems.find((inv) => inv.id === item.inventoryItemId);
               const discVal = Number(item.discountValue) || 0;
               const discAmt = Number(item.discountAmount) || 0;
               const discountType = item.discountType || 'percentage';
@@ -156,7 +156,7 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                   {/* Product */}
                   <td className="py-3 px-3">
                     <p className="font-semibold text-gray-100 text-sm leading-snug">
-                      {item.itemName || inventoryItem?.product_name || `Item ${item.item ? item.item.substring(0, 8) : 'Unknown'}...`}
+                      {item.itemName || inventoryItem?.productName || `Item ${item.inventoryItemId ? item.inventoryItemId.substring(0, 8) : 'Unknown'}...`}
                     </p>
                   </td>
 

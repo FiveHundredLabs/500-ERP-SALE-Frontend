@@ -25,6 +25,7 @@ import SupplierDetails from "../pages/SupplierDetails";
 import SalesOfficers from "../pages/SalesOfficers";
 import Reports from "../pages/Reports";
 import MobileApp from "../pages/MobileApp";
+import InvoiceReturns from "../pages/InvoiceReturns";
 
 const AppRoutes: React.FC = () => {
   return (
@@ -233,6 +234,18 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
                 <Invoice />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* INVOICE RETURNS (NEW) */}
+        <Route
+          path="/invoice-returns"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin"]}>
+                <InvoiceReturns />
               </RoleRoute>
             </ProtectedRoute>
           }

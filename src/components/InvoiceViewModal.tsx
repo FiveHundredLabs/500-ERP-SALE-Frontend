@@ -10,6 +10,7 @@ interface InvoiceViewModalProps {
   onClose: () => void;
   selectedInvoice: InvoiceResponse | null;
   onDownloadInvoice: (invoice: InvoiceResponse) => Promise<void>;
+  onReturnInvoice?: (invoice: InvoiceResponse) => void;
   isGeneratingPDF: boolean;
 }
 
@@ -18,6 +19,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   onClose,
   selectedInvoice,
   onDownloadInvoice,
+  onReturnInvoice,
   isGeneratingPDF
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
@@ -60,13 +62,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         >
           <InvoiceCanvas
             invoiceData={{
-              invoiceId: selectedInvoice.invoiceId,
-              customer: selectedInvoice.customer?._id || "",
-              customerDetails: selectedInvoice.customer,
+              invoiceNumber: selectedInvoice.invoiceNumber,
+              customer: selectedInvoice.customer?.id || "",
+              customerDetails: selectedInvoice.customer ?? undefined,
               items: selectedInvoice.items.map(item => ({
-                id: item._id || Date.now().toString(),
-                item: item.item?._id || "",
-                itemName: item.item?.product_name || item.item?.itemName || item.item?.description || "Item",
+                id: item.id || Date.now().toString(),
+                inventoryItemId: item.inventoryItemId,
+                itemName: item.itemName || item.inventoryItem?.productName || "Item",
+                itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+                discount: item.discount || 0,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
                 total: item.total,
@@ -85,6 +89,10 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               applyVat: selectedInvoice.applyVat ?? false,
               vatAmount: selectedInvoice.vatAmount ?? 0,
               taxRate: selectedInvoice.taxRate ?? 0,
+              paidAmount: selectedInvoice.paidAmount,
+              salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null 
+                ? selectedInvoice.salesman 
+                : (selectedInvoice.salesmanName ? { id: '', name: selectedInvoice.salesmanName } : null),
             }}
           />
         </div>
@@ -123,7 +131,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Invoice ${selectedInvoice.invoiceId}</title>
+            <title>Invoice ${selectedInvoice.invoiceNumber}</title>
             <style>
               @page {
                 size: A4 portrait;
@@ -163,7 +171,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </style>
           </head>
           <body>
-            <img src="${imageData}" alt="Invoice ${selectedInvoice.invoiceId}" class="invoice-image" />
+            <img src="${imageData}" alt="Invoice ${selectedInvoice.invoiceNumber}" class="invoice-image" />
             <script>
               window.onload = function() {
                 setTimeout(function() {
@@ -195,7 +203,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Invoice Preview - ${selectedInvoice?.invoiceId}`}
+      title={`Invoice Preview - ${selectedInvoice?.invoiceNumber}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[95vh] max-w-[95vw] flex flex-col"
@@ -217,6 +225,17 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             >
               Print
             </Button>
+            {onReturnInvoice && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => selectedInvoice && onReturnInvoice(selectedInvoice)}
+                disabled={isGeneratingPDF || !selectedInvoice || isPrinting}
+                className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
+              >
+                Return Invoice
+              </Button>
+            )}
             <Button
               variant="primary"
               size="md"
@@ -264,13 +283,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               >
                 <InvoiceCanvas
                   invoiceData={{
-                    invoiceId: selectedInvoice.invoiceId,
-                    customer: selectedInvoice.customer?._id || "",
-                    customerDetails: selectedInvoice.customer,
+                    invoiceNumber: selectedInvoice.invoiceNumber,
+                    customer: selectedInvoice.customer?.id || "",
+                    customerDetails: selectedInvoice.customer ?? undefined,
                     items: selectedInvoice.items.map(item => ({
-                      id: item._id || Date.now().toString(),
-                      item: item.item?._id || "",
-                      itemName: item.item?.product_name || item.item?.itemName || item.item?.description || "Item",
+                      id: item.id || Date.now().toString(),
+                      inventoryItemId: item.inventoryItemId,
+                      itemName: item.itemName || item.inventoryItem?.productName || "Item",
+                      itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+                      discount: item.discount || 0,
                       quantity: item.quantity,
                       unitPrice: item.unitPrice,
                       total: item.total,
@@ -286,11 +307,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                     dueDate: selectedInvoice.dueDate,
                     vehicleNumber: selectedInvoice.vehicleNumber,
                     notes: selectedInvoice.notes,
-                    applyVat: selectedInvoice.applyVat ?? false,
-                    vatAmount: selectedInvoice.vatAmount ?? 0,
-                    taxRate: selectedInvoice.taxRate ?? 0,
-                  }}
-                />
+                      applyVat: selectedInvoice.applyVat ?? false,
+                      vatAmount: selectedInvoice.vatAmount ?? 0,
+                      taxRate: selectedInvoice.taxRate ?? 0,
+                      paidAmount: selectedInvoice.paidAmount,
+                      salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null 
+                        ? selectedInvoice.salesman 
+                        : (selectedInvoice.salesmanName ? { id: '', name: selectedInvoice.salesmanName } : null),
+                    }}
+                  />
               </div>
             </div>
           ) : (

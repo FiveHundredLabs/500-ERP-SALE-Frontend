@@ -1,35 +1,57 @@
-// DashboardService.ts — demo mode, fully derived from mock data
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-import { mockInventoryItems } from "../data/mockInventory";
-import { mockInvoicesList } from "../data/mockInvoices";
-import { mockOrders } from "../data/mockOrders";
-import { mockQuotationsList } from "../data/mockQuotations";
-import { mockCustomers } from "../data/mockCustomers";
-import { mockPurchaseOrders } from "../data/mockPurchaseOrders";
-
-export const fetchFromBackend = async (_endpoint: string): Promise<any[]> => {
-  return [];
+export const fetchFromBackend = async (endpoint: string): Promise<any[]> => {
+  try {
+    const res = await fetch(`${API_BASE}/${endpoint}`, { credentials: 'include' });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 };
 
 export const fetchSalesOverview = async () => {
-  const totalRevenue = mockInvoicesList.reduce(
-    (sum: number, inv) => sum + Number(inv.totalAmount || 0),
-    0
-  );
+  try {
+    const [invoices, items, orders, quotations, customers, pos] = await Promise.all([
+      fetchFromBackend('invoices'),
+      fetchFromBackend('inventory-items'),
+      fetchFromBackend('orders'),
+      fetchFromBackend('quotations'),
+      fetchFromBackend('customers'),
+      fetchFromBackend('purchase-orders'),
+    ]);
 
-  const completedRevenue = mockInvoicesList
-    .filter(inv => inv.paymentStatus === 'Completed')
-    .reduce((sum: number, inv) => sum + Number(inv.totalAmount || 0), 0);
+    const totalRevenue = invoices.reduce(
+      (sum: number, inv: any) => sum + Number(inv.totalAmount || 0),
+      0
+    );
 
-  return {
-    totalRevenue,
-    completedRevenue,
-    totalInvoices: mockInvoicesList.length,
-    totalItems: mockInventoryItems.length,
-    totalOrders: mockOrders.length,
-    totalQuotations: mockQuotationsList.length,
-    totalCustomers: mockCustomers.length,
-    totalPOs: mockPurchaseOrders.length,
-    overview: [],
-  };
+    const completedRevenue = invoices
+      .filter((inv: any) => inv.paymentStatus === 'completed' || inv.paymentStatus === 'paid')
+      .reduce((sum: number, inv: any) => sum + Number(inv.totalAmount || 0), 0);
+
+    return {
+      totalRevenue,
+      completedRevenue,
+      totalInvoices: invoices.length,
+      totalItems: items.length,
+      totalOrders: orders.length,
+      totalQuotations: quotations.length,
+      totalCustomers: customers.length,
+      totalPOs: pos.length,
+      overview: [],
+    };
+  } catch {
+    return {
+      totalRevenue: 0,
+      completedRevenue: 0,
+      totalInvoices: 0,
+      totalItems: 0,
+      totalOrders: 0,
+      totalQuotations: 0,
+      totalCustomers: 0,
+      totalPOs: 0,
+      overview: [],
+    };
+  }
 };

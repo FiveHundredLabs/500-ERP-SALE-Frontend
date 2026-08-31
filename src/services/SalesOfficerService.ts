@@ -1,21 +1,18 @@
 import type { SalesOfficer, SalesOfficerPerformanceSummary, SalesOfficerFilterPeriod } from '../types/salesOfficer';
 import type { InvoiceResponse } from '../types/invoice';
 import type { Order } from '../types/orders';
-import { mockSalesOfficers } from '../data/mockSalesOfficers';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const STORAGE_KEY = 'erp_sales_officers_list';
 
 export class SalesOfficerService {
   private getStored(): SalesOfficer[] {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockSalesOfficers));
-      return mockSalesOfficers;
-    }
+    if (!raw) return [];
     try {
       return JSON.parse(raw);
     } catch {
-      return mockSalesOfficers;
+      return [];
     }
   }
 
@@ -24,68 +21,65 @@ export class SalesOfficerService {
   }
 
   async getAll(): Promise<SalesOfficer[]> {
+    try {
+      const res = await fetch(`${API_BASE}/users`, { credentials: 'include' });
+      if (res.ok) {
+        const users = await res.json();
+        if (Array.isArray(users)) {
+          const salesmen = users.filter((u: any) => u.role === 'salesman');
+          if (salesmen.length > 0) {
+            return salesmen.map((u: any, idx: number) => ({
+              id: u.id,
+              officerId: `SO-${String(idx + 1).padStart(3, '0')}`,
+              fullName: u.fullName || u.email,
+              contactNumber: u.phone || '+94705787818',
+              phone: u.phone || '+94705787818',
+              joiningDate: u.createdAt ? u.createdAt.split('T')[0] : '2026-01-01',
+              username: u.email ? u.email.split('@')[0] : `user${idx + 1}`,
+              email: u.email,
+              status: 'Active' as const,
+              assignedTerritory: u.area || 'All Regions',
+              assignedArea: u.area || 'All Regions',
+              monthlyTarget: 1000000,
+              commissionRate: 5,
+              assignedCustomerIds: [],
+              createdAt: u.createdAt || new Date().toISOString(),
+              updatedAt: u.updatedAt || new Date().toISOString(),
+            }));
+          }
+        }
+      }
+    } catch {
+      // fallback to stored
+    }
     return this.getStored();
   }
 
   async getById(id: string): Promise<SalesOfficer | undefined> {
-    const all = this.getStored();
+    const all = await this.getAll();
     return all.find(so => so.id === id || so.officerId === id);
   }
 
-  private syncCustomerAssignments(officerName: string, assignedIds: string[]): void {
-    try {
-      const custRaw = localStorage.getItem("erp_customers");
-      if (!custRaw) return;
-      const customers = JSON.parse(custRaw);
-      if (!Array.isArray(customers)) return;
-
-      const updated = customers.map((c: any) => {
-        const cId = c.id || c._id;
-        if (assignedIds.includes(cId)) {
-          return {
-            ...c,
-            salesRep: officerName,
-            salesRepName: officerName,
-          };
-        } else if (c.salesRep === officerName || c.salesRepName === officerName) {
-          return {
-            ...c,
-            salesRep: undefined,
-            salesRepName: undefined,
-          };
-        }
-        return c;
-      });
-
-      localStorage.setItem("erp_customers", JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
-  }
-
   async create(data: Omit<SalesOfficer, 'id' | 'createdAt' | 'updatedAt'>): Promise<SalesOfficer> {
-    const all = this.getStored();
+    const all = await this.getAll();
     const newOfficer: SalesOfficer = {
       ...data,
       id: `so-${Date.now()}`,
+      officerId: data.officerId || `SO-${String(all.length + 1).padStart(3, '0')}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      assignedCustomerIds: data.assignedCustomerIds || [],
     };
     all.unshift(newOfficer);
     this.saveStored(all);
-
-    if (data.assignedCustomerIds && data.assignedCustomerIds.length > 0) {
-      this.syncCustomerAssignments(data.fullName, data.assignedCustomerIds);
-    }
-
     return newOfficer;
   }
 
   async update(id: string, data: Partial<SalesOfficer>): Promise<SalesOfficer> {
-    const all = this.getStored();
+    const all = await this.getAll();
     const index = all.findIndex(so => so.id === id || so.officerId === id);
     if (index === -1) {
-      throw new Error(`Sales Officer with ID ${id} not found`);
+      throw new Error(`Sales officer with ID ${id} not found`);
     }
     const updated = {
       ...all[index],
@@ -94,151 +88,110 @@ export class SalesOfficerService {
     };
     all[index] = updated;
     this.saveStored(all);
-
-    if (data.assignedCustomerIds !== undefined) {
-      this.syncCustomerAssignments(updated.fullName, data.assignedCustomerIds);
-    }
-
     return updated;
   }
 
-  async delete(id: string): Promise<void> {
-    const all = this.getStored();
+  async delete(id: string): Promise<boolean> {
+    const all = await this.getAll();
     const filtered = all.filter(so => so.id !== id && so.officerId !== id);
     this.saveStored(filtered);
+    return true;
   }
 
-  // Filter invoices and orders within a specific date timeframe
-  filterRecordsByPeriod<T extends { issueDate?: string; orderDate?: string; created_at?: string; createdAt?: string }>(
-    items: T[],
+  filterRecordsByPeriod<T extends { issueDate?: string; createdAt?: string; orderDate?: string }>(
+    records: T[],
     period: SalesOfficerFilterPeriod
   ): T[] {
-    if (period.type === 'all') return items;
-
     const now = new Date();
-    
-    // Determine start & end boundaries
-    let startDate: Date;
-    let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    if (period.type === 'week') {
-      // Start of current week (Monday)
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      startDate = new Date(now.setDate(diff));
-      startDate.setHours(0, 0, 0, 0);
-    } else if (period.type === 'month') {
-      // Start of current month
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    } else if (period.type === 'last_month') {
-      // Start and end of previous month
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-    } else if (period.type === 'last_6_months') {
-      // 6 months ago
-      startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1, 0, 0, 0, 0);
-    } else if (period.type === 'custom' && period.startDate) {
-      startDate = new Date(period.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      if (period.endDate) {
-        endDate = new Date(period.endDate);
-        endDate.setHours(23, 59, 59, 999);
-      }
-    } else {
-      return items;
-    }
-
-    return items.filter(item => {
-      const dateStr = item.issueDate || item.orderDate || item.created_at || item.createdAt;
+    return records.filter((r) => {
+      const dateStr = r.issueDate || r.orderDate || r.createdAt;
       if (!dateStr) return true;
       const d = new Date(dateStr);
-      return d >= startDate && d <= endDate;
+
+      switch (period.type) {
+        case 'week': {
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return d >= oneWeekAgo && d <= now;
+        }
+        case 'month':
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        case 'last_month': {
+          const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+        }
+        case 'last_6_months': {
+          const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+          return d >= sixMonthsAgo && d <= now;
+        }
+        case 'custom':
+          if (period.startDate && period.endDate) {
+            return d >= new Date(period.startDate) && d <= new Date(period.endDate);
+          }
+          return true;
+        case 'all':
+        default:
+          return true;
+      }
     });
   }
 
-  // Calculate comprehensive performance breakdown for an officer or entire team
   calculateOfficerPerformance(
     officer: SalesOfficer | 'ALL',
     invoices: InvoiceResponse[],
-    orders: Order[] = []
+    orders: Order[]
   ): SalesOfficerPerformanceSummary {
-    const isAll = officer === 'ALL';
-    const officerName = isAll ? 'Entire Sales Team' : officer.fullName;
-    const officerCode = isAll ? 'ALL' : (officer.officerId || officer.id);
-    const territory = isAll ? 'Island-wide Network' : (officer.assignedTerritory || 'General Area');
-    const status = isAll ? 'Active' : officer.status;
-
-    // Filter invoices by officer
-    const officerInvoices = isAll
-      ? invoices
-      : invoices.filter(inv => {
-          if (typeof inv.salesman === 'object' && inv.salesman !== null) {
-            return inv.salesman.name === officer.fullName || (inv.salesman as any)._id === officer.id || (inv.salesman as any)._id === officer.officerId;
-          }
-          if (inv.salesmanName) return inv.salesmanName === officer.fullName;
-          if (typeof inv.salesman === 'string') {
-            return inv.salesman === officer.fullName || inv.salesman === officer.id || inv.salesman === officer.officerId;
-          }
-          return false;
-        });
-
-    // Filter orders by officer
-    const officerOrders = isAll
-      ? orders
-      : orders.filter(ord => {
-          if (!ord.salesman) return false;
-          return ord.salesman.name === officer.fullName || ord.salesman.employeeId === officer.officerId || ord.salesman.id === officer.id;
-        });
-
     const now = new Date();
 
-    let totalSalesValue = 0;
-    let collectedAmount = 0;
-    let pendingCreditAmount = 0;
-    let overdueAmount = 0;
-
-    let completedInvoicesCount = 0;
-    let pendingInvoicesCount = 0;
-    let overdueInvoicesCount = 0;
-
-    officerInvoices.forEach(inv => {
-      const amount = inv.totalAmount || 0;
-      totalSalesValue += amount;
-
-      const isCompleted = inv.paymentStatus === 'Completed';
-      const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
-      const isOverdue = !isCompleted && dueDate && dueDate < now;
-
-      if (isCompleted) {
-        collectedAmount += amount;
-        completedInvoicesCount++;
-      } else if (isOverdue) {
-        overdueAmount += amount;
-        pendingCreditAmount += amount;
-        overdueInvoicesCount++;
-      } else {
-        pendingCreditAmount += amount;
-        pendingInvoicesCount++;
-      }
+    const officerInvoices = invoices.filter((inv) => {
+      if (officer === 'ALL') return true;
+      const sName =
+        typeof inv.salesman === 'object' && inv.salesman !== null
+          ? inv.salesman.fullName
+          : inv.salesmanName || (typeof inv.salesman === 'string' ? inv.salesman : '');
+      return sName === officer.fullName || inv.salesman?.id === officer.id;
     });
+
+    const officerOrders = orders.filter((ord) => {
+      if (officer === 'ALL') return true;
+      return (
+        ord.salesman?.fullName === officer.fullName ||
+        ord.salesman?.id === officer.id ||
+        ord.salesman?.id === officer.officerId
+      );
+    });
+
+    const totalSalesValue = officerInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const completedInvoices = officerInvoices.filter(
+      (inv) => inv.paymentStatus === 'completed' || inv.paymentStatus === 'paid'
+    );
+    const completedSalesValue = completedInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const collectedAmount = completedSalesValue;
+    const pendingCreditAmount = totalSalesValue - completedSalesValue;
+
+    const overdueInvoices = officerInvoices.filter((inv) => {
+      if (inv.paymentStatus === 'completed' || inv.paymentStatus === 'paid') return false;
+      const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+      return dueDate && dueDate < now;
+    });
+    const overdueAmount = overdueInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
 
     const collectionRate = totalSalesValue > 0 ? Math.round((collectedAmount / totalSalesValue) * 100) : 0;
 
     return {
-      officerId: isAll ? 'all' : officer.id,
-      officerName,
-      officerCode,
-      territory,
-      status,
+      officerId: officer === 'ALL' ? 'ALL' : officer.id,
+      officerName: officer === 'ALL' ? 'All Sales Officers' : officer.fullName,
+      officerCode: officer === 'ALL' ? 'ALL' : (officer.officerId || officer.id),
+      territory: officer === 'ALL' ? 'All Island' : (officer.assignedTerritory || officer.assignedArea || 'Region'),
+      status: officer === 'ALL' ? 'Active' : officer.status,
       totalSalesValue,
-      completedSalesValue: collectedAmount,
+      completedSalesValue,
       collectedAmount,
       pendingCreditAmount,
       overdueAmount,
       totalInvoicesCount: officerInvoices.length,
-      completedInvoicesCount,
-      pendingInvoicesCount,
-      overdueInvoicesCount,
+      completedInvoicesCount: completedInvoices.length,
+      pendingInvoicesCount: officerInvoices.length - completedInvoices.length,
+      overdueInvoicesCount: overdueInvoices.length,
       totalOrdersCount: officerOrders.length,
       collectionRate,
     };

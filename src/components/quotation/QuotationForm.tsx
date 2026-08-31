@@ -54,9 +54,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   } = useItemSearch(inventoryItems);
 
   const [newItem, setNewItem] = useState<{
-    item: string;
+    inventoryItemId: string;
     itemName: string;
-    product_code?: string;
+    productCode?: string;
     quantity: string | number;
     unitPrice: string | number;
     costPrice?: number;
@@ -64,9 +64,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     discountScope: 'per_unit' | 'total_qty';
     discountValue: string;
   }>({ 
-    item: "", 
+    inventoryItemId: "",
     itemName: "",
-    product_code: "",
+    productCode: "",
     quantity: "0", 
     unitPrice: "0", 
     costPrice: 0,
@@ -110,9 +110,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     // Map PO items to quotation line items
     po.items.forEach(p => {
       const lineItem: Omit<QuotationItem, 'id' | 'total'> = {
-        item: p.id || p.sku,
+        inventoryItemId: p.inventoryItemId || p.id,
         itemName: `${p.productName} (${p.sku})`,
-        quantity: p.quantity,
+        quantity: p.quantityOrdered,
         unitPrice: p.unitPrice,
       };
       onAddItem(lineItem);
@@ -126,15 +126,15 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   const handleItemSelect = useCallback((inventoryItem: InventoryItem) => {
     setNewItem(prev => ({ 
       ...prev,
-      item: (inventoryItem as any)._id || (inventoryItem as any).id || inventoryItem.product_code, 
-      itemName: inventoryItem.product_name, 
-      product_code: inventoryItem.product_code,
+      inventoryItemId: inventoryItem.id,
+      itemName: inventoryItem.productName,
+      productCode: inventoryItem.productCode,
       quantity: "0", 
-      unitPrice: (inventoryItem.sell_price || 0).toString(),
-      costPrice: inventoryItem.purchase_price || 0,
+      unitPrice: (inventoryItem.sellPrice || 0).toString(),
+      costPrice: inventoryItem.purchasePrice || 0,
       discountValue: "0"
     }));
-    setItemSearchTerm(`${inventoryItem.product_name} (${inventoryItem.product_code})`);
+    setItemSearchTerm(`${inventoryItem.productName} (${inventoryItem.productCode})`);
     setShowItemSuggestions(false);
   }, [setItemSearchTerm, setShowItemSuggestions]);
 
@@ -151,7 +151,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
 
   const handlePaymentMethodChange = (method: string) => {
     onFieldChange('paymentMethod', method);
-    if (method === PaymentMethod.CREDIT || method === 'Credit') {
+    if (method === PaymentMethod.CREDIT || method === 'credit') {
       const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
       handleCreditPeriodChange(periodToUse);
     } else {
@@ -161,7 +161,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
 
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
-    onCustomerIdChange(customer._id, customer);
+    onCustomerIdChange(customer.id, customer);
     setCustomerSearchTerm(`${customer.fullName} (${customer.phone})`);
     setShowCustomerSuggestions(false);
     setCustomerModalMode(null);
@@ -181,9 +181,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
 
   const handleClearItemSelection = useCallback(() => {
     setNewItem({
-      item: "",
+      inventoryItemId: "",
       itemName: "",
-      product_code: "",
+      productCode: "",
       quantity: "0",
       unitPrice: "0",
       costPrice: 0,
@@ -195,9 +195,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   }, [setItemSearchTerm]);
 
   const handleAddItem = useCallback((itemData?: {
-    item: string;
+    inventoryItemId: string;
     itemName: string;
-    product_code?: string;
+    productCode?: string;
     quantity: number;
     unitPrice: number;
     costPrice: number;
@@ -213,9 +213,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       const q = parseInt(newItem.quantity.toString()) || 1;
       const p = parseFloat(newItem.unitPrice.toString()) || 0;
       onAddItem({
-        item: newItem.item,
+        inventoryItemId: newItem.inventoryItemId,
         itemName: newItem.itemName,
-        product_code: newItem.product_code,
+        productCode: newItem.productCode,
         quantity: q,
         unitPrice: p,
         costPrice: newItem.costPrice || 0,
@@ -238,20 +238,20 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     onUpdateItem(id, { quantity: newQuantity });
   }, [quotationData.items, onUpdateItem]);
 
-  type CustomerFormData = Omit<Customer, '_id'> | Partial<Customer>;
+  type CustomerFormData = Omit<Customer, 'id'> | Partial<Customer>;
   const handleCustomerFormSubmit = useCallback(async (formData: CustomerFormData) => {
     try {
       if (customerModalMode === 'edit' && selectedCustomer) {
-        const updated = await updateCustomer(selectedCustomer._id, formData as Partial<Customer>);
+        const updated = await updateCustomer(selectedCustomer.id, formData as Partial<Customer>);
         setSelectedCustomer(updated);
-        onCustomerIdChange(updated._id, updated);
+        onCustomerIdChange(updated.id, updated);
         setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
         const defaultPeriod = (updated as any).creditPeriod ?? 30;
         handleCreditPeriodChange(String(defaultPeriod));
       } else {
-        const created = await createCustomer(formData as Omit<Customer, '_id'>);
+        const created = await createCustomer(formData as Omit<Customer, 'id'>);
         setSelectedCustomer(created);
-        onCustomerIdChange(created._id, created);
+        onCustomerIdChange(created.id, created);
         setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
         const defaultPeriod = (created as any).creditPeriod ?? 30;
         onFieldChange('paymentMethod', PaymentMethod.CREDIT);
@@ -358,7 +358,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
           </div>
 
           {/* Issue Date / Credit Period / Valid Until */}
-          <div className={`grid grid-cols-1 ${quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
+          <div className={`grid grid-cols-1 ${quotationData.paymentMethod === PaymentMethod.CREDIT ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Issue Date*
@@ -373,7 +373,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
             </div>
 
             {/* Credit Period Selector - Appears ONLY when Payment Method is Credit */}
-            {(quotationData.paymentMethod === PaymentMethod.CREDIT || quotationData.paymentMethod === 'Credit') && (
+            {quotationData.paymentMethod === PaymentMethod.CREDIT && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Credit Period
@@ -467,7 +467,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
             subTotal={subTotal}
             totalDiscountType={quotationData.totalDiscountType}
             totalDiscountValue={quotationData.totalDiscountValue}
-            discountPercentage={quotationData.discountPercentage}
+            discountPercentage={quotationData.discountPercentage || 0}
             discountAmount={discountAmount}
             totalAmount={totalAmount}
             onTotalDiscountChange={onTotalDiscountChange}

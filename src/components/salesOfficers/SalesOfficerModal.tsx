@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   X, 
   UserCheck, 
@@ -15,8 +15,8 @@ import {
   Square 
 } from "lucide-react";
 import type { SalesOfficer } from "../../types/salesOfficer";
-import { mockCustomers } from "../../data/mockCustomers";
 import type { Customer } from "../../types/customers";
+import { invoiceService } from "../../services/InvoiceService";
 
 interface SalesOfficerModalProps {
   isOpen: boolean;
@@ -33,6 +33,14 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
   initialData,
   mode,
 }) => {
+  const [availableCustomers, setAvailableCustomers] = useState<Customer[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      invoiceService.getAllCustomers().then(c => setAvailableCustomers(c as any || [])).catch(() => setAvailableCustomers([]));
+    }
+  }, [isOpen]);
+
   const [formData, setFormData] = useState({
     fullName: "",
     contactNumber: "+94",
@@ -47,26 +55,13 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
   const [customerSearch, setCustomerSearch] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load all available customers (including from localStorage if present)
-  const availableCustomers: Customer[] = useMemo(() => {
-    try {
-      const stored = localStorage.getItem("erp_customers");
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch {
-      // Fallback
-    }
-    return mockCustomers;
-  }, [isOpen]);
-
   useEffect(() => {
     if (initialData && mode === "edit") {
       // If editing, extract assigned customer IDs
       let assignedIds = initialData.assignedCustomerIds || [];
       if (assignedIds.length === 0) {
         assignedIds = availableCustomers
-          .filter(c => c.salesRep === initialData.fullName || c.salesRepName === initialData.fullName || c.salesRep === initialData.id)
+          .filter(c => c.salesRep?.fullName === initialData.fullName || c.salesRepName === initialData.fullName || c.salesRepId === initialData.id)
           .map(c => c.id);
       }
 
@@ -449,9 +444,9 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
                             <span className={`text-xs font-semibold truncate ${isChecked ? "text-purple-200 font-bold" : "text-gray-200"}`}>
                               {shopName}
                             </span>
-                            {cust.customerId && (
+                            {cust.customerCode && (
                               <span className="text-[10px] font-mono text-cyan-400 bg-cyan-400/10 px-1 rounded">
-                                {cust.customerId}
+                                {cust.customerCode}
                               </span>
                             )}
                           </div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { quotationService } from '../services/QuotationService';
 
 export interface Customer {
-  _id: string;
+  id: string;
   shopName?: string;
   fullName: string;
   contactPerson?: string;
@@ -92,7 +92,7 @@ export const useCustomerSearch = () => {
     }
   }, []);
 
-  const createCustomer = useCallback(async (customerData: Omit<Customer, '_id'>) => {
+  const createCustomer = useCallback(async (customerData: Omit<Customer, 'id'>) => {
     try {
       const createdCustomer = await quotationService.createCustomer(customerData as any);
       await refreshCustomers();

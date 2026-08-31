@@ -1,18 +1,18 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Download, Printer, Share2, Copy, Check, MessageCircle, Mail, CheckCircle, ExternalLink } from 'lucide-react';
-import { Modal, LoadingSpinner } from '../common';
+import { Modal, Button, LoadingSpinner } from '../common';
 import InvoiceCanvas from '../InvoiceCanvas';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { InvoiceData } from '../../types/invoice';
 import { generateInvoiceWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
-import { mockCustomers } from '../../data/mockCustomers';
 
 interface InvoiceViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoiceData: InvoiceData | null;
   onShareSuccess?: (message: string) => void;
+  onReturnInvoice?: (invoice: any) => void;
 }
 
 export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
@@ -20,6 +20,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   onClose,
   invoiceData,
   onShareSuccess,
+  onReturnInvoice,
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -40,9 +41,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (typeof invoiceData.customer === 'object' && (invoiceData.customer as any)?.phone) {
       return (invoiceData.customer as any).phone;
     }
-    const custId = typeof invoiceData.customer === 'string' ? invoiceData.customer : invoiceData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.phone || '+94705787818';
+    return '';
   };
 
   const getCustomerName = (): string => {
@@ -50,16 +49,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (typeof invoiceData.customer === 'object' && (invoiceData.customer as any)?.fullName) {
       return (invoiceData.customer as any).fullName;
     }
-    const custId = typeof invoiceData.customer === 'string' ? invoiceData.customer : invoiceData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.businessName || found?.contactPerson || 'Valued Customer';
+    if (invoiceData.customerDetails?.shopName) return invoiceData.customerDetails.shopName;
+    return 'Valued Customer';
   };
 
   const customerPhone = getCustomerPhone();
   const customerName = getCustomerName();
 
-  const invoiceShareUrl = invoiceData._id
-    ? `${window.location.origin}/invoice/view/${invoiceData._id}`
+  const invoiceShareUrl = invoiceData.id
+    ? `${window.location.origin}/invoice/view/${invoiceData.id}`
     : window.location.href;
 
   const handleCopyLink = async () => {
@@ -91,7 +89,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      const fileName = `Invoice-${invoiceData.invoiceId || 'draft'}.pdf`;
+      const fileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
       pdf.save(fileName);
       return true;
     } catch (err) {
@@ -108,11 +106,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
     // Step 1: Generate & Download PDF
     await generateAndDownloadPDF();
-    const pdfFileName = `Invoice-${invoiceData.invoiceId || 'draft'}.pdf`;
+    const pdfFileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
 
     // Step 2: Build formatted WhatsApp message
     const message = generateInvoiceWhatsAppMessage({
-      invoiceId: invoiceData.invoiceId || 'Draft',
+      invoiceNumber: invoiceData.invoiceNumber || 'draft',
       customerName: customerName,
       totalAmount: invoiceData.totalAmount,
       issueDate: invoiceData.issueDate || new Date().toISOString().split('T')[0],
@@ -138,8 +136,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Invoice ${invoiceData.invoiceId} from 500Core ERP`;
-    const body = `Hello ${customerName},\n\nPlease find your invoice details below:\n\nInvoice: ${invoiceData.invoiceId}\nTotal Amount: LKR ${invoiceData.totalAmount.toFixed(2)}\nStatus: ${invoiceData.paymentStatus}\n\nView Online: ${invoiceShareUrl}\n\nThank you for choosing 500Core!`;
+    const subject = `Invoice ${invoiceData.invoiceNumber} from 500Core ERP`;
+    const body = `Hello ${customerName},\n\nPlease find your invoice details below:\n\nInvoice: ${invoiceData.invoiceNumber}\nTotal Amount: LKR ${invoiceData.totalAmount.toFixed(2)}\nStatus: ${invoiceData.paymentStatus}\n\nView Online: ${invoiceShareUrl}\n\nThank you for choosing 500Core!`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -163,7 +161,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Print Invoice ${invoiceData.invoiceId}</title>
+            <title>Print Invoice ${invoiceData.invoiceNumber}</title>
             <style>
               @page { size: A4; margin: 0; }
               body { margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
@@ -193,7 +191,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         setShareFeedback(null);
         onClose();
       }}
-      title={`Invoice Preview — ${invoiceData.invoiceId || 'Draft'}`}
+      title={`Invoice Preview — ${invoiceData.invoiceNumber || 'draft'}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[96vh] max-w-[96vw] flex flex-col"
@@ -209,8 +207,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <span className="text-xs text-gray-400">{invoiceData.items.length} {invoiceData.items.length === 1 ? 'item' : 'items'}</span>
             <span className="text-xs text-gray-500">•</span>
             <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-              invoiceData.paymentStatus === 'Completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-              invoiceData.paymentStatus === 'Pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+              invoiceData.paymentStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+              invoiceData.paymentStatus === 'pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
               'bg-red-500/20 text-red-400 border border-red-500/30'
             }`}>
               {invoiceData.paymentStatus}
@@ -281,15 +279,28 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </div>
 
             {/* Print */}
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Printer className="w-3.5 h-3.5" />}
               onClick={handlePrint}
-              disabled={isPrinting}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+              disabled={isPrinting || isGeneratingPDF}
+              isLoading={isPrinting}
             >
-              <Printer size={13} />
-              <span>Print</span>
-            </button>
+              Print
+            </Button>
+
+            {onReturnInvoice && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onReturnInvoice(invoiceData)}
+                disabled={isGeneratingPDF || isPrinting}
+                className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
+              >
+                Return Invoice
+              </Button>
+            )}
 
             {/* Download PDF */}
             <button

@@ -3,6 +3,7 @@ import Sidebar from "../components/Sidebar";
 import FinanceTable from "../components/FinanceTable";
 import SearchFilterBar from "../components/SearchFilterBar";
 import PaymentModal from "../components/PaymentModal";
+import type { PaymentDetails } from "../components/PaymentModal";
 import InvoiceViewModal from "../components/InvoiceViewModal";
 import { LoadingSpinner } from "../components/common";
 import { DollarSign } from "lucide-react";
@@ -18,7 +19,6 @@ import CustomConfirm from "../components/CustomConfirm";
 import InvoiceCanvas from "../components/InvoiceCanvas";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 import ThemeToggle from "../components/ThemeToggle";
-import { mockSystemUsers } from "../data/mockSystemUsers";
 
 const Finance: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -65,8 +65,8 @@ const Finance: React.FC = () => {
     onConfirm: () => { },
   });
 
-  const [paymentDetails, setPaymentDetails] = useState({
-    method: "Bank Transfer" as 'Bank Transfer' | 'Cash' | 'Card' | 'Bank Deposit' | 'Cheque' | 'Credit',
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
+    method: "bank_transfer",
     bankName: "",
     accountNumber: "",
     transactionRef: "",
@@ -114,7 +114,7 @@ const Finance: React.FC = () => {
   const handleMarkAsPaid = (invoice: InvoiceResponse) => {
     setSelectedInvoice(invoice);
     setPaymentDetails({
-      method: "Bank Transfer",
+      method: "bank_transfer",
       bankName: "",
       accountNumber: "",
       transactionRef: "",
@@ -135,29 +135,26 @@ const Finance: React.FC = () => {
 
       // Prepare payment data
       const paymentData: FinancePaymentData = {
-        transactionId: transactionId,
+        transactionNumber: transactionId,
         transactionDate: new Date(paymentDetails.transactionDate).toISOString(),
-        paymentMethod: {
-          type: paymentDetails.method,
-          bankName: paymentDetails.bankName || 'N/A',
-          accountNumber: paymentDetails.accountNumber || 'N/A',
-          transactionRef: paymentDetails.transactionRef || 'PAY-' + Date.now(),
-        },
-        invoice: {
-          invoiceId: selectedInvoice.invoiceId,
-        },
-        amount: 'LKR ' + parseFloat(paymentDetails.amount).toFixed(2),
+        paymentMethod: paymentDetails.method,
+        bankName: paymentDetails.bankName || undefined,
+        accountNumber: paymentDetails.accountNumber || undefined,
+        transactionRef: paymentDetails.transactionRef || 'PAY-' + Date.now(),
+        invoiceId: selectedInvoice.id,
+        invoiceNumber: selectedInvoice.invoiceNumber,
+        amount: parseFloat(paymentDetails.amount),
       };
 
       // Create finance transaction
       await financeService.create(paymentData);
 
-      // Update invoice payment status to "Completed"
-      await invoiceService.updatePaymentStatus(selectedInvoice._id, 'Completed');
+      // Update invoice payment status to "completed"
+      await invoiceService.updatePaymentStatus(selectedInvoice.id, 'completed');
 
       setAlert({
         type: 'success',
-        message: 'Payment successfully recorded for invoice ' + selectedInvoice.invoiceId
+        message: 'Payment successfully recorded for invoice ' + selectedInvoice.invoiceNumber
       });
 
       // Refresh data
@@ -169,7 +166,7 @@ const Finance: React.FC = () => {
       // Reset form
       setShowPaymentModal(false);
       setPaymentDetails({
-        method: "Bank Transfer",
+        method: "bank_transfer",
         bankName: "",
         accountNumber: "",
         transactionRef: "",
@@ -221,13 +218,15 @@ const Finance: React.FC = () => {
 
         // Render the InvoiceCanvas
         const invoiceData = {
-          invoiceId: invoice.invoiceId,
-          customer: invoice.customer?._id || "",
-          customerDetails: invoice.customer,
+          invoiceNumber: invoice.invoiceNumber,
+          customer: invoice.customer?.id || "",
+          customerDetails: invoice.customer ?? undefined,
           items: invoice.items.map(item => ({
-            id: item._id || Date.now().toString(),
-            item: item.item?._id || "",
-            itemName: item.item?.product_name || item.item?.itemName || item.item?.description || "Item",
+            id: item.id || Date.now().toString(),
+            inventoryItemId: item.inventoryItemId,
+            itemName: item.itemName || item.inventoryItem?.productName || "Item",
+            itemCode: item.itemCode || item.inventoryItem?.productCode || '',
+            discount: item.discount || 0,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             total: item.total,
@@ -303,7 +302,7 @@ const Finance: React.FC = () => {
         const yOffset = 0;
         
         pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
-        pdf.save(`invoice-${invoice.invoiceId}.pdf`);
+        pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
 
         // Cleanup
         root.unmount();
@@ -323,7 +322,7 @@ const Finance: React.FC = () => {
       }
     };
 
-    if (!invoice._id) {
+    if (!invoice.id) {
       setConfirmConfig({
         isOpen: true,
         title: "Save Invoice First",
@@ -332,8 +331,8 @@ const Finance: React.FC = () => {
         onConfirm: async () => {
           try {
             // Update payment status if pending
-            if (invoice.paymentStatus === 'Pending') {
-              await invoiceService.updatePaymentStatus(invoice._id, 'Completed');
+            if (invoice.paymentStatus === 'pending') {
+              await invoiceService.updatePaymentStatus(invoice.id, 'completed');
               await loadInvoices();
             }
             await proceedWithDownload();
@@ -354,13 +353,9 @@ const Finance: React.FC = () => {
   // Helper to extract salesman name from invoice
   const getInvoiceSalesmanName = (inv: InvoiceResponse): string => {
     if (typeof inv.salesman === 'object' && inv.salesman !== null) {
-      return inv.salesman.name || (inv.salesman as any).fullName || '';
+      return inv.salesman.fullName || '';
     }
     if (inv.salesmanName) return inv.salesmanName;
-    if (typeof inv.salesman === 'string' && inv.salesman.trim()) {
-      const found = mockSystemUsers.find(u => u._id === inv.salesman || u.fullName === inv.salesman);
-      return found ? found.fullName : inv.salesman;
-    }
     return '';
   };
 
@@ -373,18 +368,18 @@ const Finance: React.FC = () => {
     invoices.forEach(inv => {
       // 1. Invoices
       suggestions.push({
-        id: `inv-${inv._id || inv.invoiceId}`,
-        title: inv.invoiceId,
+        id: `inv-${inv.id || inv.invoiceNumber}`,
+        title: inv.invoiceNumber,
         subtitle: `${inv.customer?.fullName || 'Customer'} · LKR ${(inv.totalAmount || 0).toLocaleString()} · ${inv.paymentStatus}`,
         category: 'Invoice ID',
-        value: inv.invoiceId,
+        value: inv.invoiceNumber,
       });
 
       // 2. Customers
       if (inv.customer?.fullName && !seenCustomers.has(inv.customer.fullName)) {
         seenCustomers.add(inv.customer.fullName);
         suggestions.push({
-          id: `cust-${inv.customer._id || inv.customer.fullName}`,
+          id: `cust-${inv.customer.id || inv.customer.fullName}`,
           title: inv.customer.fullName,
           subtitle: `${inv.customer.phone ? `${inv.customer.phone} · ` : ''}${(inv.customer as any).shopName || (inv.customer as any).address || ''}`,
           category: 'Customer',
@@ -406,20 +401,6 @@ const Finance: React.FC = () => {
       }
     });
 
-    // 4. Also include system users with salesman role
-    mockSystemUsers.filter(u => u.role === 'salesman').forEach(u => {
-      if (!seenSalesmen.has(u.fullName)) {
-        seenSalesmen.add(u.fullName);
-        suggestions.push({
-          id: `so-usr-${u._id}`,
-          title: u.fullName,
-          subtitle: `Sales Officer · ${u.email}`,
-          category: 'Sales Officer',
-          value: u.fullName,
-        });
-      }
-    });
-
     return suggestions;
   }, [invoices]);
 
@@ -432,7 +413,7 @@ const Finance: React.FC = () => {
       if (filterConfig.selectedField === "Sales Officer") {
         if (!salesmanName.toLowerCase().includes(query)) return false;
       } else if (filterConfig.selectedField === "Invoice ID") {
-        if (!invoice.invoiceId.toLowerCase().includes(query)) return false;
+        if (!invoice.invoiceNumber.toLowerCase().includes(query)) return false;
       } else if (filterConfig.selectedField === "Customer Name") {
         if (!invoice.customer?.fullName?.toLowerCase().includes(query)) return false;
       } else if (filterConfig.selectedField === "Status") {
@@ -440,7 +421,7 @@ const Finance: React.FC = () => {
       } else {
         // "All Fields"
         const matchesSearch =
-          invoice.invoiceId.toLowerCase().includes(query) ||
+          invoice.invoiceNumber.toLowerCase().includes(query) ||
           invoice.customer?.fullName?.toLowerCase().includes(query) ||
           salesmanName.toLowerCase().includes(query) ||
           invoice.totalAmount.toString().includes(query);

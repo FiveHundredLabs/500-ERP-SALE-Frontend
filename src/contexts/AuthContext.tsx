@@ -23,9 +23,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem("user");
     if (saved) {
       try {
-        const user = JSON.parse(saved) as AuthUser;
-        UserService.setCurrentUser(user as User);
-        return user;
+        const userObj = JSON.parse(saved) as AuthUser;
+        UserService.setCurrentUser(userObj as User);
+        return userObj;
       } catch {
         return null;
       }
@@ -42,39 +42,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = !!user;
 
-  const getCurrentUser = useCallback(async (): Promise<AuthUser | null> => {
-    try {
-      const savedUser = localStorage.getItem("user");
-      
-      if (!savedUser) {
-        return null;
-      }
-      
-      const user = JSON.parse(savedUser) as AuthUser;
-      UserService.setCurrentUser(user as User);
-      
-      return user;
-    } catch (error) {
-      return null;
-    }
-  }, []);
-
   const initAuth = useCallback(async () => {
     setIsLoading(true);
 
     try {
-      const currentUser = await getCurrentUser();
-      
-      if (currentUser) {
-        setUser(currentUser);
-        setRole(currentUser.role as UserRole);
+      // First try to fetch current user with existing access token
+      const me = await authService.getMe();
+      if (me) {
+        setUser(me as AuthUser);
+        setRole((me.role || "admin") as UserRole);
+        UserService.setCurrentUser(me as User);
+        localStorage.setItem("user", JSON.stringify(me));
+        localStorage.setItem("role", me.role || "admin");
+        return;
       }
-    } catch (error) {
+
+      // If token expired but refresh token exists, attempt refresh
+      const hasRefreshToken = !!localStorage.getItem("refreshToken");
+      if (hasRefreshToken) {
+        try {
+          const refreshed = await authService.refreshToken();
+          if (refreshed) {
+            const userAfterRefresh = await authService.getMe();
+            if (userAfterRefresh) {
+              setUser(userAfterRefresh as AuthUser);
+              setRole((userAfterRefresh.role || "admin") as UserRole);
+              UserService.setCurrentUser(userAfterRefresh as User);
+              return;
+            }
+          }
+        } catch {
+          // Token refresh failed - session expired
+        }
+      }
+
+      // Fallback to local storage if available
+      const savedUserStr = localStorage.getItem("user");
+      if (savedUserStr) {
+        try {
+          const parsed = JSON.parse(savedUserStr) as AuthUser;
+          setUser(parsed);
+          setRole((parsed.role || "admin") as UserRole);
+          UserService.setCurrentUser(parsed as User);
+        } catch {
+          setUser(null);
+          setRole(null);
+        }
+      }
+    } catch {
       // Silent error handling
     } finally {
       setIsLoading(false);
     }
-  }, [getCurrentUser]);
+  }, []);
 
   useEffect(() => {
     initAuth();
@@ -82,16 +102,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async (): Promise<boolean> => {
     try {
-      const currentUser = await getCurrentUser();
-      
-      if (currentUser) {
-        setUser(currentUser);
-        setRole(currentUser.role as UserRole);
+      const me = await authService.getMe();
+      if (me) {
+        setUser(me as AuthUser);
+        setRole((me.role || "admin") as UserRole);
         return true;
       }
-      
-      return false;
-    } catch (error) {
+      return !!user;
+    } catch {
       return false;
     }
   };
@@ -101,14 +119,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await authService.login(data);
       
-      // Store user data in localStorage
-      localStorage.setItem("user", JSON.stringify(result.user));
-      localStorage.setItem("role", result.user.role);
-      
       setUser(result.user);
-      setRole(result.user.role as UserRole);
+      setRole((result.user.role || "admin") as UserRole);
       UserService.setCurrentUser(result.user as User);
-      
     } catch (error: unknown) {
       throw error instanceof Error ? error : new Error("Login failed");
     } finally {
@@ -119,10 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (data: RegisterData): Promise<AuthRes> => {
     setIsLoading(true);
     try {
-      const result = await authService.register(data);
-      
-      // User creation success is handled by the returned result
-      return result;
+      return await authService.register(data);
     } catch (error: unknown) {
       throw error instanceof Error ? error : new Error("Registration failed");
     } finally {
@@ -133,16 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     try {
       await authService.logout();
-    } catch (error) {
+    } catch {
       // Silent error handling for logout
     } finally {
       UserService.setCurrentUser(null);
-      
       setUser(null);
       setRole(null);
-      
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
     }
   };
 

@@ -1,8 +1,11 @@
 import type { FinanceTransaction, FinancePaymentData } from "../types/finance";
-import { mockFinanceTransactions } from "../data/mockFinance";
+import { moneyToApi } from '../utils/money';
+import { mapFinanceTransaction } from './apiMappers';
 
-export interface NextTransactionIdResponse {
-  nextTransactionId: string;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+export interface NextTransactionNumberResponse {
+  nextTransactionNumber: string;
 }
 
 export interface DeleteTransactionResponse {
@@ -12,54 +15,65 @@ export interface DeleteTransactionResponse {
 export const financeService = {
   // Get all transactions
   async getAll(): Promise<FinanceTransaction[]> {
-    return [...mockFinanceTransactions];
+    const res = await fetch(`${API_BASE}/finance`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch transactions`);
+    return ((await res.json()) as unknown[]).map(mapFinanceTransaction);
   },
 
   // Get next transaction ID
   async getNextId(): Promise<string> {
-    const nextNum = mockFinanceTransactions.length + 1;
-    return `TXN-2026-${nextNum.toString().padStart(3, '0')}`;
+    const res = await fetch(`${API_BASE}/finance/next-id`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch next transaction ID`);
+    const data = await res.json();
+    return data.nextTransactionNumber || `TXN-${Date.now()}`;
   },
 
   // Get transaction by ID
   async getById(id: string): Promise<FinanceTransaction> {
-    const found = mockFinanceTransactions.find(t => t._id === id || t.transactionId === id);
-    if (found) return found;
-    return mockFinanceTransactions[0];
+    const res = await fetch(`${API_BASE}/finance/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Transaction ${id} not found`);
+    return mapFinanceTransaction(await res.json());
   },
 
   // Create new transaction
   async create(transactionData: FinancePaymentData): Promise<FinanceTransaction> {
-    const nextIdStr = `TXN-2026-${(mockFinanceTransactions.length + 1).toString().padStart(3, '0')}`;
-    const newTx: FinanceTransaction = {
-      _id: `tx-${Date.now()}`,
-      transactionId: nextIdStr,
-      transactionDate: transactionData.transactionDate,
-      paymentMethod: transactionData.paymentMethod,
-      invoice: transactionData.invoice,
-      amount: transactionData.amount,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    mockFinanceTransactions.unshift(newTx);
-    return newTx;
+    const res = await fetch(`${API_BASE}/finance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ ...transactionData, amount: moneyToApi(transactionData.amount) }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to create transaction`);
+    }
+    return mapFinanceTransaction(await res.json());
   },
 
   // Update transaction
   async update(id: string, updateData: Partial<FinancePaymentData>): Promise<FinanceTransaction> {
-    const found = mockFinanceTransactions.find(t => t._id === id || t.transactionId === id);
-    if (found) {
-      Object.assign(found, updateData, { updated_at: new Date().toISOString() });
-      return found;
+    const res = await fetch(`${API_BASE}/finance/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ ...updateData, amount: updateData.amount === undefined ? undefined : moneyToApi(updateData.amount) }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update transaction`);
     }
-    return mockFinanceTransactions[0];
+    return mapFinanceTransaction(await res.json());
   },
 
   // Delete transaction
   async delete(id: string): Promise<DeleteTransactionResponse> {
-    const index = mockFinanceTransactions.findIndex(t => t._id === id || t.transactionId === id);
-    if (index !== -1) {
-      mockFinanceTransactions.splice(index, 1);
+    const res = await fetch(`${API_BASE}/finance/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to delete transaction`);
     }
     return { message: "Transaction deleted successfully" };
   },
