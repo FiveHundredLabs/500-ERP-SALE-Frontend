@@ -82,6 +82,7 @@ export interface InvoiceItemBackend {
 
 export interface InvoiceData {
   _id?: string;
+  documentTitle?: string;
   invoiceId: string;
   customer: string;
   customerDetails?: InvoiceCustomer;

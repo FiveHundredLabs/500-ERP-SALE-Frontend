@@ -98,25 +98,23 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const invoiceElement = tempContainer.firstChild as HTMLElement;
-      if (!invoiceElement) throw new Error('Invoice element not found');
+      const pages = tempContainer.querySelectorAll('.invoice-page');
+      if (pages.length === 0) throw new Error('Invoice element not found');
 
-      const canvas = await html2canvas(invoiceElement, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: 1123,
-        windowWidth: 794,
-        windowHeight: 1123
-      });
+      const images: string[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 3,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        images.push(canvas.toDataURL('image/png', 1.0));
+      }
 
       root.unmount();
       document.body.removeChild(tempContainer);
-
-      const imageData = canvas.toDataURL('image/png', 1.0);
 
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
@@ -124,6 +122,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         setIsPrinting(false);
         return;
       }
+
+      const imgTags = images.map(src => `<img class="invoice-image" src="${src}" />`).join('');
 
       const printHtml = `
         <!DOCTYPE html>
@@ -135,33 +135,27 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 size: A4 portrait;
                 margin: 0;
               }
-              
               body {
                 margin: 0;
                 padding: 0;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: #fff;
+              }
+              .invoice-image {
                 width: 210mm;
                 height: 297mm;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-              
-              .invoice-image {
-                width: 100%;
-                height: 100%;
                 object-fit: contain;
                 display: block;
+                page-break-after: always;
               }
-              
+              .invoice-image:last-child {
+                page-break-after: auto;
+              }
               @media print {
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                
-                .invoice-image {
                   page-break-inside: avoid;
                   page-break-after: avoid;
                 }

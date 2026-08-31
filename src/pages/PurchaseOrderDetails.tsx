@@ -14,6 +14,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
+import PurchaseOrderViewModal from '../components/orders/PurchaseOrderViewModal';
 
 const PurchaseOrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ const PurchaseOrderDetails: React.FC = () => {
 
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -106,7 +108,7 @@ const PurchaseOrderDetails: React.FC = () => {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => window.print()}
+                onClick={() => setShowPrintModal(true)}
                 className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
               >
                 <Printer size={14} /> Print
@@ -258,7 +260,11 @@ const PurchaseOrderDetails: React.FC = () => {
           </div>
         </div>
       </div>
-
+      <PurchaseOrderViewModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        selectedPO={po}
+      />
     </AppLayout>
   );
 };
