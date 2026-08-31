@@ -533,7 +533,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         errors.customer ? 'border-red-500' : 'border-[#334155]'
                       }`}
                       placeholder="Select a customer..."
-                      value={selectedCustomer ? selectedCustomer.businessName : customerSearch}
+                      value={selectedCustomer ? (selectedCustomer.shopName || selectedCustomer.fullName) : customerSearch}
                       onChange={e => {
                         setCustomerSearch(e.target.value);
                         setSelectedCustomerId('');
@@ -585,7 +585,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                               selectedCustomerId === c.id ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'hover:bg-[#1e293b] text-gray-200'
                             }`}
                           >
-                            <span>{c.businessName}</span>
+                            <span>{c.shopName || c.fullName}</span>
                           </div>
                         ))
                       )}

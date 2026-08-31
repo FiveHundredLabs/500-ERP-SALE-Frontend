@@ -1197,6 +1197,15 @@ const Invoice: React.FC = () => {
                   <FileText className="w-4 h-4" />
                   <span>+ New Invoice</span>
                 </button>
+                <button
+                  onClick={() => {
+                    setShowReturnModal(true);
+                  }}
+                  className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span className="hidden sm:inline">Return Invoice</span>
+                </button>
               </>
             ) : (
               <>
@@ -1439,6 +1448,18 @@ const Invoice: React.FC = () => {
                                               <MessageCircle size={13} className="text-emerald-400" />
                                               <span>Share on WhatsApp</span>
                                             </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setActiveInvoiceMenuId(null);
+                                                handleLoadInvoice(inv);
+                                                setShowReturnModal(true);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 transition text-left"
+                                            >
+                                              <RotateCcw size={13} className="text-yellow-400" />
+                                              <span>Return Invoice</span>
+                                            </button>
                                           </div>
 
                                           <div className="p-1">
@@ -1643,7 +1664,7 @@ const Invoice: React.FC = () => {
         <CreateReturnModal
           isOpen={showReturnModal}
           onClose={() => setShowReturnModal(false)}
-          invoice={invoiceData as any}
+          invoice={invoiceData.id ? (invoiceData as any) : null}
           onSuccess={() => {
             setAlert({ type: 'success', message: 'Return processed successfully.' });
             fetchAllInvoices();

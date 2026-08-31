@@ -50,11 +50,23 @@ export const inventoryService = {
   },
 
   async create(itemData: CreateInventoryItemData): Promise<InventoryItem> {
+    const payload = {
+      ...itemData,
+      product_name: itemData.productName,
+      product_code: itemData.productCode,
+      sold_count: itemData.soldCount,
+      purchase_price: moneyToApi(itemData.purchasePrice),
+      sell_price: moneyToApi(itemData.sellPrice),
+      discount_rate: moneyToApi(itemData.discountRate),
+      actual_sold_price: moneyToApi(itemData.actualSoldPrice),
+      shipment_code: itemData.shipmentCode,
+    };
+    
     const res = await fetch(`${API_BASE}/inventory-items`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
-      body: JSON.stringify({ ...itemData, purchasePrice: moneyToApi(itemData.purchasePrice), sellPrice: moneyToApi(itemData.sellPrice), discountRate: moneyToApi(itemData.discountRate), actualSoldPrice: moneyToApi(itemData.actualSoldPrice) }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -64,11 +76,21 @@ export const inventoryService = {
   },
 
   async update(id: string, updateData: UpdateInventoryItemData): Promise<InventoryItem> {
+    const payload: any = { ...updateData };
+    if (updateData.productName !== undefined) payload.product_name = updateData.productName;
+    if (updateData.productCode !== undefined) payload.product_code = updateData.productCode;
+    if (updateData.soldCount !== undefined) payload.sold_count = updateData.soldCount;
+    if (updateData.purchasePrice !== undefined) payload.purchase_price = moneyToApi(updateData.purchasePrice);
+    if (updateData.sellPrice !== undefined) payload.sell_price = moneyToApi(updateData.sellPrice);
+    if (updateData.discountRate !== undefined) payload.discount_rate = moneyToApi(updateData.discountRate);
+    if (updateData.actualSoldPrice !== undefined) payload.actual_sold_price = moneyToApi(updateData.actualSoldPrice);
+    if (updateData.shipmentCode !== undefined) payload.shipment_code = updateData.shipmentCode;
+
     const res = await fetch(`${API_BASE}/inventory-items/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
-      body: JSON.stringify({ ...updateData, purchasePrice: updateData.purchasePrice === undefined ? undefined : moneyToApi(updateData.purchasePrice), sellPrice: updateData.sellPrice === undefined ? undefined : moneyToApi(updateData.sellPrice), discountRate: updateData.discountRate === undefined ? undefined : moneyToApi(updateData.discountRate), actualSoldPrice: updateData.actualSoldPrice === undefined ? undefined : moneyToApi(updateData.actualSoldPrice) }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
