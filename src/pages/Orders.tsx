@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { mockOrders as initialOrders } from '../data/mockOrders';
 import type { Order } from '../types/orders';
 import { Eye, Download, ShoppingBag, Plus, MessageCircle } from 'lucide-react';
 import CreateOrderModal from '../components/orders/CreateOrderModal';
@@ -35,9 +34,9 @@ const Orders: React.FC = () => {
       setLoading(true);
       try {
         const data = await orderService.getAll();
-        setOrders(data);
+        setOrders(data || []);
       } catch (err) {
-        setOrders(initialOrders);
+        setOrders([]);
       } finally {
         setLoading(false);
       }

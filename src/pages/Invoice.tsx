@@ -25,9 +25,9 @@ import {
   UserCheck,
   MoreVertical
 } from "lucide-react";
-import { mockSystemUsers } from "../data/mockSystemUsers";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
+import { CreateReturnModal } from "../components/invoice/CreateReturnModal";
 import PaymentModal from "../components/PaymentModal";
 import PaymentBreakdownTooltip from "../components/invoice/PaymentBreakdownTooltip";
 import type {
@@ -61,6 +61,7 @@ const Invoice: React.FC = () => {
   const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InvoiceInventoryItem[]>([]);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -779,8 +780,7 @@ const Invoice: React.FC = () => {
           if (typeof invoice.salesman === 'object') {
             salesmanName = invoice.salesman.name || invoice.salesman.fullName || '';
           } else if (typeof invoice.salesman === 'string') {
-            const foundUser = mockSystemUsers.find(u => u._id === invoice.salesman || u.fullName === invoice.salesman);
-            salesmanName = foundUser ? foundUser.fullName : invoice.salesman;
+            salesmanName = invoice.salesman;
           }
         }
         if (!salesmanName && invoice.salesmanName) {
@@ -836,8 +836,7 @@ const Invoice: React.FC = () => {
       return invoice.salesman.name || invoice.salesman.fullName || '';
     }
     if (typeof invoice.salesman === 'string' && invoice.salesman.trim()) {
-      const foundUser = mockSystemUsers.find(u => u._id === invoice.salesman || u.fullName === invoice.salesman);
-      return foundUser ? foundUser.fullName : invoice.salesman;
+      return invoice.salesman;
     }
     return '';
   };
@@ -919,10 +918,9 @@ const Invoice: React.FC = () => {
             name: fullInvoiceData.salesman.name || fullInvoiceData.salesman.fullName || ''
           };
         } else if (typeof fullInvoiceData.salesman === 'string') {
-          const found = mockSystemUsers.find(u => u._id === fullInvoiceData.salesman || u.fullName === fullInvoiceData.salesman);
           loadedSalesman = {
             _id: fullInvoiceData.salesman,
-            name: found ? found.fullName : fullInvoiceData.salesman
+            name: fullInvoiceData.salesman
           };
         }
       }
@@ -1631,6 +1629,20 @@ const Invoice: React.FC = () => {
           onClose={() => setShowPreviewModal(false)}
           invoiceData={invoiceData}
           onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
+          onReturnInvoice={() => {
+            setShowPreviewModal(false);
+            setShowReturnModal(true);
+          }}
+        />
+
+        <CreateReturnModal
+          isOpen={showReturnModal}
+          onClose={() => setShowReturnModal(false)}
+          invoice={invoiceData as any}
+          onSuccess={() => {
+            setAlert({ type: 'success', message: 'Return processed successfully.' });
+            fetchAllInvoices();
+          }}
         />
       </div>
     </div>

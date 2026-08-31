@@ -1,10 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { mockPurchaseOrders as initialPOs } from '../data/mockPurchaseOrders';
-import { mockOrders } from '../data/mockOrders';
 import { Eye, Download, ShoppingCart, Plus, Edit, FileText, MessageCircle } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
@@ -28,11 +26,26 @@ const PurchaseOrders: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPOToUpdate, setSelectedPOToUpdate] = useState<PurchaseOrder | null>(null);
 
-  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
-    const index = initialPOs.findIndex(po => po.id === updatedPO.id);
-    if (index !== -1) {
-      initialPOs[index] = updatedPO;
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPOs = async () => {
+    setLoading(true);
+    try {
+      const data = await purchaseOrderService.getAll();
+      setPurchaseOrders(data || []);
+    } catch {
+      setPurchaseOrders([]);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchPOs();
+  }, []);
+
+  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
     try {
       await purchaseOrderService.updateStatus(updatedPO.id, updatedPO.status);
     } catch {
@@ -43,25 +56,6 @@ const PurchaseOrders: React.FC = () => {
     fetchPOs();
   };
 
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchPOs = async () => {
-    setLoading(true);
-    try {
-      const data = await purchaseOrderService.getAll();
-      setPurchaseOrders(data);
-    } catch {
-      setPurchaseOrders(initialPOs);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchPOs();
-  }, []);
-
   const handleCreatePO = async (newPO: PurchaseOrder) => {
     await purchaseOrderService.create(newPO);
     setShowCreateModal(false);
@@ -69,13 +63,7 @@ const PurchaseOrders: React.FC = () => {
   };
 
   // Returns the salesman from the original order if the PO was converted from one
-  const getSalesmanFromPO = (po: PurchaseOrder): { _id: string; name: string } | undefined => {
-    if (!po.referenceOrderId && !po.referenceOrderNum) return undefined;
-    const refId = po.referenceOrderId || po.referenceOrderNum;
-    const order = mockOrders.find(o => o.orderId === refId || o.id === refId);
-    if (order && order.salesman) {
-      return { _id: order.salesman.id, name: order.salesman.name };
-    }
+  const getSalesmanFromPO = (_po: PurchaseOrder): { _id: string; name: string } | undefined => {
     return undefined;
   };
 

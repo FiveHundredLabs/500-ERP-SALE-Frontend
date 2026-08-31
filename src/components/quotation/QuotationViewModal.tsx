@@ -6,7 +6,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { QuotationData } from '../../types/quotation';
 import { generateQuotationWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
-import { mockCustomers } from '../../data/mockCustomers';
 
 interface QuotationViewModalProps {
   isOpen: boolean;
@@ -42,9 +41,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (typeof quotationData.customer === 'object' && (quotationData.customer as any)?.phone) {
       return (quotationData.customer as any).phone;
     }
-    const custId = typeof quotationData.customer === 'string' ? quotationData.customer : quotationData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.phone || '+94705787818';
+    return '';
   };
 
   const getCustomerName = (): string => {
@@ -52,9 +49,8 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (typeof quotationData.customer === 'object' && (quotationData.customer as any)?.fullName) {
       return (quotationData.customer as any).fullName;
     }
-    const custId = typeof quotationData.customer === 'string' ? quotationData.customer : quotationData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.businessName || found?.contactPerson || 'Valued Customer';
+    if ((quotationData.customerDetails as any)?.shopName) return (quotationData.customerDetails as any).shopName;
+    return 'Valued Customer';
   };
 
   const customerPhone = getCustomerPhone();

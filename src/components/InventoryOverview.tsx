@@ -1,6 +1,7 @@
-import React from "react";
+import { useState, useEffect } from "react";
 import { Package, TrendingUp, DollarSign, Tag } from "lucide-react";
-import { mockInventoryItems } from "../data/mockInventory";
+import { inventoryService } from "../services/InventoryService";
+import type { InventoryItem } from "../types/inventory";
 
 interface InventoryOverviewProps {
   stats?: {
@@ -12,7 +13,12 @@ interface InventoryOverviewProps {
 }
 
 const InventoryOverview: React.FC<InventoryOverviewProps> = () => {
-  const items = mockInventoryItems;
+  const [items, setItems] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    inventoryService.getAll().then(data => setItems(data || [])).catch(() => setItems([]));
+  }, []);
+
   const totalProducts = items.length;
   const totalSoldQty = items.reduce((acc, i) => acc + (i.sold_count || 0), 0);
   const avgCost = items.length > 0 ? items.reduce((acc, i) => acc + (i.purchase_price || 0), 0) / items.length : 0;

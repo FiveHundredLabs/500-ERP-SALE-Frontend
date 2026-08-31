@@ -44,7 +44,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 import ThemeToggle from "../components/ThemeToggle";
-import { mockPurchaseOrders } from "../data/mockPurchaseOrders";
+import { purchaseOrderService } from "../services/PurchaseOrderService";
 import type { PurchaseOrder } from "../types/purchaseOrders";
 import CreatePOModal, { type POInitialData, type POConversionItem } from "../components/orders/CreatePOModal";
 
@@ -689,8 +689,12 @@ const Quotation: React.FC = () => {
     setShowPOModal(true);
   };
 
-  const handlePOSubmit = (newPO: PurchaseOrder) => {
-    mockPurchaseOrders.unshift(newPO);
+  const handlePOSubmit = async (newPO: PurchaseOrder) => {
+    try {
+      await purchaseOrderService.create(newPO);
+    } catch {
+      // ignore
+    }
     setShowPOModal(false);
     setPoModalInitialData(null);
     setAlert({

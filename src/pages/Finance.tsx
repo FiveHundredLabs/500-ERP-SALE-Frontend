@@ -18,7 +18,6 @@ import CustomConfirm from "../components/CustomConfirm";
 import InvoiceCanvas from "../components/InvoiceCanvas";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 import ThemeToggle from "../components/ThemeToggle";
-import { mockSystemUsers } from "../data/mockSystemUsers";
 
 const Finance: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -358,8 +357,7 @@ const Finance: React.FC = () => {
     }
     if (inv.salesmanName) return inv.salesmanName;
     if (typeof inv.salesman === 'string' && inv.salesman.trim()) {
-      const found = mockSystemUsers.find(u => u._id === inv.salesman || u.fullName === inv.salesman);
-      return found ? found.fullName : inv.salesman;
+      return inv.salesman;
     }
     return '';
   };
@@ -402,20 +400,6 @@ const Finance: React.FC = () => {
           subtitle: `Sales Officer · ${invoices.filter(i => getInvoiceSalesmanName(i) === sName).length} Invoices`,
           category: 'Sales Officer',
           value: sName,
-        });
-      }
-    });
-
-    // 4. Also include system users with salesman role
-    mockSystemUsers.filter(u => u.role === 'salesman').forEach(u => {
-      if (!seenSalesmen.has(u.fullName)) {
-        seenSalesmen.add(u.fullName);
-        suggestions.push({
-          id: `so-usr-${u._id}`,
-          title: u.fullName,
-          subtitle: `Sales Officer · ${u.email}`,
-          category: 'Sales Officer',
-          value: u.fullName,
         });
       }
     });

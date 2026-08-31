@@ -12,11 +12,14 @@ export interface SalesOfficer {
   avatar?: string;
   createdAt: string;
   updatedAt: string;
-  // Optional legacy fields
+  // Optional / Helper fields
   officerId?: string;
   email?: string;
+  phone?: string;
   assignedTerritory?: string;
+  assignedArea?: string;
   commissionRate?: number;
+  monthlyTarget?: number;
 }
 
 export interface SalesOfficerPerformanceSummary {

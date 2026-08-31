@@ -2,14 +2,12 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, FileCheck, FileText, CheckCircle, TrendingUp, MessageCircle } from 'lucide-react';
 import type { Order, OrderProduct } from '../../types/orders';
-import { mockSalesmen } from '../../data/mockOrders';
-import { mockCustomers } from '../../data/mockCustomers';
-import { mockInventoryItems } from '../../data/mockInventory';
 import type { InventoryItem } from '../../types/inventory';
-import { mockPurchaseOrders } from '../../data/mockPurchaseOrders';
 import type { PurchaseOrder } from '../../types/purchaseOrders';
-import { mockInvoicesList } from '../../data/mockInvoices';
-import type { InvoiceResponse } from '../../types/invoice';
+import { invoiceService } from '../../services/InvoiceService';
+import { inventoryService } from '../../services/InventoryService';
+import { purchaseOrderService } from '../../services/PurchaseOrderService';
+import { salesOfficerService } from '../../services/SalesOfficerService';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useToast } from '../erp/Toast';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
@@ -90,48 +88,60 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
+  const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      invoiceService.getAllCustomers().then(c => setAllCustomers(c || [])).catch(() => {});
+      salesOfficerService.getAll().then(s => setAllSalesmen(s.map(o => ({ id: o.id, name: o.fullName, employeeId: o.officerId, phone: o.contactNumber || o.phone, area: o.assignedTerritory || o.assignedArea })) || [])).catch(() => {});
+      inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
+    }
+  }, [isOpen]);
+
   // Filter customers by name only (Prefix / first letter match prioritized, then alphabetical)
   const filteredCustomers = useMemo(() => {
-    const activeCusts = mockCustomers.filter(c => c.status === 'Active');
+    const activeCusts = allCustomers.filter(c => c.status !== 'Inactive');
     const q = customerSearch.trim().toLowerCase();
     if (!q) {
-      return [...activeCusts].sort((a, b) => (a.shopName || a.businessName || '').localeCompare(b.shopName || b.businessName || ''));
+      return [...activeCusts].sort((a, b) => (a.shopName || a.fullName || a.businessName || '').localeCompare(b.shopName || b.fullName || b.businessName || ''));
     }
-    const matching = activeCusts.filter(c => (c.shopName || c.businessName || '').toLowerCase().includes(q));
+    const matching = activeCusts.filter(c => (c.shopName || c.fullName || c.businessName || '').toLowerCase().includes(q));
     return matching.sort((a, b) => {
-      const aName = a.shopName || a.businessName || '';
-      const bName = b.shopName || b.businessName || '';
+      const aName = a.shopName || a.fullName || a.businessName || '';
+      const bName = b.shopName || b.fullName || b.businessName || '';
       const aStarts = aName.toLowerCase().startsWith(q);
       const bStarts = bName.toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
       return aName.localeCompare(bName);
     });
-  }, [customerSearch]);
+  }, [allCustomers, customerSearch]);
 
   // Filter salesmen by name only (Prefix / first letter match prioritized, then alphabetical)
   const filteredSalesmen = useMemo(() => {
     const q = salesmanSearch.trim().toLowerCase();
     if (!q) {
-      return [...mockSalesmen].sort((a, b) => a.name.localeCompare(b.name));
+      return [...allSalesmen].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
-    const matching = mockSalesmen.filter(s => s.name.toLowerCase().includes(q));
+    const matching = allSalesmen.filter(s => (s.name || '').toLowerCase().includes(q));
     return matching.sort((a, b) => {
-      const aStarts = a.name.toLowerCase().startsWith(q);
-      const bStarts = b.name.toLowerCase().startsWith(q);
+      const aStarts = (a.name || '').toLowerCase().startsWith(q);
+      const bStarts = (b.name || '').toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return a.name.localeCompare(b.name);
+      return (a.name || '').localeCompare(b.name || '');
     });
-  }, [salesmanSearch]);
+  }, [allSalesmen, salesmanSearch]);
 
   // Filter products (Prefix / first letter match prioritized, then alphabetical)
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
     if (!q) {
-      return [...mockInventoryItems].sort((a, b) => (a.product_name || '').localeCompare(b.product_name || ''));
+      return [...allInventoryItems].sort((a, b) => (a.product_name || '').localeCompare(b.product_name || ''));
     }
-    const matching = mockInventoryItems.filter(item =>
+    const matching = allInventoryItems.filter(item =>
       (item.product_name || '').toLowerCase().includes(q) ||
       (item.product_code || '').toLowerCase().includes(q)
     );
@@ -142,10 +152,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       if (!aStarts && bStarts) return 1;
       return (a.product_name || '').localeCompare(b.product_name || '');
     });
-  }, [productSearch]);
+  }, [allInventoryItems, productSearch]);
 
-  const selectedCustomer = mockCustomers.find(c => c.id === selectedCustomerId);
-  const selectedSalesman = mockSalesmen.find(s => s.id === selectedSalesmanId);
+  const selectedCustomer = allCustomers.find(c => c._id === selectedCustomerId || c.id === selectedCustomerId || c.customerCode === selectedCustomerId);
+  const selectedSalesman = allSalesmen.find(s => s.id === selectedSalesmanId || s.employeeId === selectedSalesmanId);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
@@ -202,7 +212,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setErrors(prev => ({ ...prev, productName: '', unitPrice: '' }));
   };
 
-  const handleSaveNewProduct = (e: React.FormEvent) => {
+  const handleSaveNewProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!quickProduct.name.trim()) errs.name = 'Product name is required';
@@ -231,7 +241,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       updated_at: new Date().toISOString(),
     };
 
-    mockInventoryItems.unshift(newItem);
+    try {
+      await inventoryService.create(newItem);
+    } catch {
+      // ignore
+    }
+    setAllInventoryItems(prev => [newItem, ...prev]);
     handleSelectProduct(newItem);
     setShowAddProductModal(false);
     setQuickProduct({ name: '', cost: '', sellPrice: '' });
@@ -347,8 +362,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setShowPOModal(true);
   };
 
-  const handlePOSubmit = (newPO: PurchaseOrder) => {
-    mockPurchaseOrders.unshift(newPO);
+  const handlePOSubmit = async (newPO: PurchaseOrder) => {
+    try {
+      await purchaseOrderService.create(newPO);
+    } catch {
+      // ignore
+    }
     setShowPOModal(false);
     toast.success('Converted to PO', `Purchase Order ${newPO.poNumber} created using inventory product cost price.`);
     handleReset();
@@ -356,12 +375,16 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     navigate('/purchase-orders');
   };
 
-  const handleConvertToInvoice = () => {
+  const handleConvertToInvoice = async () => {
     if (!createdOrder) return;
-    const nextIdStr = `INV-2026-${(mockInvoicesList.length + 1).toString().padStart(3, '0')}`;
+    let nextIdStr = `INV-2026-${Date.now()}`;
+    try {
+      nextIdStr = await invoiceService.getNextId();
+    } catch {
+      // ignore
+    }
 
-    const newInv: InvoiceResponse = {
-      _id: `inv-${Date.now()}`,
+    const newInv: any = {
       invoiceId: nextIdStr,
       customer: {
         _id: `c-${Date.now()}`,
@@ -391,11 +414,14 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       vehicleNumber: 'WP-CAD-1024',
       notes: `Generated from Order ${createdOrder.orderId}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    mockInvoicesList.unshift(newInv);
+    try {
+      await invoiceService.create(newInv);
+    } catch {
+      // ignore
+    }
+
     toast.success('Converted to Invoice', `Invoice ${nextIdStr} created from ${createdOrder.orderId}`);
     handleReset();
     onClose();

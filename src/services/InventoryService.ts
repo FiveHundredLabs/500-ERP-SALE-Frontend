@@ -3,57 +3,69 @@ import type {
   InventoryStats,
   DeleteInventoryRes 
 } from "../types/inventory";
-import { mockInventoryItems } from "../data/mockInventory";
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const inventoryService = {
 
   async getAll(): Promise<InventoryItem[]> {
-    return [...mockInventoryItems];
+    const res = await fetch(`${API_BASE}/inventory-items`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch inventory items`);
+    return res.json();
   },
 
   async getNextId(): Promise<string> {
-    return `INV-${mockInventoryItems.length + 10001}`;
+    const res = await fetch(`${API_BASE}/inventory-items/next-id`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch next inventory ID`);
+    const data = await res.json();
+    return data.nextInventoryId || `INV-${Date.now()}`;
   },
 
   async getById(id: string): Promise<InventoryItem> {
-    const item = mockInventoryItems.find(i => i._id === id || i.id === id || i.product_code === id);
-    if (item) return item;
-    return mockInventoryItems[0];
+    const res = await fetch(`${API_BASE}/inventory-items/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch item ${id}`);
+    return res.json();
   },
 
   async create(itemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'sold_count'>): Promise<InventoryItem> {
-    const newId = `inv-${Date.now()}`;
-    const newItem: InventoryItem = {
-      ...itemData,
-      _id: newId,
-      id: newId,
-      sold_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    mockInventoryItems.unshift(newItem);
-    return newItem;
+    const res = await fetch(`${API_BASE}/inventory-items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(itemData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to create item`);
+    }
+    return res.json();
   },
 
   async update(id: string, updateData: Partial<InventoryItem>): Promise<InventoryItem> {
-    const item = mockInventoryItems.find(i => i._id === id || i.id === id || i.product_code === id);
-    if (item) {
-      Object.assign(item, updateData, { updated_at: new Date().toISOString() });
-      return item;
+    const res = await fetch(`${API_BASE}/inventory-items/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updateData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update item`);
     }
-    return updateData as InventoryItem;
+    return res.json();
   },
 
   async delete(id: string): Promise<DeleteInventoryRes> {
-    const index = mockInventoryItems.findIndex(i => i._id === id || i.id === id || i.product_code === id);
-    if (index !== -1) {
-      mockInventoryItems.splice(index, 1);
-    }
+    const res = await fetch(`${API_BASE}/inventory-items/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to delete item`);
     return { message: "Item deleted successfully" };
   },
 
   async getStats(): Promise<InventoryStats> {
-    const items = mockInventoryItems;
+    const items = await this.getAll().catch(() => []);
     return {
       totalItems: items.length,
       inStock: items.filter(item => item.status === 'in_stock').length,

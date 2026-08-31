@@ -2,14 +2,21 @@ import type {
   InvoiceResponse,
   BackendInvoiceData,
   PaymentStatusType,
-  InvoiceCustomer,
-  InvoicePaymentRecord 
+  InvoiceCustomer
 } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory"; 
-import { mockInvoicesList } from "../data/mockInvoices";
-import { mockCustomers } from "../data/mockCustomers";
-import { mockInventoryItems } from "../data/mockInventory";
 import { extractCityFromAddress } from "../types/customers";
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export interface NextInvoiceIdResponse {
   nextInvoiceId: string;
@@ -33,198 +40,171 @@ export interface SalesOverviewResponse {
 export const invoiceService = {
   // Get all invoices
   async getAll(): Promise<InvoiceResponse[]> {
-    return [...mockInvoicesList];
+    const res = await fetch(`${API_BASE}/invoices`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch invoices: ${res.statusText}`);
+    return res.json();
   },
 
   // Get all customers
   async getAllCustomers(): Promise<InvoiceCustomer[]> {
-    return mockCustomers.map((c) => ({
-      _id: c.id,
-      shopName: c.shopName || c.businessName,
-      fullName: c.shopName || c.businessName || 'Customer',
+    const res = await fetch(`${API_BASE}/customers`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
+    const data = await res.json();
+    return (data || []).map((c: any) => ({
+      _id: c._id || c.id,
+      id: c._id || c.id,
+      customerId: c.customerCode || c.customerId || 'cus-100',
+      customerCode: c.customerCode || c.customerId || 'cus-100',
+      shopName: c.shopName || c.name || c.businessName || 'Customer',
+      fullName: c.fullName || c.name || c.shopName || 'Customer',
       contactPerson: c.contactPerson || '',
-      phone: c.phone || '+94705787818',
+      phone: c.phone || '',
       phone2: c.phone2 || '',
       phone3: c.phone3 || '',
-      customerCode: c.customerId,
       creditLimit: c.creditLimit || 1000000,
       salesRep: c.salesRep,
       salesRepName: c.salesRepName,
-      address: c.address,
-      city: c.city || extractCityFromAddress(c.address),
+      address: c.address || '',
+      city: c.city || extractCityFromAddress(c.address || ''),
     }));
   },
 
   // Get next invoice ID
   async getNextId(): Promise<string> {
-    const nextNum = mockInvoicesList.length + 1;
-    return `INV-2026-${nextNum.toString().padStart(3, '0')}`;
+    const res = await fetch(`${API_BASE}/invoices/next-id`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch next invoice ID: ${res.statusText}`);
+    const data = await res.json();
+    return data.nextInvoiceId || `INV-${Date.now()}`;
   },
 
   // Get invoice by ID
   async getById(id: string): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i._id === id || i.invoiceId === id);
-    if (found) return found;
-    return mockInvoicesList[0];
+    const res = await fetch(`${API_BASE}/invoices/${id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Invoice with ID "${id}" not found.`);
+    return res.json();
   },
 
   // Get invoice by invoiceId
   async getByInvoiceId(invoiceId: string): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i.invoiceId === invoiceId || i._id === invoiceId);
-    if (found) return found;
-    return mockInvoicesList[0];
+    const res = await fetch(`${API_BASE}/invoices/invoice-id/${invoiceId}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Invoice "${invoiceId}" not found.`);
+    return res.json();
   },
 
   // Create new invoice
   async create(invoiceData: BackendInvoiceData): Promise<InvoiceResponse> {
-    const nextIdStr = `INV-2026-${(mockInvoicesList.length + 1).toString().padStart(3, '0')}`;
-    const totalAmount = invoiceData.totalAmount || 0;
-    const paidAmount = invoiceData.paidAmount || (invoiceData.paymentStatus === 'Completed' ? totalAmount : 0);
-    const remainingAmount = Math.max(0, totalAmount - paidAmount);
-
-    const newInv: InvoiceResponse = {
-      _id: `inv-${Date.now()}`,
-      invoiceId: invoiceData.invoiceId || nextIdStr,
-      customer: typeof invoiceData.customer === 'string' ? {
-        _id: invoiceData.customer,
-        shopName: 'Customer ' + invoiceData.customer,
-        fullName: 'Customer ' + invoiceData.customer,
-        phone: '',
-        customerCode: 'CUST-001'
-      } : (invoiceData.customer as any),
-      items: invoiceData.items || [],
-      subTotal: invoiceData.subTotal || 0,
-      discount: invoiceData.discount || 0,
-      totalAmount,
-      paidAmount,
-      remainingAmount,
-      payments: invoiceData.payments || [],
-      paymentStatus: invoiceData.paymentStatus || 'Pending',
-      paymentMethod: invoiceData.paymentMethod || 'Cash',
-      issueDate: invoiceData.issueDate || new Date().toISOString(),
-      dueDate: invoiceData.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-      vehicleNumber: invoiceData.vehicleNumber || '',
-      notes: invoiceData.notes,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    mockInvoicesList.unshift(newInv);
-    return newInv;
+    const res = await fetch(`${API_BASE}/invoices`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(invoiceData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to create invoice`);
+    }
+    return res.json();
   },
 
   // Update invoice
   async update(invoiceId: string, updateData: Partial<BackendInvoiceData>): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
-    if (found) {
-      Object.assign(found, updateData, { updated_at: new Date().toISOString() });
-      if (updateData.paidAmount !== undefined) {
-        found.remainingAmount = Math.max(0, found.totalAmount - updateData.paidAmount);
-      }
-      return found;
+    const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(updateData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update invoice`);
     }
-    return mockInvoicesList[0];
+    return res.json();
   },
 
-  // Update status and payment amount
-  async updatePaymentStatus(
-    invoiceId: string, 
-    paymentStatus: PaymentStatusType, 
-    paymentRecord?: InvoicePaymentRecord
-  ): Promise<InvoiceResponse> {
-    const found = mockInvoicesList.find(i => i._id === invoiceId || i.invoiceId === invoiceId);
-    if (found) {
-      found.paymentStatus = paymentStatus;
-      if (paymentRecord) {
-        if (!found.payments) found.payments = [];
-        found.payments.unshift(paymentRecord);
-        found.paidAmount = (found.paidAmount || 0) + paymentRecord.amount;
-        found.remainingAmount = Math.max(0, found.totalAmount - found.paidAmount);
-      } else if (paymentStatus === 'Completed' || paymentStatus === 'Paid') {
-        found.paidAmount = found.totalAmount;
-        found.remainingAmount = 0;
-      }
-      found.updated_at = new Date().toISOString();
-      return found;
-    }
-    return mockInvoicesList[0];
-  },
-
-  // Record bulk payment against multiple invoices
-  async recordBulkPayment(
-    allocations: Array<{ invoiceId: string; amount: number }>,
-    paymentDetails: {
-      transactionId: string;
-      paymentMethod: string;
-      reference?: string;
-      bankName?: string;
-      date?: string;
-      notes?: string;
-    }
-  ): Promise<InvoiceResponse[]> {
-    const updatedInvoices: InvoiceResponse[] = [];
-    const date = paymentDetails.date || new Date().toISOString();
-
-    for (const alloc of allocations) {
-      if (alloc.amount <= 0) continue;
-      const invoice = mockInvoicesList.find(i => i._id === alloc.invoiceId || i.invoiceId === alloc.invoiceId);
-      if (invoice) {
-        if (!invoice.payments) invoice.payments = [];
-        const record: InvoicePaymentRecord = {
-          id: `pay-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          transactionId: paymentDetails.transactionId,
-          amount: alloc.amount,
-          date: date,
-          paymentMethod: paymentDetails.paymentMethod,
-          reference: paymentDetails.reference,
-          bankName: paymentDetails.bankName,
-          notes: paymentDetails.notes,
-        };
-        invoice.payments.unshift(record);
-        invoice.paidAmount = (invoice.paidAmount || 0) + alloc.amount;
-        invoice.remainingAmount = Math.max(0, invoice.totalAmount - invoice.paidAmount);
-        
-        if (invoice.remainingAmount <= 0) {
-          invoice.paymentStatus = 'Completed';
-        } else {
-          invoice.paymentStatus = 'Partially Paid';
-        }
-        invoice.updated_at = new Date().toISOString();
-        updatedInvoices.push(invoice);
-      }
-    }
-    return updatedInvoices;
+  // Update payment status
+  async updatePaymentStatus(id: string, paymentStatus: PaymentStatusType): Promise<InvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/${id}/payment-status`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify({ paymentStatus }),
+    });
+    if (!res.ok) throw new Error(`Failed to update payment status`);
+    return res.json();
   },
 
   // Delete invoice
-  async delete(invoiceId: string): Promise<DeleteInvoiceResponse> {
-    const index = mockInvoicesList.findIndex(i => i._id === invoiceId || i.invoiceId === invoiceId);
-    if (index !== -1) {
-      mockInvoicesList.splice(index, 1);
-    }
-    return { message: "Invoice deleted successfully" };
+  async delete(id: string): Promise<DeleteInvoiceResponse> {
+    const res = await fetch(`${API_BASE}/invoices/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to delete invoice`);
+    return res.json();
   },
 
-  // Get inventory items for dropdown
-  async getInventoryItems(): Promise<InventoryItem[]> {
-    return mockInventoryItems;
+  // Search items
+  async searchItems(query: string): Promise<InventoryItem[]> {
+    const res = await fetch(`${API_BASE}/inventory-items`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) return [];
+    const items: InventoryItem[] = await res.json();
+    if (!query) return items;
+    const lower = query.toLowerCase();
+    return items.filter(i => 
+      i.product_name?.toLowerCase().includes(lower) || 
+      i.product_code?.toLowerCase().includes(lower)
+    );
   },
 
-  // Create new customer
-  async createCustomer(customerData: Omit<InvoiceCustomer, '_id' | 'customerCode'>) {
-    const newCust: InvoiceCustomer = {
-      ...customerData,
-      _id: `cust-${Date.now()}`,
-      customerCode: `CUST-${Math.floor(100 + Math.random() * 900)}`
-    };
-    return newCust;
+  // Customer Management CRUD
+  async createCustomer(customer: any): Promise<InvoiceCustomer> {
+    const res = await fetch(`${API_BASE}/customers`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(customer),
+    });
+    if (!res.ok) throw new Error('Failed to create customer');
+    return res.json();
   },
 
-  // Update customer
-  async updateCustomer(customerId: string, customerData: Omit<InvoiceCustomer, '_id' | 'customerCode'>) {
-    return {
-      ...customerData,
-      _id: customerId,
-      customerCode: 'CUST-001'
-    };
-  }
+  async updateCustomer(id: string, customer: any): Promise<InvoiceCustomer> {
+    const res = await fetch(`${API_BASE}/customers/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(customer),
+    });
+    if (!res.ok) throw new Error('Failed to update customer');
+    return res.json();
+  },
+
+  async deleteCustomer(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/customers/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete customer');
+    return res.json();
+  },
 };

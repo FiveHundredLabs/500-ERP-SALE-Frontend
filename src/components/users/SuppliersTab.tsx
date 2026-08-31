@@ -101,21 +101,25 @@ const SuppliersTab: React.FC = () => {
     const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
 
     suppliers.forEach(s => {
+      const name = s.companyName || (s as any).name || 'Supplier';
       suggestions.push({
-        id: `s-name-${s.id}`,
-        title: s.companyName,
-        subtitle: `${s.contactPerson || 'Supplier'} · WA: ${s.phone} · ${s.city || s.address}`,
+        id: `s-name-${s.id || (s as any)._id}`,
+        title: name,
+        subtitle: `${s.contactPerson || 'Supplier'} · WA: ${s.phone || ''} · ${s.city || s.address || ''}`,
         category: 'Supplier',
-        value: s.companyName,
+        value: name,
       });
 
-      suggestions.push({
-        id: `s-id-${s.id}`,
-        title: s.supplierId,
-        subtitle: `${s.companyName}`,
-        category: 'Supplier ID',
-        value: s.supplierId,
-      });
+      const code = s.supplierId || (s as any).supplier_code || s.id || (s as any)._id;
+      if (code) {
+        suggestions.push({
+          id: `s-id-${s.id || (s as any)._id}`,
+          title: code,
+          subtitle: `${name}`,
+          category: 'Supplier ID',
+          value: code,
+        });
+      }
     });
 
     return suggestions;

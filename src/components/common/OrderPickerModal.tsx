@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, ShoppingBag, ChevronRight, User, Calendar, Package, CheckCircle } from 'lucide-react';
 import type { Order } from '../../types/orders';
 import { orderService } from '../../services/OrderService';
-import { mockOrders } from '../../data/mockOrders';
 
 interface OrderPickerModalProps {
   isOpen: boolean;
@@ -23,9 +22,9 @@ const OrderPickerModal: React.FC<OrderPickerModalProps> = ({ isOpen, onClose, on
       setLoading(true);
       try {
         const data = await orderService.getAll();
-        setOrders(data);
+        setOrders(data || []);
       } catch {
-        setOrders(mockOrders);
+        setOrders([]);
       } finally {
         setLoading(false);
       }

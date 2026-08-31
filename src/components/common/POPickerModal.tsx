@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, ShoppingCart, ChevronRight, Truck, Calendar, Package, CheckCircle } from 'lucide-react';
 import type { PurchaseOrder } from '../../types/purchaseOrders';
 import { purchaseOrderService } from '../../services/PurchaseOrderService';
-import { mockPurchaseOrders } from '../../data/mockPurchaseOrders';
 
 interface POPickerModalProps {
   isOpen: boolean;
@@ -23,9 +22,9 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
       setLoading(true);
       try {
         const data = await purchaseOrderService.getAll();
-        setPOs(data);
+        setPOs(data || []);
       } catch {
-        setPOs(mockPurchaseOrders);
+        setPOs([]);
       } finally {
         setLoading(false);
       }

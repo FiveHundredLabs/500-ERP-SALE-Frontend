@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, StatusBadge, useToast } from '../components/erp';
-import { mockOrders } from '../data/mockOrders';
-import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
 import type { Order, OrderStatusType } from '../types/orders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { orderService } from '../services/OrderService';
+import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
 import {
   ShoppingBag,
@@ -40,8 +39,7 @@ const OrderDetails: React.FC = () => {
         const data = await orderService.getById(id);
         setOrder(data);
       } catch {
-        const found = mockOrders.find((o) => o.id === id || o.orderId === id) || mockOrders[0];
-        setOrder(found);
+        setOrder(undefined);
       } finally {
         setLoading(false);
       }
@@ -79,8 +77,12 @@ const OrderDetails: React.FC = () => {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
-  const handleCreateConvertedPO = (createdPO: PurchaseOrder) => {
-    mockPurchaseOrders.unshift(createdPO);
+  const handleCreateConvertedPO = async (createdPO: PurchaseOrder) => {
+    try {
+      await purchaseOrderService.create(createdPO);
+    } catch {
+      // ignore
+    }
 
     const updatedOrder: Order = {
       ...order,

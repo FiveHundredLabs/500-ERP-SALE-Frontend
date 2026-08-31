@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Package, Tag, Plus, Check, TrendingUp } from "lucide-react";
 import type { InventoryItem } from "../types/inventory";
-import { mockInventoryItems } from "../data/mockInventory";
 
 interface InventoryFormProps {
   isOpen: boolean;
@@ -43,7 +42,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       setErrors({});
     } else {
       // Auto generate next product code
-      const nextNum = mockInventoryItems.length + 1001;
+      const nextNum = Math.floor(1000 + Math.random() * 9000);
       setFormData({
         product_name: "",
         product_code: `PRD-${nextNum}`,

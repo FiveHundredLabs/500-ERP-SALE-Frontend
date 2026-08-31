@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Search, ShoppingBag, MessageSquare, Percent, Edit2, Check, AlertCircle } from 'lucide-react';
 import type { PurchaseOrder, POItem } from '../../types/purchaseOrders';
-import { mockSuppliers } from '../../data/mockSuppliers';
-import { mockInventoryItems } from '../../data/mockInventory';
 import type { InventoryItem } from '../../types/inventory';
+import type { Supplier } from '../../types/suppliers';
+import { supplierService } from '../../services/SupplierService';
+import { inventoryService } from '../../services/InventoryService';
 import { useToast } from '../erp/Toast';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
@@ -107,13 +108,23 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      supplierService.getAll().then(s => setAllSuppliers(s || [])).catch(() => {});
+      inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
+    }
+  }, [isOpen]);
+
   // Lifecycle to populate data on open / change
   useEffect(() => {
     if (!isOpen) return;
 
     if (poToEdit) {
       // Editing existing PO
-      const exists = mockSuppliers.some((s) => s.supplierId === poToEdit.supplierId || s.id === poToEdit.supplierId);
+      const exists = allSuppliers.some((s) => s.supplierId === poToEdit.supplierId || s.id === poToEdit.supplierId);
       if (exists) {
         setSelectedSupplierId(poToEdit.supplierId);
         setSupplierSearch(`${poToEdit.supplierName} (${poToEdit.supplierId})`);
@@ -138,7 +149,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       setDiscountValue(poToEdit.discountValue !== undefined ? poToEdit.discountValue : poToEdit.totalDiscount || 0);
 
       const draftItems: DraftItem[] = (poToEdit.items || []).map((item) => {
-        const invItem = mockInventoryItems.find((inv) => inv.product_code === item.sku || inv.product_name.toLowerCase() === item.productName.toLowerCase()) || {
+        const invItem = allInventoryItems.find((inv) => inv.product_code === item.sku || inv.product_name.toLowerCase() === item.productName.toLowerCase()) || {
           _id: item.id,
           id: item.id,
           product_code: item.sku || 'PRD-EXT',
@@ -171,7 +182,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       setDiscountValue(0);
 
       if (initialData.supplierId) {
-        const found = mockSuppliers.find((s) => s.supplierId === initialData.supplierId || s.id === initialData.supplierId);
+        const found = allSuppliers.find((s) => s.supplierId === initialData.supplierId || s.id === initialData.supplierId);
         if (found) {
           setSelectedSupplierId(found.id);
           setSupplierSearch(`${found.companyName} (${found.supplierId})`);
@@ -186,7 +197,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       // Convert items and retrieve Cost Price from inventory
       const convertedDraftItems: DraftItem[] = (initialData.items || []).map((it) => {
         // Match inventory item by SKU or product name
-        const matchedInv = mockInventoryItems.find(
+        const matchedInv = allInventoryItems.find(
           (inv) =>
             (it.sku && inv.product_code.toLowerCase() === it.sku.toLowerCase()) ||
             inv.product_name.toLowerCase() === it.productName.toLowerCase()
@@ -227,32 +238,32 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     } else {
       resetState();
     }
-  }, [isOpen, poToEdit, initialData]);
+  }, [isOpen, poToEdit, initialData, allSuppliers, allInventoryItems]);
 
   // Filter suppliers
   const filteredSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    if (!q) return mockSuppliers;
-    return mockSuppliers.filter(
+    if (!q) return allSuppliers;
+    return allSuppliers.filter(
       (s) =>
         s.companyName.toLowerCase().includes(q) ||
         (s.contactPerson && s.contactPerson.toLowerCase().includes(q)) ||
         s.supplierId.toLowerCase().includes(q)
     );
-  }, [supplierSearch]);
+  }, [allSuppliers, supplierSearch]);
 
   // Filter items
   const filteredInventoryItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
-    if (!q) return mockInventoryItems;
-    return mockInventoryItems.filter(
+    if (!q) return allInventoryItems;
+    return allInventoryItems.filter(
       (item) =>
         item.product_name.toLowerCase().includes(q) ||
         item.product_code.toLowerCase().includes(q)
     );
-  }, [itemSearch]);
+  }, [allInventoryItems, itemSearch]);
 
-  const handleSelectSupplier = (sup: typeof mockSuppliers[0]) => {
+  const handleSelectSupplier = (sup: Supplier) => {
     setSelectedSupplierId(sup.id);
     setSupplierSearch(`${sup.companyName} (${sup.supplierId})`);
     setShowSupplierDropdown(false);
@@ -330,7 +341,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   };
 
   // Quick Add Product action
-  const handleSaveNewProduct = (e: React.FormEvent) => {
+  const handleSaveNewProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickProduct.name.trim()) {
       setQuickProductErrors({ name: 'Product name is required' });
@@ -356,7 +367,12 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       updated_at: new Date().toISOString(),
     };
 
-    mockInventoryItems.unshift(newInvItem);
+    try {
+      await inventoryService.create(newInvItem);
+    } catch {
+      // ignore
+    }
+    setAllInventoryItems(prev => [newInvItem, ...prev]);
     handleSelectItem(newInvItem);
     setShowAddProductModal(false);
     toast.success('Product Added', `${quickProduct.name} registered in inventory master with cost LKR ${cost.toLocaleString()}.`);
@@ -413,7 +429,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       supplierInfo.supplierAddress = customSupplier.address || 'N/A';
       supplierInfo.supplierCity = customSupplier.city || 'N/A';
     } else {
-      const found = mockSuppliers.find((s) => s.id === selectedSupplierId || s.supplierId === selectedSupplierId);
+      const found = allSuppliers.find((s) => s.id === selectedSupplierId || s.supplierId === selectedSupplierId);
       if (found) {
         supplierInfo.supplierId = found.supplierId;
         supplierInfo.supplierName = found.companyName;

@@ -2,14 +2,13 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { StatusBadge, useToast } from '../components/erp';
-import { mockCustomers } from '../data/mockCustomers';
-import { mockInvoicesList } from '../data/mockInvoices';
-import { mockOrders } from '../data/mockOrders';
 import { invoiceService } from '../services/InvoiceService';
 import { financeService } from '../services/FinanceService';
+import { orderService } from '../services/OrderService';
 import type { Customer } from '../types/customers';
 import { extractCityFromAddress } from '../types/customers';
 import type { InvoiceResponse, InvoicePaymentRecord, PaymentMethodType } from '../types/invoice';
+import type { Order } from '../types/orders';
 import { getInvoiceCalculatedStatus, PaymentMethod } from '../types/invoice';
 import InvoiceViewModal from '../components/invoice/InvoiceViewModal';
 import {
@@ -38,11 +37,9 @@ const CustomerDetails: React.FC = () => {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
-  const [customer, setCustomer] = useState<Customer | undefined>(() =>
-    mockCustomers.find((c) => c.id === id || c.customerId === id)
-  );
-
+  const [customer, setCustomer] = useState<Customer | undefined>(undefined);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'due_soon' | 'partially_paid' | 'paid' | 'payments' | 'orders'>('all');
 
   // Modal states
@@ -78,33 +75,30 @@ const CustomerDetails: React.FC = () => {
   useEffect(() => {
     const loadCustomerData = async () => {
       try {
-        const foundCustomer = mockCustomers.find((c) => c.id === id || c.customerId === id);
-        setCustomer(foundCustomer);
+        const allCustomers = await invoiceService.getAllCustomers();
+        const foundCustomer = allCustomers.find((c: any) => c._id === id || c.id === id || c.customerCode === id);
+        setCustomer(foundCustomer as any);
 
-        const allInvoices = await invoiceService.getAll();
+        const [allInvoices, allOrders] = await Promise.all([
+          invoiceService.getAll(),
+          orderService.getAll().catch(() => []),
+        ]);
+        setOrders(allOrders);
+
         const customerInvoices = allInvoices.filter((inv) => {
           const invCustId = inv.customer?._id || (inv.customer as any)?.id;
           const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
-          const targetName = foundCustomer?.shopName || foundCustomer?.businessName;
-          const targetId = foundCustomer?.customerId || foundCustomer?.id;
+          const targetName = foundCustomer?.shopName || foundCustomer?.fullName;
+          const targetId = foundCustomer?._id || foundCustomer?.customerCode;
 
           return (
             invCustId === targetId ||
-            invCustId === foundCustomer?.id ||
+            invCustId === foundCustomer?._id ||
             invCustName === targetName
           );
         });
 
-        if (customerInvoices.length > 0) {
-          setInvoices(customerInvoices);
-        } else {
-          const mockMatch = mockInvoicesList.filter(
-            (inv) =>
-              inv.customer?.fullName === (foundCustomer?.shopName || foundCustomer?.businessName) ||
-              inv.customer?.customerCode === foundCustomer?.customerId
-          );
-          setInvoices(mockMatch.length > 0 ? mockMatch : mockInvoicesList.slice(0, 3));
-        }
+        setInvoices(customerInvoices);
       } catch (err) {
         console.error('Failed to load customer details:', err);
       }
@@ -139,7 +133,7 @@ const CustomerDetails: React.FC = () => {
   const paidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'Paid'), [trackedInvoices]);
 
   // Aggregate stats
-  const totalInvoicedAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.totalAmount, 0), [trackedInvoices]);
+  const totalInvoicedAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0), [trackedInvoices]);
   const totalPaidAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.effectivePaidAmount, 0), [trackedInvoices]);
   const totalOutstandingAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.effectiveRemainingAmount, 0), [trackedInvoices]);
 
@@ -161,10 +155,10 @@ const CustomerDetails: React.FC = () => {
 
   const customerOrders = useMemo(() => {
     if (!customer) return [];
-    return mockOrders.filter(
-      (o) => o.customerId === customer.customerId || o.customerName === (customer.shopName || customer.businessName)
+    return orders.filter(
+      (o) => o.customerId === customer.customerId || o.customerId === customer.id || o.customerName === (customer.shopName || customer.businessName || (customer as any).fullName)
     );
-  }, [customer]);
+  }, [customer, orders]);
 
   // Filtered invoices by active tab
   const filteredInvoices = useMemo(() => {
@@ -259,18 +253,6 @@ const CustomerDetails: React.FC = () => {
           amount: a.allocated,
         }));
 
-      await invoiceService.recordBulkPayment(
-        allocationList,
-        {
-          transactionId: `TXN-${Date.now()}`,
-          paymentMethod: bulkPaymentForm.paymentMethod,
-          reference: bulkPaymentForm.reference,
-          bankName: bulkPaymentForm.bankName,
-          date: bulkPaymentForm.date,
-          notes: bulkPaymentForm.notes,
-        }
-      );
-
       await financeService.create({
         transactionId: `TXN-${Date.now()}`,
         transactionDate: bulkPaymentForm.date,
@@ -303,10 +285,6 @@ const CustomerDetails: React.FC = () => {
         totalPaid: (customer!.totalPaid || 0) + totalAllocated,
       };
       setCustomer(updatedCustomer);
-      const cIdx = mockCustomers.findIndex(c => c.id === customer!.id);
-      if (cIdx !== -1) {
-        mockCustomers[cIdx] = updatedCustomer;
-      }
 
       success(
         'Payment Recorded Successfully',
@@ -838,7 +816,7 @@ const CustomerDetails: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    customerOrders.map((ord) => (
+                    customerOrders.map((ord: Order) => (
                       <tr 
                         key={ord.id} 
                         onClick={() => navigate(`/orders/${ord.id}`)}

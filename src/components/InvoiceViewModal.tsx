@@ -10,6 +10,7 @@ interface InvoiceViewModalProps {
   onClose: () => void;
   selectedInvoice: InvoiceResponse | null;
   onDownloadInvoice: (invoice: InvoiceResponse) => Promise<void>;
+  onReturnInvoice?: (invoice: InvoiceResponse) => void;
   isGeneratingPDF: boolean;
 }
 
@@ -18,6 +19,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   onClose,
   selectedInvoice,
   onDownloadInvoice,
+  onReturnInvoice,
   isGeneratingPDF
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
@@ -85,6 +87,10 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               applyVat: selectedInvoice.applyVat ?? false,
               vatAmount: selectedInvoice.vatAmount ?? 0,
               taxRate: selectedInvoice.taxRate ?? 0,
+              paidAmount: selectedInvoice.paidAmount,
+              salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null 
+                ? selectedInvoice.salesman 
+                : (selectedInvoice.salesmanName ? { _id: '', name: selectedInvoice.salesmanName } : null),
             }}
           />
         </div>
@@ -217,6 +223,17 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             >
               Print
             </Button>
+            {onReturnInvoice && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => selectedInvoice && onReturnInvoice(selectedInvoice)}
+                disabled={isGeneratingPDF || !selectedInvoice || isPrinting}
+                className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
+              >
+                Return Invoice
+              </Button>
+            )}
             <Button
               variant="primary"
               size="md"
@@ -286,11 +303,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                     dueDate: selectedInvoice.dueDate,
                     vehicleNumber: selectedInvoice.vehicleNumber,
                     notes: selectedInvoice.notes,
-                    applyVat: selectedInvoice.applyVat ?? false,
-                    vatAmount: selectedInvoice.vatAmount ?? 0,
-                    taxRate: selectedInvoice.taxRate ?? 0,
-                  }}
-                />
+                      applyVat: selectedInvoice.applyVat ?? false,
+                      vatAmount: selectedInvoice.vatAmount ?? 0,
+                      taxRate: selectedInvoice.taxRate ?? 0,
+                      paidAmount: selectedInvoice.paidAmount,
+                      salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null 
+                        ? selectedInvoice.salesman 
+                        : (selectedInvoice.salesmanName ? { _id: '', name: selectedInvoice.salesmanName } : null),
+                    }}
+                  />
               </div>
             </div>
           ) : (

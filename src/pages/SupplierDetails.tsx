@@ -2,9 +2,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { StatusBadge, useToast } from '../components/erp';
-import { mockSuppliers } from '../data/mockSuppliers';
-import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
 import { supplierService } from '../services/SupplierService';
+import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { financeService } from '../services/FinanceService';
 import type { Supplier } from '../types/suppliers';
 import type { PurchaseOrder } from '../types/purchaseOrders';
@@ -44,9 +43,7 @@ const SupplierDetails: React.FC = () => {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
 
-  const [supplier, setSupplier] = useState<Supplier | undefined>(() =>
-    mockSuppliers.find((s) => s.id === id || s.supplierId === id)
-  );
+  const [supplier, setSupplier] = useState<Supplier | undefined>(undefined);
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'payments'>('all');
@@ -104,16 +101,13 @@ const SupplierDetails: React.FC = () => {
     const loadData = async () => {
       try {
         const found = await supplierService.getById(id || '');
-        if (found) {
-          setSupplier(found);
-        } else {
-          setSupplier(mockSuppliers.find((s) => s.id === id || s.supplierId === id));
-        }
+        setSupplier(found);
 
-        const matchingPOs = mockPurchaseOrders.filter(
+        const allPOs = await purchaseOrderService.getAll();
+        const matchingPOs = (allPOs || []).filter(
           (p) => p.supplierId === (found?.supplierId || id) || p.supplierName === found?.companyName
         );
-        setPurchaseOrders(matchingPOs.length > 0 ? matchingPOs : mockPurchaseOrders.slice(0, 3));
+        setPurchaseOrders(matchingPOs);
       } catch (err) {
         console.error('Failed to load supplier details:', err);
       }

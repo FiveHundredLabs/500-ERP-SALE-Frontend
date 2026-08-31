@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, useToast } from '../components/erp';
-import { mockPurchaseOrders } from '../data/mockPurchaseOrders';
-import { mockOrders } from '../data/mockOrders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import {
@@ -33,8 +31,7 @@ const PurchaseOrderDetails: React.FC = () => {
         const data = await purchaseOrderService.getById(id);
         setPo(data);
       } catch {
-        const found = mockPurchaseOrders.find((p) => p.id === id || p.poNumber === id) || mockPurchaseOrders[0];
-        setPo(found);
+        setPo(undefined);
       } finally {
         setLoading(false);
       }
@@ -77,11 +74,7 @@ const PurchaseOrderDetails: React.FC = () => {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
   // Returns salesman from original order if PO was converted from an order
-  const getSalesmanFromPO = (po: PurchaseOrder) => {
-    if (!po.referenceOrderId && !po.referenceOrderNum) return undefined;
-    const refId = po.referenceOrderId || po.referenceOrderNum;
-    const order = mockOrders.find(o => o.orderId === refId || o.id === refId);
-    if (order?.salesman) return { _id: order.salesman.id, name: order.salesman.name };
+  const getSalesmanFromPO = (_po: PurchaseOrder) => {
     return undefined;
   };
 

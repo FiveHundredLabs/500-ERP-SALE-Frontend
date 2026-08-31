@@ -1,18 +1,18 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Download, Printer, Share2, Copy, Check, MessageCircle, Mail, CheckCircle, ExternalLink } from 'lucide-react';
-import { Modal, LoadingSpinner } from '../common';
+import { Modal, Button, LoadingSpinner } from '../common';
 import InvoiceCanvas from '../InvoiceCanvas';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { InvoiceData } from '../../types/invoice';
 import { generateInvoiceWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
-import { mockCustomers } from '../../data/mockCustomers';
 
 interface InvoiceViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoiceData: InvoiceData | null;
   onShareSuccess?: (message: string) => void;
+  onReturnInvoice?: (invoice: any) => void;
 }
 
 export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
@@ -20,6 +20,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   onClose,
   invoiceData,
   onShareSuccess,
+  onReturnInvoice,
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -40,9 +41,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (typeof invoiceData.customer === 'object' && (invoiceData.customer as any)?.phone) {
       return (invoiceData.customer as any).phone;
     }
-    const custId = typeof invoiceData.customer === 'string' ? invoiceData.customer : invoiceData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.phone || '+94705787818';
+    return '';
   };
 
   const getCustomerName = (): string => {
@@ -50,9 +49,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (typeof invoiceData.customer === 'object' && (invoiceData.customer as any)?.fullName) {
       return (invoiceData.customer as any).fullName;
     }
-    const custId = typeof invoiceData.customer === 'string' ? invoiceData.customer : invoiceData.customerDetails?._id;
-    const found = mockCustomers.find(c => c.id === custId || c.customerId === custId);
-    return found?.businessName || found?.contactPerson || 'Valued Customer';
+    if (invoiceData.customerDetails?.shopName) return invoiceData.customerDetails.shopName;
+    return 'Valued Customer';
   };
 
   const customerPhone = getCustomerPhone();
@@ -281,15 +279,28 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </div>
 
             {/* Print */}
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Printer className="w-3.5 h-3.5" />}
               onClick={handlePrint}
-              disabled={isPrinting}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+              disabled={isPrinting || isGeneratingPDF}
+              isLoading={isPrinting}
             >
-              <Printer size={13} />
-              <span>Print</span>
-            </button>
+              Print
+            </Button>
+
+            {onReturnInvoice && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onReturnInvoice(invoiceData)}
+                disabled={isGeneratingPDF || isPrinting}
+                className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
+              >
+                Return Invoice
+              </Button>
+            )}
 
             {/* Download PDF */}
             <button
