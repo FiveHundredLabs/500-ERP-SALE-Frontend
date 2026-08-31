@@ -57,7 +57,7 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
 
       printWindow.document.write(`
         <html>
-          <head><title>Return ${returnRecord.returnId}</title></head>
+          <head><title>Return ${returnRecord.returnNumber}</title></head>
           <body style="margin:0;padding:0;"><img style="width:100%;" src="${imageData}"/></body>
           <script>window.onload=()=>{setTimeout(()=>{window.print();setTimeout(()=>{window.close();},500);},300);}</script>
         </html>
@@ -76,7 +76,7 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Sales Return - ${returnRecord.returnId}`}
+      title={`Sales Return - ${returnRecord.returnNumber}`}
       icon={<FileText className="w-5 h-5 text-blue-400" />}
       size="xl"
       className="max-h-[95vh] max-w-[95vw] flex flex-col"

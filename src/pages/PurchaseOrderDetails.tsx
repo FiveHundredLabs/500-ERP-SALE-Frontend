@@ -127,7 +127,7 @@ const PurchaseOrderDetails: React.FC = () => {
                   const message = generatePOWhatsAppMessage({
                     poNumber: po.poNumber,
                     supplierName: po.supplierName,
-                    totalAmount: po.grandTotal,
+                    totalAmount: po.totalAmount,
                     poDate: po.poDate,
                     itemsCount: po.items.length,
                     remarks: po.notes,
@@ -215,9 +215,9 @@ const PurchaseOrderDetails: React.FC = () => {
                         <span className="text-xs text-gray-600">—</span>
                       )}
                     </td>
-                    <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantity}</td>
+                    <td className="p-3 text-right font-semibold text-gray-100 text-sm">{item.quantityOrdered}</td>
                     <td className="p-3 text-right text-gray-300 text-sm font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.total)}</td>
+                    <td className="p-3 text-right font-bold text-white text-sm font-mono">{formatCurrency(item.totalPrice)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -252,7 +252,7 @@ const PurchaseOrderDetails: React.FC = () => {
               )}
               <div className="pt-3 border-t border-[#334155] flex justify-between items-center">
                 <span className="font-bold text-gray-100">Grand Total:</span>
-                <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.grandTotal)}</span>
+                <span className="text-lg font-bold text-purple-400 font-mono">{formatCurrency(po.totalAmount)}</span>
               </div>
             </div>
           </div>

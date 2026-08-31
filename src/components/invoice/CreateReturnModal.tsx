@@ -32,15 +32,15 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
       setReturnQuantities({});
       setReturnReason('');
       setRemarks('');
-      fetchPastReturns(invoice._id || invoice.invoiceId);
+      fetchPastReturns(invoice.id || invoice.invoiceNumber);
     }
   }, [isOpen, invoice]);
 
-  const fetchPastReturns = async (invoiceId: string) => {
+  const fetchPastReturns = async (invoiceNumber: string) => {
     try {
       setIsFetchingPast(true);
-      const returns = await invoiceReturnService.getByInvoiceId(invoiceId);
-      setPastReturns(returns.filter(r => r.status !== 'Cancelled'));
+      const returns = await invoiceReturnService.getByInvoiceId(invoiceNumber);
+      setPastReturns(returns.filter(r => r.status !== 'cancelled'));
     } catch (err) {
       console.error('Failed to fetch past returns', err);
     } finally {
@@ -53,7 +53,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
   const getAlreadyReturned = (itemId: string) => {
     let sum = 0;
     pastReturns.forEach(pr => {
-      const match = pr.items.find(i => typeof i.item === 'string' ? i.item === itemId : i.item._id === itemId);
+      const match = pr.items.find(i => i.inventoryItemId === itemId);
       if (match) sum += match.quantity;
     });
     return sum;
@@ -72,7 +72,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
   const calculateReturnTotal = () => {
     let total = 0;
     invoice.items.forEach(item => {
-      const itemId = item.item?._id || item._id || '';
+      const itemId = item.inventoryItemId;
       const qty = returnQuantities[itemId] || 0;
       total += qty * item.unitPrice; // Simplified, not factoring in itemized discounts precisely if they were flat
     });
@@ -97,10 +97,10 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
 
     const itemsToReturn = invoice.items
       .map(item => {
-        const itemId = item.item?._id || item._id || '';
+        const itemId = item.inventoryItemId;
         const qty = returnQuantities[itemId] || 0;
         return {
-          item: itemId,
+          inventoryItemId: itemId,
           quantity: qty,
           unitPrice: item.unitPrice,
           total: qty * item.unitPrice
@@ -111,7 +111,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     try {
       setIsLoading(true);
       await invoiceReturnService.create({
-        invoice: invoice._id || invoice.invoiceId,
+        invoiceId: invoice.id,
         items: itemsToReturn,
         returnReason,
         remarks,
@@ -131,7 +131,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Create Return for ${invoice.invoiceId}`}
+      title={`Create Return for ${invoice.invoiceNumber}`}
       icon={<RotateCcw className="w-5 h-5 text-yellow-400" />}
       size="xl"
     >
@@ -153,8 +153,8 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
               </thead>
               <tbody className="divide-y divide-gray-700/50">
                 {invoice.items.map((item, idx) => {
-                  const itemId = (item.item as any)?._id || (item as any)._id || `item-${idx}`;
-                  const itemName = (item.item as any)?.product_name || (item as any).itemName || 'Unknown Item';
+                  const itemId = item.inventoryItemId || `item-${idx}`;
+                  const itemName = item.itemName || item.inventoryItem?.productName || 'Unknown Item';
                   const alreadyReturned = getAlreadyReturned(itemId);
                   const returnable = item.quantity - alreadyReturned;
 

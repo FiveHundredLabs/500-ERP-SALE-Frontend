@@ -1,8 +1,12 @@
 import type { 
   InventoryItem, 
   InventoryStats,
-  DeleteInventoryRes 
+  DeleteInventoryRes,
+  CreateInventoryItemData,
+  UpdateInventoryItemData,
 } from "../types/inventory";
+import { moneyToApi } from '../utils/money';
+import { mapInventoryItem } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -11,7 +15,7 @@ export const inventoryService = {
   async getAll(): Promise<InventoryItem[]> {
     const res = await fetch(`${API_BASE}/inventory-items`, { credentials: 'include' });
     if (!res.ok) throw new Error(`Failed to fetch inventory items`);
-    return res.json();
+    return ((await res.json()) as unknown[]).map(mapInventoryItem);
   },
 
   async getNextId(): Promise<string> {
@@ -24,35 +28,35 @@ export const inventoryService = {
   async getById(id: string): Promise<InventoryItem> {
     const res = await fetch(`${API_BASE}/inventory-items/${id}`, { credentials: 'include' });
     if (!res.ok) throw new Error(`Failed to fetch item ${id}`);
-    return res.json();
+    return mapInventoryItem(await res.json());
   },
 
-  async create(itemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'sold_count'>): Promise<InventoryItem> {
+  async create(itemData: CreateInventoryItemData): Promise<InventoryItem> {
     const res = await fetch(`${API_BASE}/inventory-items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(itemData),
+      body: JSON.stringify({ ...itemData, purchasePrice: moneyToApi(itemData.purchasePrice), sellPrice: moneyToApi(itemData.sellPrice), discountRate: moneyToApi(itemData.discountRate), actualSoldPrice: moneyToApi(itemData.actualSoldPrice) }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `Failed to create item`);
     }
-    return res.json();
+    return mapInventoryItem(await res.json());
   },
 
-  async update(id: string, updateData: Partial<InventoryItem>): Promise<InventoryItem> {
+  async update(id: string, updateData: UpdateInventoryItemData): Promise<InventoryItem> {
     const res = await fetch(`${API_BASE}/inventory-items/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(updateData),
+      body: JSON.stringify({ ...updateData, purchasePrice: updateData.purchasePrice === undefined ? undefined : moneyToApi(updateData.purchasePrice), sellPrice: updateData.sellPrice === undefined ? undefined : moneyToApi(updateData.sellPrice), discountRate: updateData.discountRate === undefined ? undefined : moneyToApi(updateData.discountRate), actualSoldPrice: updateData.actualSoldPrice === undefined ? undefined : moneyToApi(updateData.actualSoldPrice) }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `Failed to update item`);
     }
-    return res.json();
+    return mapInventoryItem(await res.json());
   },
 
   async delete(id: string): Promise<DeleteInventoryRes> {

@@ -22,8 +22,9 @@ export type CustomerStatusValue = typeof CustomerStatus[keyof typeof CustomerSta
 
 export interface Customer {
   id: string;
-  customerId: string;         // CUST-XXXXX
+  customerCode: string;       // CUS-XXXXX
   shopName: string;           // Shop / Business Name (Required)
+  fullName: string;
   businessName?: string;      // Backwards-compatible alias for shopName
   contactPerson?: string;     // Contact Person (Optional)
   phone: string;              // Primary / WhatsApp number (Required)
@@ -37,10 +38,12 @@ export interface Customer {
 
   creditLimit: number;        // Credit Limit in LKR
   creditPeriod?: number;      // Credit Period in Days (e.g. 15, 30, 45, 60, 90, custom)
+  salesRepId?: string | null;
   salesRep?: {
     id: string;
-    name: string;
-  } | string;                 // Assigned Sales Representative
+    fullName: string;
+    email?: string;
+  } | null;                   // Assigned Sales Representative
   salesRepName?: string;
 
   // Financial statistics
@@ -57,7 +60,9 @@ export interface Customer {
 }
 
 export interface CustomerCreateDto {
+  customerCode?: string;
   shopName: string;           // Required
+  fullName?: string;
   businessName?: string;      // Compatibility alias
   contactPerson?: string;     // Optional
   phone: string;              // Primary / WhatsApp (Required)
@@ -66,7 +71,7 @@ export interface CustomerCreateDto {
   address: string;            // Required
   creditLimit: number;
   creditPeriod?: number;      // Credit Period in Days
-  salesRep?: string;          // Sales representative ID or name
+  salesRepId?: string | null; // Sales representative UUID
   salesRepName?: string;
   status?: CustomerStatusValue;
   notes?: string;

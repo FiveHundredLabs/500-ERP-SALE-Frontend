@@ -39,16 +39,16 @@ const InvoiceReturns: React.FC = () => {
   }, []);
 
   const filteredReturns = returns.filter(r => 
-    r.returnId.toLowerCase().includes(search.toLowerCase()) ||
-    (typeof r.invoice !== 'string' && r.invoice.invoiceId.toLowerCase().includes(search.toLowerCase()))
+    r.returnNumber.toLowerCase().includes(search.toLowerCase()) ||
+    (typeof r.invoice !== 'string' && r.invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase()))
   );
 
   const handleStatusChange = async (ret: InvoiceReturn, newStatus: any) => {
     try {
-      await invoiceReturnService.updateStatus(ret._id, newStatus);
+      await invoiceReturnService.updateStatus(ret.id, newStatus);
       toast.success('Return status updated successfully');
       loadReturns();
-      if (selectedReturn?._id === ret._id) {
+      if (selectedReturn?.id === ret.id) {
         setSelectedReturn(prev => prev ? { ...prev, status: newStatus } : null);
       }
     } catch (err: any) {
@@ -120,15 +120,15 @@ const InvoiceReturns: React.FC = () => {
                     <tr><td colSpan={6} className="p-8 text-center text-gray-400">No returns found.</td></tr>
                   ) : (
                     filteredReturns.map(ret => (
-                      <tr key={ret._id} className="hover:bg-gray-700/20 transition-colors">
-                        <td className="p-4 font-medium text-blue-400">{ret.returnId}</td>
-                        <td className="p-4 text-gray-300">{typeof ret.invoice === 'string' ? ret.invoice : ret.invoice.invoiceId}</td>
-                        <td className="p-4 text-gray-400">{new Date(ret.created_at).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}</td>
+                      <tr key={ret.id} className="hover:bg-gray-700/20 transition-colors">
+                        <td className="p-4 font-medium text-blue-400">{ret.returnNumber}</td>
+                        <td className="p-4 text-gray-300">{typeof ret.invoice === 'string' ? ret.invoice : ret.invoice.invoiceNumber}</td>
+                        <td className="p-4 text-gray-400">{new Date(ret.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}</td>
                         <td className="p-4 text-right text-gray-200">Rs. {ret.returnTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                         <td className="p-4 text-center">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            ret.status === 'Completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                            ret.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                            ret.status === 'completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            ret.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                             'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                           }`}>
                             {ret.status}

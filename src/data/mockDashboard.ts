@@ -24,11 +24,11 @@ const totalSalesFromInvoices = mockInvoicesList.reduce(
 );
 
 const completedInvoices = mockInvoicesList.filter(
-  inv => inv.paymentStatus === 'Completed'
+  inv => inv.paymentStatus === 'completed'
 );
 
 const pendingInvoices = mockInvoicesList.filter(
-  inv => inv.paymentStatus !== 'Completed'
+  inv => inv.paymentStatus !== 'completed'
 );
 
 const outstandingPayments = pendingInvoices.reduce(
@@ -49,11 +49,11 @@ export const mockKPIs = {
 
   // Orders
   totalOrders: mockOrders.length,
-  pendingOrders: mockOrders.filter(o => o.status === 'Pending').length,
-  reviewingOrders: mockOrders.filter(o => o.status === 'Reviewing').length,
-  approvedOrders: mockOrders.filter(o => o.status === 'Approved').length,
-  completedOrders: mockOrders.filter(o => o.status === 'Completed').length,
-  rejectedOrders: mockOrders.filter(o => o.status === 'Rejected').length,
+  pendingOrders: mockOrders.filter(o => o.status === 'pending').length,
+  reviewingOrders: mockOrders.filter(o => o.status === 'reviewing').length,
+  approvedOrders: mockOrders.filter(o => o.status === 'approved').length,
+  completedOrders: mockOrders.filter(o => o.status === 'completed').length,
+  rejectedOrders: mockOrders.filter(o => o.status === 'rejected').length,
 
   // Documents
   purchaseOrders: mockPurchaseOrders.length,
@@ -95,25 +95,25 @@ export const monthlySalesData = [
 // ─── Orders by Status (for pie/bar chart) ─────────────────────────────────────
 
 export const ordersByStatus = [
-  { status: 'Pending',        count: mockOrders.filter(o => o.status === 'Pending').length,        color: '#f59e0b' },
-  { status: 'Reviewing',      count: mockOrders.filter(o => o.status === 'Reviewing').length,      color: '#60a5fa' },
-  { status: 'Approved',       count: mockOrders.filter(o => o.status === 'Approved').length,       color: '#22c55e' },
-  { status: 'Converted to PO',count: mockOrders.filter(o => o.status === 'Converted to PO').length,color: '#c084fc' },
-  { status: 'Completed',      count: mockOrders.filter(o => o.status === 'Completed').length,      color: '#34d399' },
-  { status: 'Rejected',       count: mockOrders.filter(o => o.status === 'Rejected').length,       color: '#f87171' },
+  { status: 'pending',        count: mockOrders.filter(o => o.status === 'pending').length,        color: '#f59e0b' },
+  { status: 'reviewing',      count: mockOrders.filter(o => o.status === 'reviewing').length,      color: '#60a5fa' },
+  { status: 'approved',       count: mockOrders.filter(o => o.status === 'approved').length,       color: '#22c55e' },
+  { status: 'converted_to_po',count: mockOrders.filter(o => o.status === 'converted_to_po').length,color: '#c084fc' },
+  { status: 'completed',      count: mockOrders.filter(o => o.status === 'completed').length,      color: '#34d399' },
+  { status: 'rejected',       count: mockOrders.filter(o => o.status === 'rejected').length,       color: '#f87171' },
 ];
 
-// ─── Top Products (computed from inventory sold_count) ────────────────────────
+// ─── Top Products (computed from inventory soldCount) ────────────────────────
 
 const sortedBySales = [...mockInventoryItems]
-  .sort((a, b) => (b.sold_count * b.sell_price) - (a.sold_count * a.sell_price))
+  .sort((a, b) => (b.soldCount * b.sellPrice) - (a.soldCount * a.sellPrice))
   .slice(0, 5);
 
 export const topProducts = sortedBySales.map(item => ({
-  name: item.product_name,
+  name: item.productName,
   category: 'General',          // category field not on InventoryItem type; use generic
-  sales: item.sold_count * item.sell_price,
-  units: item.sold_count,
+  sales: item.soldCount * item.sellPrice,
+  units: item.soldCount,
 }));
 
 // ─── Salesman Performance (computed from orders) ──────────────────────────────
@@ -122,7 +122,7 @@ export const salesmenPerformance = mockSalesmen.map(sm => {
   const smOrders = mockOrders.filter(o => o.salesman?.id === sm.id);
   const smSales = smOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
   return {
-    name: sm.name,
+    name: sm.fullName,
     area: sm.area,
     orders: smOrders.length,
     sales: smSales,
@@ -136,11 +136,11 @@ export interface OverdueCheque {
   chequeNumber: string;
   bankName: string;
   customerName: string;
-  invoiceId: string;
+  invoiceNumber: string;
   dueDate: string;
   daysOverdue: number;
   amount: number;
-  status: "Overdue" | "Deposited" | "Returned";
+  status: "overdue" | "Deposited" | "Returned";
 }
 
 export const mockChequesOverdue: OverdueCheque[] = [
@@ -149,72 +149,72 @@ export const mockChequesOverdue: OverdueCheque[] = [
     chequeNumber: "CHQ-884210",
     bankName: "Commercial Bank",
     customerName: "Lanka Hardware Traders",
-    invoiceId: "INV-2026-104",
+    invoiceNumber: "INV-2026-104",
     dueDate: "2026-08-05",
     daysOverdue: 14,
     amount: 185000,
-    status: "Overdue",
+    status: "overdue",
   },
   {
     id: "chq-02",
     chequeNumber: "CHQ-449102",
     bankName: "Hatton National Bank",
     customerName: "Metro Auto Care",
-    invoiceId: "INV-2026-082",
+    invoiceNumber: "INV-2026-082",
     dueDate: "2026-07-28",
     daysOverdue: 22,
     amount: 94500,
-    status: "Overdue",
+    status: "overdue",
   },
   {
     id: "chq-03",
     chequeNumber: "CHQ-110933",
     bankName: "Sampath Bank",
     customerName: "Apex Motors Ltd",
-    invoiceId: "INV-2026-091",
+    invoiceNumber: "INV-2026-091",
     dueDate: "2026-07-20",
     daysOverdue: 30,
     amount: 320000,
-    status: "Overdue",
+    status: "overdue",
   },
   {
     id: "chq-04",
     chequeNumber: "CHQ-772184",
     bankName: "Bank of Ceylon",
     customerName: "Kandy Construction Supplies",
-    invoiceId: "INV-2026-045",
+    invoiceNumber: "INV-2026-045",
     dueDate: "2026-07-15",
     daysOverdue: 35,
     amount: 142800,
-    status: "Overdue",
+    status: "overdue",
   },
   {
     id: "chq-05",
     chequeNumber: "CHQ-556129",
     bankName: "Nations Trust Bank",
     customerName: "Silver Star Motors",
-    invoiceId: "INV-2026-033",
+    invoiceNumber: "INV-2026-033",
     dueDate: "2026-07-08",
     daysOverdue: 42,
     amount: 215000,
-    status: "Overdue",
+    status: "overdue",
   },
 ];
 
 // ─── Operational Status (Order / PO / Pending / Settle) ──────────────────────
 
 export const operationalStatusBreakdown = [
-  { name: "Order", count: mockOrders.filter(o => o.status === 'Approved' || o.status === 'Converted to PO').length || 112, color: "#3b82f6", label: "Active Orders" },
+  { name: "Order", count: mockOrders.filter(o => o.status === 'approved' || o.status === 'converted_to_po').length || 112, color: "#3b82f6", label: "Active Orders" },
   { name: "PO", count: mockPurchaseOrders.length || 38, color: "#8b5cf6", label: "Purchase Orders" },
-  { name: "Pending", count: mockOrders.filter(o => o.status === 'Pending' || o.status === 'Reviewing').length || 48, color: "#f59e0b", label: "Pending Invoices" },
-  { name: "Settle", count: mockOrders.filter(o => o.status === 'Completed').length || 64, color: "#10b981", label: "Settled / Invoiced" },
+  { name: "pending", count: mockOrders.filter(o => o.status === 'pending' || o.status === 'reviewing').length || 48, color: "#f59e0b", label: "Pending Invoices" },
+  { name: "Settle", count: mockOrders.filter(o => o.status === 'completed').length || 64, color: "#10b981", label: "Settled / Invoiced" },
 ];
 
 export const lowStockAlerts = mockInventoryItems
   .filter(item => item.quantity >= 0 && item.quantity <= 20)
   .map(item => ({
-    sku: item.product_code,
-    name: item.product_name,
+    sku: item.productCode,
+    name: item.productName,
     category: 'Inventory',
     current: item.quantity,
     minimum: 25,
@@ -230,20 +230,20 @@ const secondOrder = mockOrders[1];
 const latestPO = mockPurchaseOrders[0];
 const latestInvoice = mockInvoicesList[mockInvoicesList.length - 1];
 const overdueInvoice = mockInvoicesList.find(
-  inv => inv.paymentStatus === 'Pending' && (inv.notes?.includes('OVERDUE') || new Date(inv.dueDate) < new Date())
+  inv => inv.paymentStatus === 'pending' && (inv.notes?.includes('OVERDUE') || new Date(inv.dueDate) < new Date())
 );
 const lowStockItem = lowStockAlerts[0];
 
 export const recentActivityFeed = [
   latestOrder && {
     type: 'order',
-    message: `New order ${latestOrder.orderId} from ${latestOrder.customerName}`,
+    message: `New order ${latestOrder.orderNumber} from ${latestOrder.customerName}`,
     time: '8 mins ago',
     color: '#60a5fa',
   },
   secondOrder && {
     type: 'order',
-    message: `Order ${secondOrder.orderId} status changed to ${secondOrder.status}`,
+    message: `Order ${secondOrder.orderNumber} status changed to ${secondOrder.status}`,
     time: '22 mins ago',
     color: '#eab308',
   },
@@ -255,13 +255,13 @@ export const recentActivityFeed = [
   },
   latestInvoice && {
     type: 'payment',
-    message: `Payment recorded for Invoice ${latestInvoice.invoiceId}`,
+    message: `Payment recorded for Invoice ${latestInvoice.invoiceNumber}`,
     time: '2 hrs ago',
     color: '#34d399',
   },
   overdueInvoice && {
     type: 'payment',
-    message: `⚠ Overdue: Invoice ${overdueInvoice.invoiceId} — ${overdueInvoice.customer.fullName}`,
+    message: `⚠ Overdue: Invoice ${overdueInvoice.invoiceNumber} — ${overdueInvoice.customer?.fullName || 'Customer'}`,
     time: '3 hrs ago',
     color: '#f87171',
   },

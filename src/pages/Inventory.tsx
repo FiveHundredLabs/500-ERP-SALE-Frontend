@@ -88,7 +88,7 @@ const Inventory: React.FC = () => {
 
   const handleDeleteItem = (item: InventoryItem) => {
     setConfirmData({
-      message: `Are you sure you want to delete "${item.product_name}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete "${item.productName}"? This action cannot be undone.`,
       onConfirm: async () => {
         try {
           await inventoryService.delete(item.id);
@@ -126,21 +126,21 @@ const Inventory: React.FC = () => {
   };
 
   const inventoryColumns = [
-    "product_code",
-    "product_name",
-    "purchase_price",
-    "sell_price",
+    "productCode",
+    "productName",
+    "purchasePrice",
+    "sellPrice",
     "profit_margin",
-    "sold_count"
+    "soldCount"
   ];
 
   const inventoryColumnLabels = {
-    product_code: "Product Code",
-    product_name: "Product Name",
-    purchase_price: "Cost (LKR)",
-    sell_price: "Selling Price (LKR)",
+    productCode: "Product Code",
+    productName: "Product Name",
+    purchasePrice: "Cost (LKR)",
+    sellPrice: "Selling Price (LKR)",
     profit_margin: "Profit Margin",
-    sold_count: "Selling Quantity",
+    soldCount: "Selling Quantity",
   };
 
   return (
@@ -185,21 +185,21 @@ const Inventory: React.FC = () => {
             searchTerm={searchTerm}
             selectedCategory={selectedCategory}
             computeRowValue={(column, item) => {
-              if (column === "product_code") {
-                return <span className="font-mono text-xs font-bold text-blue-400">{item.product_code}</span>;
+              if (column === "productCode") {
+                return <span className="font-mono text-xs font-bold text-blue-400">{item.productCode}</span>;
               }
-              if (column === "product_name") {
-                return <span className="font-semibold text-gray-200">{item.product_name}</span>;
+              if (column === "productName") {
+                return <span className="font-semibold text-gray-200">{item.productName}</span>;
               }
-              if (column === "purchase_price") {
-                return <span className="font-mono text-gray-300">LKR {(item.purchase_price || 0).toLocaleString()}</span>;
+              if (column === "purchasePrice") {
+                return <span className="font-mono text-gray-300">LKR {(item.purchasePrice || 0).toLocaleString()}</span>;
               }
-              if (column === "sell_price") {
-                return <span className="font-mono font-bold text-gray-200">LKR {(item.sell_price || 0).toLocaleString()}</span>;
+              if (column === "sellPrice") {
+                return <span className="font-mono font-bold text-gray-200">LKR {(item.sellPrice || 0).toLocaleString()}</span>;
               }
               if (column === "profit_margin") {
-                const cost = Number(item.purchase_price) || 0;
-                const sell = Number(item.sell_price) || 0;
+                const cost = Number(item.purchasePrice) || 0;
+                const sell = Number(item.sellPrice) || 0;
                 const profit = sell - cost;
                 const marginPct = sell > 0 ? ((profit / sell) * 100).toFixed(1) : "0.0";
                 const isPositive = profit >= 0;
@@ -214,8 +214,8 @@ const Inventory: React.FC = () => {
                   </div>
                 );
               }
-              if (column === "sold_count") {
-                return <span className="font-mono text-gray-300">{(item.sold_count || 0).toLocaleString()} PCS</span>;
+              if (column === "soldCount") {
+                return <span className="font-mono text-gray-300">{(item.soldCount || 0).toLocaleString()} PCS</span>;
               }
               return item[column];
             }}

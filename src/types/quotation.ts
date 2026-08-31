@@ -1,106 +1,79 @@
+import type { InventoryItem } from './inventory';
+import type { InvoiceCustomer, PaymentMethodType } from './invoice';
+
 export const QuotationStatus = {
-  PENDING: 'Pending',
-  ACCEPTED: 'Accepted',
-  REJECTED: 'Rejected',
-  EXPIRED: 'Expired',
+  PENDING: 'pending', ACCEPTED: 'accepted', REJECTED: 'rejected', EXPIRED: 'expired',
 } as const;
-
 export type QuotationStatusType = typeof QuotationStatus[keyof typeof QuotationStatus];
-
-export interface QuotationCustomer {
-  _id: string;
-  fullName: string;
-  email: string;
-  phone: string;              // WhatsApp (Primary)
-  phone2?: string;            // Secondary
-  phone3?: string;            // Alternative
-  vatNumber: string;
-  address?: {
-    street?: string;
-    city?: string;
-    country?: string;
-    zip?: string;
-  };
-  customerCode: string;
-  creditPeriod?: number;      // Default credit period in days
-  paymentTerms?: string;
-  creditLimit?: number;
-  vehicle_number?: string;
-  vehicle_model?: string;
-  year_of_manufacture?: number;
-}
+export type QuotationCustomer = InvoiceCustomer;
 
 export interface QuotationItem {
   id: string;
-  item: string;
-  itemName?: string;
-  product_code?: string;
-  description?: string;
+  inventoryItemId: string;
+  inventoryItem?: InventoryItem;
   quantity: number;
   unitPrice: number;
+  total: number;
+  itemName?: string;
+  productCode?: string;
+  description?: string;
   costPrice?: number;
   discountType?: 'percentage' | 'amount';
   discountScope?: 'per_unit' | 'total_qty';
   discountValue?: number;
   discountAmount?: number;
-  total: number;
 }
 
-export interface QuotationItemBackend {
-  item: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
+export interface BackendQuotationData {
+  quotationNumber?: string;
+  customerId: string;
+  items: Array<{ inventoryItemId: string; quantity: number; unitPrice?: number; total?: number }>;
+  subTotal?: number;
+  discount?: number;
+  totalAmount?: number;
+  paymentMethod: PaymentMethodType;
+  issueDate?: string;
+  validUntil?: string;
+  status?: QuotationStatusType;
+  notes?: string;
+}
+
+export interface QuotationResponse {
+  id: string;
+  quotationNumber: string;
+  customerId: string;
+  customer: QuotationCustomer;
+  items: QuotationItem[];
+  subTotal: number;
+  discount: number;
+  totalAmount: number;
+  paymentMethod: PaymentMethodType;
+  issueDate: string;
+  validUntil: string;
+  status: QuotationStatusType;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface QuotationData {
-  _id?: string;
-  quotationId: string;
+  id?: string;
+  quotationNumber: string;
   customer: string;
   customerDetails?: QuotationCustomer;
   items: QuotationItem[];
   subTotal: number;
   discount: number;
-  discountPercentage: number;
-  totalDiscountType?: 'percentage' | 'amount';
-  totalDiscountValue?: number;
   totalAmount: number;
-  paymentMethod: string;
-  creditPeriod?: number;
-  issueDate: string;
-  validUntil: string;
-  status: QuotationStatusType;
-  notes?: string;
-}
-
-export interface BackendQuotationData {
-  _id?: string;
-  quotationId?: string;
-  customer: string;
-  items: QuotationItemBackend[];
-  subTotal: number;
-  discount: number;
-  totalAmount: number;
-  paymentMethod: string;
-  issueDate: string;
-  validUntil: string;
-  status: QuotationStatusType;
-  notes?: string;
-}
-
-export interface QuotationResponse {
-  _id: string;
-  quotationId: string;
-  customer: QuotationCustomer;
-  items: Array<QuotationItemBackend & { _id?: string }>;
-  subTotal: number;
-  discount: number;
-  totalAmount: number;
-  paymentMethod: string;
+  paymentMethod: PaymentMethodType;
   issueDate: string;
   validUntil: string;
   status: QuotationStatusType;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
+  discountPercentage?: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
+  creditPeriod?: number;
 }

@@ -22,9 +22,9 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
           </div>
         </div>
         <div className="text-right">
-          <div className="mb-2"><span className="font-bold text-gray-700">Return ID:</span> {returnData.returnId}</div>
-          <div className="mb-2"><span className="font-bold text-gray-700">Original Invoice:</span> {typeof returnData.invoice === 'string' ? returnData.invoice : returnData.invoice.invoiceId}</div>
-          <div><span className="font-bold text-gray-700">Date:</span> {new Date(returnData.created_at).toLocaleDateString()}</div>
+          <div className="mb-2"><span className="font-bold text-gray-700">Return ID:</span> {returnData.returnNumber}</div>
+          <div className="mb-2"><span className="font-bold text-gray-700">Original Invoice:</span> {typeof returnData.invoice === 'string' ? returnData.invoice : returnData.invoice.invoiceNumber}</div>
+          <div><span className="font-bold text-gray-700">Date:</span> {new Date(returnData.createdAt).toLocaleDateString()}</div>
         </div>
       </div>
 
@@ -45,7 +45,7 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
         </thead>
         <tbody className="divide-y divide-gray-200">
           {returnData.items.map((item, idx) => {
-            const itemName = typeof item.item === 'string' ? item.item : item.item.product_name;
+            const itemName = item.inventoryItem?.productName || item.inventoryItemId;
             return (
               <tr key={idx}>
                 <td className="py-3 px-2 text-sm">{itemName}</td>

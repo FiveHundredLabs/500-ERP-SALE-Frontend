@@ -139,22 +139,22 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
     if (!q) {
-      return [...allInventoryItems].sort((a, b) => (a.product_name || '').localeCompare(b.product_name || ''));
+      return [...allInventoryItems].sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
     }
     const matching = allInventoryItems.filter(item =>
-      (item.product_name || '').toLowerCase().includes(q) ||
-      (item.product_code || '').toLowerCase().includes(q)
+      (item.productName || '').toLowerCase().includes(q) ||
+      (item.productCode || '').toLowerCase().includes(q)
     );
     return matching.sort((a, b) => {
-      const aStarts = (a.product_name || '').toLowerCase().startsWith(q) || (a.product_code || '').toLowerCase().startsWith(q);
-      const bStarts = (b.product_name || '').toLowerCase().startsWith(q) || (b.product_code || '').toLowerCase().startsWith(q);
+      const aStarts = (a.productName || '').toLowerCase().startsWith(q) || (a.productCode || '').toLowerCase().startsWith(q);
+      const bStarts = (b.productName || '').toLowerCase().startsWith(q) || (b.productCode || '').toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return (a.product_name || '').localeCompare(b.product_name || '');
+      return (a.productName || '').localeCompare(b.productName || '');
     });
   }, [allInventoryItems, productSearch]);
 
-  const selectedCustomer = allCustomers.find(c => c._id === selectedCustomerId || c.id === selectedCustomerId || c.customerCode === selectedCustomerId);
+  const selectedCustomer = allCustomers.find(c => c.id === selectedCustomerId || c.id === selectedCustomerId || c.customerCode === selectedCustomerId);
   const selectedSalesman = allSalesmen.find(s => s.id === selectedSalesmanId || s.employeeId === selectedSalesmanId);
 
   const formatCurrency = (val: number) =>
@@ -202,12 +202,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const handleSelectProduct = (item: InventoryItem) => {
     setNewProduct(prev => ({
       ...prev,
-      productName: item.product_name,
-      unitPrice: item.sell_price || 0,
+      productName: item.productName,
+      unitPrice: item.sellPrice || 0,
       quantity: 0,
       unit: 'PCS',
     }));
-    setProductSearch(item.product_name);
+    setProductSearch(item.productName);
     setShowProductDropdown(false);
     setErrors(prev => ({ ...prev, productName: '', unitPrice: '' }));
   };
@@ -226,19 +226,21 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     const newId = `inv-${Date.now()}`;
     const newCode = `PRD-${Math.floor(1000 + Math.random() * 9000)}`;
     const newItem: InventoryItem = {
-      _id: newId,
       id: newId,
-      product_name: quickProduct.name.trim(),
-      product_code: newCode,
+      inventoryCode: newCode,
+      productName: quickProduct.name.trim(),
+      productCode: newCode,
       quantity: 100,
-      sold_count: 0,
+      soldCount: 0,
       status: 'in_stock',
-      vehicle: { brand: 'Universal', model: 'All Models', chassis_no: 'N/A', year: 2026 },
-      purchase_price: Number(quickProduct.cost),
-      sell_price: Number(quickProduct.sellPrice),
-      shipment_code: 'SHP-NEW',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: 2026,
+      purchasePrice: Number(quickProduct.cost),
+      sellPrice: Number(quickProduct.sellPrice),
+      discountRate: 0,
+      actualSoldPrice: Number(quickProduct.sellPrice),
+      shipmentCode: 'SHP-NEW',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     try {
@@ -251,7 +253,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setShowAddProductModal(false);
     setQuickProduct({ name: '', cost: '', sellPrice: '' });
     setQuickProductErrors({});
-    toast.success('Product Added', `"${newItem.product_name}" added to inventory and selected.`);
+    toast.success('Product Added', `"${newItem.productName}" added to inventory and selected.`);
   };
 
   const handleAddProduct = () => {
@@ -289,13 +291,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       const { subtotal, discAmt, total } = calcProductLine(p);
       return {
         id: p.id,
+        inventoryItemId: p.id,
+        sku: p.id,
         productName: p.productName,
         quantity: p.quantity,
         unit: 'PCS',
         unitPrice: p.unitPrice,
         discount: p.discountType === 'percentage' ? p.discount : (subtotal > 0 ? (discAmt / subtotal) * 100 : 0),
         tax: 0,
-        subtotal,
+        subTotal: subtotal,
         total,
       };
     });
@@ -305,32 +309,32 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
     const newOrder: Order = {
       id: Date.now().toString(),
-      orderId,
+      orderNumber: orderId,
       orderDate,
       createdAt: now,
       updatedAt: now,
       salesman: selectedSalesman || null,
-      customerId: selectedCustomer!.customerId,
+      customerId: selectedCustomer!.id,
       customerName: selectedCustomer!.shopName || selectedCustomer!.businessName || 'Customer',
       contactPerson: selectedCustomer!.contactPerson || '',
       contactPhone: selectedCustomer!.phone,
       customerAddress: selectedCustomer!.address || '',
       customerCity: selectedCustomer!.city || '',
-      products: orderProducts,
+      items: orderProducts,
       numberOfProducts: orderProducts.length,
       subTotal: totals.subTotal,
       totalDiscount: totals.totalDiscount,
       totalTax: 0,
       grandTotal: totals.grandTotal,
-      status: 'Pending',
-      paymentStatus: 'Unpaid',
+      status: 'pending',
+      paymentStatus: 'unpaid',
       notes,
       timeline: [
         {
           id: Date.now().toString(),
           event: 'Order Created',
           description: 'Order created manually by Admin',
-          timestamp: now,
+          occurredAt: now,
           actor: 'Admin User',
         },
       ],
@@ -338,7 +342,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
     onSubmit(newOrder);
     setCreatedOrder(newOrder);
-    toast.success('Order Created', `Order ${newOrder.orderId} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+    toast.success('Order Created', `Order ${newOrder.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
   };
 
   const handleShareWhatsApp = (orderToShare?: Order) => {
@@ -346,11 +350,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (!target) return;
     const phone = target.contactPhone || selectedCustomer?.phone || '';
     const text = generateOrderWhatsAppMessage({
-      orderId: target.orderId,
+      orderNumber: target.orderNumber,
       customerName: target.customerName,
       totalAmount: target.grandTotal,
       orderDate: target.orderDate,
-      itemsCount: target.products.length,
+      itemsCount: target.items.length,
       remarks: target.notes || notes,
     });
     const url = getWhatsAppUrl(phone, text);
@@ -369,7 +373,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       // ignore
     }
     setShowPOModal(false);
-    toast.success('Converted to PO', `Purchase Order ${newPO.poNumber} created using inventory product cost price.`);
+    toast.success('converted_to_po', `Purchase Order ${newPO.poNumber} created using inventory product cost price.`);
     handleReset();
     onClose();
     navigate('/purchase-orders');
@@ -385,9 +389,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     }
 
     const newInv: any = {
-      invoiceId: nextIdStr,
+      invoiceNumber: nextIdStr,
       customer: {
-        _id: `c-${Date.now()}`,
+        id: `c-${Date.now()}`,
         fullName: createdOrder.customerName,
         phone: createdOrder.contactPhone || '011-0000000',
         customerCode: createdOrder.customerId || 'CUST-000',
@@ -398,9 +402,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
           zip: '00100',
         },
       },
-      items: createdOrder.products.map((p, idx) => ({
-        _id: `ii-${Date.now()}-${idx}`,
-        item: p.id,
+      items: createdOrder.items.map((p, idx) => ({
+        id: `ii-${Date.now()}-${idx}`,
+        inventoryItemId: p.inventoryItemId || p.id,
+        itemName: p.productName,
+        itemCode: p.sku,
+        discount: p.discount,
         quantity: p.quantity,
         unitPrice: p.unitPrice,
         total: p.total,
@@ -408,12 +415,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       subTotal: createdOrder.subTotal,
       discount: createdOrder.totalDiscount,
       totalAmount: createdOrder.grandTotal,
-      paymentStatus: 'Pending',
-      paymentMethod: 'Bank Transfer',
+      paymentStatus: 'pending',
+      paymentMethod: 'bank_transfer',
       issueDate: new Date().toISOString(),
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       vehicleNumber: 'WP-CAD-1024',
-      notes: `Generated from Order ${createdOrder.orderId}`,
+      notes: `Generated from Order ${createdOrder.orderNumber}`,
     };
 
     try {
@@ -422,7 +429,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       // ignore
     }
 
-    toast.success('Converted to Invoice', `Invoice ${nextIdStr} created from ${createdOrder.orderId}`);
+    toast.success('Converted to Invoice', `Invoice ${nextIdStr} created from ${createdOrder.orderNumber}`);
     handleReset();
     onClose();
     navigate('/invoice');
@@ -493,7 +500,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                 <div className="flex items-center gap-2">
                   <CheckCircle size={16} className="text-emerald-400 shrink-0" />
                   <span>
-                    Order <strong>{createdOrder.orderId}</strong> created successfully! You can share on WhatsApp or convert to PO / Invoice.
+                    Order <strong>{createdOrder.orderNumber}</strong> created successfully! You can share on WhatsApp or convert to PO / Invoice.
                   </span>
                 </div>
                 <button
@@ -770,18 +777,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         ) : (
                           filteredProducts.map(item => (
                             <div
-                              key={item._id || item.product_code}
+                              key={item.id || item.productCode}
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => handleSelectProduct(item)}
                               className="px-3 py-2 cursor-pointer flex items-center justify-between text-xs transition-colors hover:bg-[#1e293b] border-b border-[#334155]/40 last:border-b-0"
                             >
                               <div className="truncate pr-2">
-                                <span className="font-semibold text-gray-200 block truncate">{item.product_name}</span>
-                                {item.product_code && <span className="text-[10px] text-blue-400 font-mono">{item.product_code}</span>}
+                                <span className="font-semibold text-gray-200 block truncate">{item.productName}</span>
+                                {item.productCode && <span className="text-[10px] text-blue-400 font-mono">{item.productCode}</span>}
                               </div>
                               <div className="text-right shrink-0">
                                 <span className="font-bold text-emerald-400 font-mono text-xs">
-                                  LKR {(item.sell_price || 0).toLocaleString()}
+                                  LKR {(item.sellPrice || 0).toLocaleString()}
                                 </span>
                               </div>
                             </div>
@@ -1286,11 +1293,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
           onClose={() => setShowPOModal(false)}
           onSubmit={handlePOSubmit}
           initialData={{
-            referenceOrderId: createdOrder.orderId,
-            referenceOrderNum: createdOrder.orderId,
+            sourceOrderId: createdOrder.id,
+            sourceOrderNumber: createdOrder.orderNumber,
             customerName: createdOrder.customerName,
-            notes: `Converted from Sales Order #${createdOrder.orderId}`,
-            items: createdOrder.products.map((p) => ({
+            notes: `Converted from Sales Order #${createdOrder.orderNumber}`,
+            items: createdOrder.items.map((p) => ({
               sku: p.sku,
               productName: p.productName,
               quantity: p.quantity,

@@ -33,7 +33,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
   const { subTotal, totalAmount, paidAmount, balanceAmount } = calculateTotals();
 
   const customer = invoiceData.customerDetails || ({} as any);
-  const salesmanName = invoiceData.salesman?.name || customer.salesRepName || "N/A";
+  const salesmanName = invoiceData.salesman?.fullName || customer.salesRepName || "N/A";
 
   const renderAddress = () => {
     if (!customer.address) return "N/A";
@@ -84,7 +84,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
         <div style={{ textAlign: 'right', paddingTop: '10px' }}>
           <h2 style={{ margin: '0 0 10px 0', fontSize: '32px', color: '#66809c', fontWeight: '400', letterSpacing: '1px' }}>INVOICE</h2>
           <div style={{ fontSize: '15px', color: '#66809c', marginBottom: '4px' }}>Date: {formatDate(invoiceData.issueDate)}</div>
-          <div style={{ fontSize: '15px', color: '#66809c' }}>Invoice: {invoiceData.invoiceId}</div>
+          <div style={{ fontSize: '15px', color: '#66809c' }}>Invoice: {invoiceData.invoiceNumber}</div>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
           {invoiceData.items.map((item, index) => (
             <tr key={item.id} style={{ backgroundColor: '#ffffff' }}>
               <td style={{ padding: '8px', border: '1px solid #e5e7eb', color: '#9ca3af' }}>{index + 1}</td>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', color: '#374151' }}>{item.itemName || item.item}</td>
+              <td style={{ padding: '8px', border: '1px solid #e5e7eb', color: '#374151' }}>{item.itemName || item.inventoryItem?.productName || item.inventoryItemId}</td>
               <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e5e7eb', color: '#374151' }}>{item.quantity}</td>
               <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e5e7eb', color: '#374151' }}>Rs.{item.unitPrice.toFixed(2)}</td>
               <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e5e7eb', color: '#374151' }}>

@@ -1,4 +1,5 @@
 import type { Supplier } from '../types/suppliers';
+import { mapSupplier } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -6,13 +7,13 @@ export const supplierService = {
   async getAll(): Promise<Supplier[]> {
     const res = await fetch(`${API_BASE}/suppliers`, { credentials: 'include' });
     if (!res.ok) throw new Error(`Failed to fetch suppliers`);
-    return res.json();
+    return ((await res.json()) as unknown[]).map(mapSupplier);
   },
 
   async getById(id: string): Promise<Supplier | undefined> {
     const res = await fetch(`${API_BASE}/suppliers/${id}`, { credentials: 'include' });
     if (!res.ok) return undefined;
-    return res.json();
+    return mapSupplier(await res.json());
   },
 
   async create(data: Partial<Supplier>): Promise<Supplier> {
@@ -23,7 +24,7 @@ export const supplierService = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`Failed to create supplier`);
-    return res.json();
+    return mapSupplier(await res.json());
   },
 
   async update(id: string, data: Partial<Supplier>): Promise<Supplier> {
@@ -34,7 +35,7 @@ export const supplierService = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`Failed to update supplier`);
-    return res.json();
+    return mapSupplier(await res.json());
   },
 
   async delete(id: string): Promise<boolean> {

@@ -112,9 +112,9 @@ const UserManagement: React.FC = () => {
         throw new Error("Email is required");
       }
 
-      const updatedUser = await UserService.updateUser(selectedUser._id, editForm);
+      const updatedUser = await UserService.updateUser(selectedUser.id, editForm);
       if (updatedUser) {
-        setUsers(prev => prev.map(u => u._id === selectedUser._id ? updatedUser : u));
+        setUsers(prev => prev.map(u => u.id === selectedUser.id ? updatedUser : u));
         setShowEditModal(false);
         setSuccess("User updated successfully!");
       }
@@ -130,9 +130,9 @@ const UserManagement: React.FC = () => {
       setError(null);
       setSuccess(null);
       
-      const success = await UserService.deleteUser(selectedUser._id);
+      const success = await UserService.deleteUser(selectedUser.id);
       if (success) {
-        setUsers(prev => prev.filter(u => u._id !== selectedUser._id));
+        setUsers(prev => prev.filter(u => u.id !== selectedUser.id));
         setShowDeleteModal(false);
         setSuccess("User deleted successfully!");
       }
@@ -251,7 +251,7 @@ const UserManagement: React.FC = () => {
                   </thead>
                   <tbody>
                     {filteredUsers.map((user) => (
-                      <tr key={user._id} className="border-b border-[#334155]/50 hover:bg-[#334155]/20">
+                      <tr key={user.id} className="border-b border-[#334155]/50 hover:bg-[#334155]/20">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -332,12 +332,12 @@ const UserManagement: React.FC = () => {
               <div className="space-y-4">
                 {filteredUsers.map((user) => (
                   <div
-                    key={user._id}
+                    key={user.id}
                     className="bg-[#1e293b]/50 backdrop-blur-sm border border-[#334155] rounded-xl overflow-hidden"
                   >
                     <div 
                       className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#334155]/20"
-                      onClick={() => toggleUserExpansion(user._id)}
+                      onClick={() => toggleUserExpansion(user.id)}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -364,12 +364,12 @@ const UserManagement: React.FC = () => {
                         </div>
                       </div>
                       <MoreVertical className={`w-5 h-5 text-gray-400 transition-transform ${
-                        expandedUserId === user._id ? 'rotate-90' : ''
+                        expandedUserId === user.id ? 'rotate-90' : ''
                       }`} />
                     </div>
 
                     {/* Expanded Details */}
-                    {expandedUserId === user._id && (
+                    {expandedUserId === user.id && (
                       <div className="px-4 pb-4 border-t border-[#334155]/50 pt-4">
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>

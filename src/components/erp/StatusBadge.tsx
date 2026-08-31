@@ -9,45 +9,45 @@ type StatusValue =
   | POStatusType
   | CustomerStatusValue
   | SupplierStatusValue
-  | 'Paid' | 'Unpaid' | 'Partial'
-  | 'Pending' | 'Completed' | 'Accepted' | 'Rejected' | 'Expired' | 'Converted'
+  | 'paid' | 'unpaid' | 'partial'
+  | 'pending' | 'completed' | 'accepted' | 'rejected' | 'expired' | 'Converted'
   | string;
 
 const STATUS_MAP: Record<string, string> = {
   // Success Badges
-  'Approved':         'badge badge-approved',
-  'Completed':        'badge badge-completed',
+  'approved':         'badge badge-approved',
+  'completed':        'badge badge-completed',
   'Active':           'badge badge-active',
-  'Paid':             'badge badge-paid',
-  'Accepted':         'badge badge-accepted',
+  'paid':             'badge badge-paid',
+  'accepted':         'badge badge-accepted',
   'In Stock':         'badge badge-in-stock',
 
   // Warning Badges
-  'Pending':          'badge badge-pending',
-  'Pending Approval': 'badge badge-pending',
-  'Reviewing':        'badge badge-reviewing',
+  'pending':          'badge badge-pending',
+  'pending_approval': 'badge badge-pending',
+  'reviewing':        'badge badge-reviewing',
   'Low Stock':        'badge badge-low-stock',
-  'Partially Received':'badge badge-partial',
+  'partially_received':'badge badge-partial',
   'Partially Delivered':'badge badge-partial',
-  'Partial':          'badge badge-partial-pay',
+  'partial':          'badge badge-partial-pay',
 
   // Danger Badges
-  'Rejected':         'badge badge-rejected',
-  'Cancelled':        'badge badge-cancelled',
-  'Expired':          'badge badge-cancelled',
-  'Unpaid':           'badge badge-unpaid',
+  'rejected':         'badge badge-rejected',
+  'cancelled':        'badge badge-cancelled',
+  'expired':          'badge badge-cancelled',
+  'unpaid':           'badge badge-unpaid',
   'Out of Stock':     'badge badge-out-of-stock',
-  'Overdue':          'badge badge-overdue',
+  'overdue':          'badge badge-overdue',
 
   // Info Badges
-  'Converted to PO':  'badge badge-converted',
+  'converted_to_po':  'badge badge-converted',
   'Converted':        'badge badge-converted',
-  'Processing':       'badge badge-processing',
+  'processing':       'badge badge-processing',
   'Sent':             'badge badge-sent',
   'Viewed':           'badge badge-viewed',
 
   // Neutral / Draft
-  'Draft':            'badge badge-draft',
+  'draft':            'badge badge-draft',
   'Inactive':         'badge badge-inactive',
 };
 

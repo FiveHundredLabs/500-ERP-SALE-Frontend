@@ -61,7 +61,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
       let assignedIds = initialData.assignedCustomerIds || [];
       if (assignedIds.length === 0) {
         assignedIds = availableCustomers
-          .filter(c => c.salesRep === initialData.fullName || c.salesRepName === initialData.fullName || c.salesRep === initialData.id)
+          .filter(c => c.salesRep?.fullName === initialData.fullName || c.salesRepName === initialData.fullName || c.salesRepId === initialData.id)
           .map(c => c.id);
       }
 
@@ -444,9 +444,9 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
                             <span className={`text-xs font-semibold truncate ${isChecked ? "text-purple-200 font-bold" : "text-gray-200"}`}>
                               {shopName}
                             </span>
-                            {cust.customerId && (
+                            {cust.customerCode && (
                               <span className="text-[10px] font-mono text-cyan-400 bg-cyan-400/10 px-1 rounded">
-                                {cust.customerId}
+                                {cust.customerCode}
                               </span>
                             )}
                           </div>
