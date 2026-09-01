@@ -120,7 +120,7 @@ const OrderDetails: React.FC = () => {
     <AppLayout
       headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
       headerTitle={`Order ${order.orderNumber}`}
-      headerSubtitle={`Created on ${order.orderDate} by ${typeof order.salesman === 'object' && order.salesman ? order.salesman.fullName : (order.salesman || 'Sales Representative')}`}
+      headerSubtitle={`Created on ${order.orderDate ? String(order.orderDate).split('T')[0] : 'N/A'} by ${order.salesmanName || (typeof order.salesman === 'object' && order.salesman?.fullName) || 'Sales Representative'}`}
     >
       <PageHeader
         title={`Order: ${order.orderNumber}`}
@@ -256,37 +256,21 @@ const OrderDetails: React.FC = () => {
                   <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Address</span>
                   <span className="text-gray-300">{order.customerAddress}, {order.customerCity}</span>
                 </div>
-                <div className="pt-1">
-                  <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Customer ID</span>
-                  <span className="font-mono text-blue-400 font-semibold">{order.customerId}</span>
-                </div>
               </div>
             </div>
 
             {/* Salesman Info Card */}
             <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#334155]">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#334155]">
                 <UserCheck size={18} className="text-purple-400" />
                 <h3 className="text-sm font-semibold text-gray-200">Sales Representative</h3>
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Name:</span>
-                  <span className="font-semibold text-gray-200">{order.salesman?.fullName || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Employee ID:</span>
-                  <span className="font-mono text-gray-300">{order.salesman?.employeeId || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Assigned Territory:</span>
-                  <span className="text-gray-300">{order.salesman?.area || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Contact Phone:</span>
-                  <span className="text-gray-300">{order.salesman?.phone || '—'}</span>
-                </div>
+              <div className="text-xs space-y-1">
+                <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Sales Officer Name</span>
+                <span className="font-bold text-gray-100 text-sm block">
+                  {order.salesmanName || (typeof order.salesman === 'object' && order.salesman?.fullName) || (typeof order.salesman === 'string' ? order.salesman : '') || '—'}
+                </span>
               </div>
             </div>
 
@@ -329,7 +313,6 @@ const OrderDetails: React.FC = () => {
                 <table className="min-w-full border-collapse">
                   <thead>
                     <tr className="bg-[#1e293b] text-gray-200 text-xs font-semibold border-b border-[#334155]">
-                      <th className="p-3.5 text-left">SKU</th>
                       <th className="p-3.5 text-left">Product Name</th>
                       <th className="p-3.5 text-right">Qty</th>
                       <th className="p-3.5 text-right">Unit Price</th>
@@ -345,7 +328,6 @@ const OrderDetails: React.FC = () => {
                           idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'
                         }`}
                       >
-                        <td className="p-3.5 font-mono text-blue-400 font-semibold">{item.sku}</td>
                         <td className="p-3.5">
                           <p className="font-semibold text-gray-200">{item.productName}</p>
                           <p className="text-[10px] text-gray-400">{item.category} · {item.brand}</p>

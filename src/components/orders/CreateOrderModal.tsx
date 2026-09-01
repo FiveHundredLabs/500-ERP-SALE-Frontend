@@ -16,7 +16,7 @@ import CreatePOModal from './CreatePOModal';
 interface CreateOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (order: Order) => void;
+  onSubmit: (order: Order) => Promise<Order | void> | void;
 }
 
 interface DraftProduct {
@@ -188,20 +188,43 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     return { subtotal, discAmt, total };
   };
 
+  const [totalDiscountType, setTotalDiscountType] = useState<'percentage' | 'amount'>('percentage');
+  const [totalDiscountValue, setTotalDiscountValue] = useState<number>(0);
+
   const totals = useMemo(() => {
-    let subTotal = 0;
-    let totalDiscount = 0;
+    let itemsSubtotal = 0;
+    let lineDiscountTotal = 0;
     for (const p of products) {
       const { subtotal, discAmt } = calcProductLine(p);
-      subTotal += subtotal;
-      totalDiscount += discAmt;
+      itemsSubtotal += subtotal;
+      lineDiscountTotal += discAmt;
     }
-    return { subTotal, totalDiscount, grandTotal: Math.max(0, subTotal - totalDiscount) };
-  }, [products]);
+    const subTotalAfterLineDiscounts = Math.max(0, itemsSubtotal - lineDiscountTotal);
+    let orderDiscount = 0;
+    if (totalDiscountValue > 0) {
+      if (totalDiscountType === 'percentage') {
+        orderDiscount = subTotalAfterLineDiscounts * (Math.min(100, totalDiscountValue) / 100);
+      } else {
+        orderDiscount = Math.min(subTotalAfterLineDiscounts, totalDiscountValue);
+      }
+    }
+    const totalDiscount = lineDiscountTotal + orderDiscount;
+    const grandTotal = Math.max(0, subTotalAfterLineDiscounts - orderDiscount);
+
+    return {
+      itemsSubtotal,
+      lineDiscountTotal,
+      orderDiscount,
+      totalDiscount,
+      subTotal: itemsSubtotal,
+      grandTotal,
+    };
+  }, [products, totalDiscountType, totalDiscountValue]);
 
   const handleSelectProduct = (item: InventoryItem) => {
     setNewProduct(prev => ({
       ...prev,
+      id: item.id,
       productName: item.productName,
       unitPrice: item.sellPrice || 0,
       quantity: 0,
@@ -261,7 +284,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (newProduct.unitPrice <= 0) errs.unitPrice = 'Selling price required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    setProducts(prev => [...prev, { ...newProduct, id: Date.now().toString() }]);
+    setProducts(prev => [...prev, { ...newProduct, id: newProduct.id || Date.now().toString() }]);
     setNewProduct({
       id: '',
       productName: '',
@@ -278,7 +301,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const handleRemoveProduct = (id: string) => setProducts(prev => prev.filter(p => p.id !== id));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!selectedCustomerId) errs.customer = 'Please select a customer';
@@ -338,9 +361,17 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       ],
     };
 
-    onSubmit(newOrder);
-    setCreatedOrder(newOrder);
-    toast.success('Order Created', `Order ${newOrder.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+    let createdResult: Order = newOrder;
+    try {
+      const res = await onSubmit(newOrder);
+      if (res && (res as Order).id) {
+        createdResult = res as Order;
+      }
+    } catch {
+      // ignore
+    }
+    setCreatedOrder(createdResult);
+    toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
   };
 
   const handleShareWhatsApp = (orderToShare?: Order) => {
@@ -444,6 +475,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setProducts([]);
     setErrors({});
     setCreatedOrder(null);
+    setTotalDiscountType('percentage');
+    setTotalDiscountValue(0);
     setNewProduct({
       id: '',
       productName: '',
@@ -720,7 +753,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                 </div>
 
                 {/* All Fields in One Row */}
-                <div className="grid grid-cols-12 gap-3 items-end pt-1">
+                <div className="grid grid-cols-12 gap-3 items-start pt-1">
                   {/* Product Name Search Field (Smaller text, compact) */}
                   <div ref={productRef} className="col-span-12 md:col-span-4 lg:col-span-4 relative">
                     <label className="block text-[11px] font-semibold text-gray-300 mb-1">
@@ -1030,17 +1063,70 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
             {/* Section: Order Totals */}
             {products.length > 0 && (
-              <div className="mt-4 bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 space-y-2.5">
+              <div className="mt-4 bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 space-y-3">
                 <div className="flex justify-between text-sm text-gray-400">
                   <span>Subtotal:</span>
-                  <span className="font-mono text-gray-200">{formatCurrency(totals.subTotal)}</span>
+                  <span className="font-mono text-gray-200">{formatCurrency(totals.itemsSubtotal)}</span>
                 </div>
-                {totals.totalDiscount > 0 && (
-                  <div className="flex justify-between text-sm text-gray-400">
-                    <span>Total Discount:</span>
-                    <span className="font-mono text-amber-400">- {formatCurrency(totals.totalDiscount)}</span>
+
+                {/* Total Order Discount Input (% or Rs.) */}
+                <div className="py-2.5 px-3 bg-[#0f172a]/60 rounded-lg border border-[#334155]/80">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-300 text-xs font-medium">Order Discount:</span>
+                      <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155]">
+                        <button
+                          type="button"
+                          onClick={() => setTotalDiscountType('percentage')}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                            totalDiscountType === 'percentage'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTotalDiscountType('amount')}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                            totalDiscountType === 'amount'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          Rs.
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-28">
+                        <input
+                          type="number"
+                          min="0"
+                          max={totalDiscountType === 'amount' ? undefined : 100}
+                          value={totalDiscountValue > 0 ? totalDiscountValue : ''}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            setTotalDiscountValue(val);
+                          }}
+                          className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
+                          {totalDiscountType === 'amount' ? 'Rs' : '%'}
+                        </span>
+                      </div>
+                      {totals.totalDiscount > 0 && (
+                        <span className="text-amber-400 font-mono text-xs font-medium">
+                          - {formatCurrency(totals.totalDiscount)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
+
                 <div className="flex justify-between text-sm font-bold text-white border-t border-[#334155] pt-2.5 mt-1">
                   <span>Grand Total:</span>
                   <span className="text-emerald-400 font-mono text-base">{formatCurrency(totals.grandTotal)}</span>

@@ -5,7 +5,6 @@ import {
   Calendar,
   Download,
   Printer,
-  FileSpreadsheet,
   Layers,
   X,
   Clock,
@@ -245,10 +244,9 @@ const Reports: React.FC = () => {
 
   return (
     <AppLayout
-      headerIcon={<FileSpreadsheet size={19} />}
-      headerTitle="Generate System Report"
-      headerSubtitle="Configure report parameters, date filters, and export format"
-      showBell
+      headerTitle="Enterprise Intelligence & Reports"
+      headerSubtitle="Real-time analytical pipelines, audit trails, and financial intelligence"
+      headerIcon={<FileText size={20} className="text-blue-400" />}
     >
       <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn pb-10">
         {/* Main Generator Card — Replicating user's design */}

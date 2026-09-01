@@ -4,13 +4,13 @@ import {
   UserCheck, 
   Phone, 
   Calendar, 
-  Lock, 
+  Lock,
   User, 
   Users, 
   Search, 
   Check, 
   Building2, 
-  MapPin, 
+  MapPin,
   CheckSquare, 
   Square 
 } from "lucide-react";
@@ -73,7 +73,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
         fullName: initialData.fullName || "",
         contactNumber: initialData.contactNumber || "+94",
         joiningDate: initialData.joiningDate || new Date().toISOString().split("T")[0],
-        username: initialData.username || "",
+        username: initialData.username || (initialData.email ? initialData.email.split('@')[0] : ""),
         password: initialData.password || "",
         status: initialData.status || "Active",
         assignedCustomerIds: assignedIds.filter(Boolean),
@@ -103,7 +103,9 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
     if (!formData.contactNumber.trim() || formData.contactNumber.length < 9) {
       newErrors.contactNumber = "Valid contact phone number is required";
     }
-    if (!formData.username.trim()) newErrors.username = "Username is required";
+    if (!formData.username.trim()) {
+      newErrors.username = "Username is required";
+    }
     if (mode === "create" && !formData.password.trim()) {
       newErrors.password = "Password is required";
     }
@@ -220,7 +222,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
                     setFormData(prev => ({
                       ...prev,
                       fullName: name,
-                      username: prev.username || name.toLowerCase().replace(/\s+/g, '.')
+                      username: prev.username || name.toLowerCase().replace(/[^a-z0-9]/g, '.')
                     }));
                   }}
                   className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -283,16 +285,16 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                System Username <span className="text-red-400">*</span>
+                Username <span className="text-red-400">*</span>
               </label>
               <div className="relative">
                 <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="kasun.perera"
+                  placeholder="e.g. kasun.perera"
                   value={formData.username}
                   onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                  className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm font-mono text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
               </div>
               {errors.username && <p className="text-red-400 text-xs mt-1">{errors.username}</p>}
@@ -300,13 +302,13 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                System Password {mode === "create" && <span className="text-red-400">*</span>}
+                Password {mode === "create" ? <span className="text-red-400">*</span> : <span className="text-gray-400 font-normal text-[11px]">(leave blank to keep unchanged)</span>}
               </label>
               <div className="relative">
                 <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="password"
-                  placeholder={mode === "edit" ? "•••••••• (Leave blank to keep unchanged)" : "Password@123"}
+                  placeholder={mode === "edit" ? "••••••••" : "Enter password"}
                   value={formData.password}
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"

@@ -150,7 +150,7 @@ const Finance: React.FC = () => {
       await financeService.create(paymentData);
 
       // Update invoice payment status to "completed"
-      await invoiceService.updatePaymentStatus(selectedInvoice.id || selectedInvoice.invoiceId || '', 'completed');
+      await invoiceService.updatePaymentStatus(selectedInvoice.id, 'completed');
 
       setAlert({
         type: 'success',
@@ -332,7 +332,7 @@ const Finance: React.FC = () => {
           try {
             // Update payment status if pending
             if (invoice.paymentStatus === 'pending') {
-              await invoiceService.updatePaymentStatus(invoice.id || invoice.invoiceId || '', 'completed');
+              await invoiceService.updatePaymentStatus(invoice.id, 'completed');
               await loadInvoices();
             }
             await proceedWithDownload();

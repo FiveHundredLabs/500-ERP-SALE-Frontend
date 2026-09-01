@@ -39,7 +39,7 @@ export class SalesOfficerService {
             assignedArea: u.assignedArea || u.assignedTerritory || 'All Regions',
             monthlyTarget: 1000000,
             commissionRate: 5,
-            assignedCustomerIds: u.assignedCustomerIds || [],
+            assignedCustomerIds: u.assignedCustomerIds || (Array.isArray(u.customers) ? u.customers.map((c: any) => c.id) : []),
             createdAt: u.createdAt || new Date().toISOString(),
             updatedAt: u.updatedAt || new Date().toISOString(),
           }));
@@ -58,20 +58,21 @@ export class SalesOfficerService {
 
   async create(data: Omit<SalesOfficer, 'id' | 'createdAt' | 'updatedAt'> & { password?: string; assignedCustomers?: string[] }): Promise<SalesOfficer> {
     const all = await this.getAll();
+    const cleanNameSlug = (data.fullName || 'sales').toLowerCase().replace(/[^a-z0-9]/g, '.');
     const payload = {
       fullName: data.fullName,
-      email: data.email || `${data.username || Date.now()}@erp.local`,
+      email: data.email || `${cleanNameSlug}.${Date.now()}@erp.local`,
       password: data.password || '123456',
       role: 'salesman',
       phone: data.contactNumber,
       contactNumber: data.contactNumber,
       joiningDate: data.joiningDate,
-      status: data.status,
-      assignedCustomerIds: data.assignedCustomerIds,
-      assignedCustomers: data.assignedCustomers,
-      assignedTerritory: data.assignedTerritory,
-      assignedArea: data.assignedArea,
-      username: data.username,
+      status: data.status || 'Active',
+      assignedCustomerIds: data.assignedCustomerIds || [],
+      assignedCustomers: data.assignedCustomers || [],
+      assignedTerritory: data.assignedTerritory || data.assignedArea || 'All Regions',
+      assignedArea: data.assignedArea || data.assignedTerritory || 'All Regions',
+      username: data.username || cleanNameSlug,
       officerId: data.officerId || `SO-${String(all.length + 1).padStart(3, '0')}`,
     };
 

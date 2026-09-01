@@ -1,4 +1,5 @@
 import React from "react";
+import { Search, ChevronDown } from "lucide-react";
 
 interface SearchFilterProps {
   searchTerm: string;
@@ -17,73 +18,72 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
     <div
       className="
         w-full 
-        rounded-xl 
+        rounded-2xl 
         bg-[#1e293b]/70 
         border border-[#334155] 
         shadow-lg 
-        p-5 
-        flex flex-wrap items-center gap-4
+        p-4 
+        flex flex-wrap items-center gap-3
       "
     >
-      <input
-        type="text"
-        placeholder="Search products..."
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="
-          flex-1 
-          bg-[#0f172a] 
-          border border-[#334155] 
-          rounded-full 
-          px-4 py-2 
-          text-sm text-gray-200 
-          placeholder:text-gray-400
-          focus:outline-none 
-          focus:ring-2 focus:ring-blue-500/50 
-          transition
-        "
-      />
+      <div className="relative flex-1 min-w-[240px]">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+          <Search size={16} />
+        </div>
+        <input
+          type="text"
+          placeholder={
+            selectedCategory === "name"
+              ? "Search products by name..."
+              : selectedCategory === "code"
+              ? "Search products by code..."
+              : "Search products (name or code)..."
+          }
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="
+            w-full
+            bg-[#0f172a] 
+            border border-[#334155] 
+            rounded-full 
+            pl-10 pr-4 py-2.5 
+            text-sm text-gray-200 
+            placeholder:text-gray-400
+            focus:outline-none 
+            focus:ring-2 focus:ring-blue-500/50 
+            focus:border-blue-500
+            transition-colors
+          "
+        />
+      </div>
 
-      <select
-        value={selectedCategory}
-        onChange={(e) => onCategoryChange(e.target.value)}
-        className="
-          bg-[#0f172a] 
-          border border-[#334155] 
-          rounded-full 
-          px-4 py-2 
-          text-sm 
-          text-gray-200 
-          focus:outline-none 
-          focus:ring-2 focus:ring-blue-500/50
-        "
-      >
-        <option value="all">All Categories</option>
-        <option value="engine">Engine Parts</option>
-        <option value="body">Body Kits</option>
-        <option value="brake">Brake Systems</option>
-        <option value="electrical">Electrical</option>
-      </select>
-
-     {/* 
-      <button
-        className="
-          bg-blue-600 
-          text-white 
-          px-5 py-2 
-          rounded-full 
-          text-sm 
-          font-medium
-          hover:bg-blue-500 
-          transition 
-          shadow-md 
-          hover:shadow-blue-500/30
-        "
-      >
-        More Filters
-      </button>
-      */}
-      
+      <div className="relative inline-flex items-center">
+        <select
+          value={selectedCategory}
+          onChange={(e) => onCategoryChange(e.target.value)}
+          className="
+            appearance-none 
+            bg-[#0f172a] 
+            border border-[#334155] 
+            rounded-full 
+            pl-4 pr-10 py-2.5 
+            text-sm 
+            font-medium
+            text-gray-200 
+            focus:outline-none 
+            focus:ring-2 focus:ring-blue-500/50
+            focus:border-blue-500
+            hover:border-slate-500
+            cursor-pointer
+            transition-colors
+          "
+        >
+          <option value="all">Default (All)</option>
+          <option value="name">Product Name</option>
+          <option value="code">Product Code</option>
+        </select>
+        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 pointer-events-none transition-transform" />
+      </div>
     </div>
   );
 };

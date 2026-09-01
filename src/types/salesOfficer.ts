@@ -3,7 +3,7 @@ export interface SalesOfficer {
   fullName: string;
   contactNumber: string;     // Sri Lankan mobile (WhatsApp enabled)
   joiningDate: string;       // YYYY-MM-DD
-  username: string;
+  username?: string;
   password?: string;
   status: 'Active' | 'Inactive';
   designation?: string;

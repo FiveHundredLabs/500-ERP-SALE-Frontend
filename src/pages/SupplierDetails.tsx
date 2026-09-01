@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { StatusBadge, useToast } from '../components/erp';
+import { StatusBadge, ActionMenu, useToast } from '../components/erp';
 import { supplierService } from '../services/SupplierService';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { financeService } from '../services/FinanceService';
@@ -20,7 +20,6 @@ import {
   FileText,
   User,
   ShoppingBag,
-  MoreVertical,
   Eye,
   X,
   History
@@ -48,7 +47,6 @@ const SupplierDetails: React.FC = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'payments'>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Settlement Form
@@ -83,19 +81,6 @@ const SupplierDetails: React.FC = () => {
       notes: 'Full settlement on delivery',
     },
   ]);
-
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -510,7 +495,6 @@ const SupplierDetails: React.FC = () => {
                     </tr>
                   ) : (
                     filteredPOs.map((po) => {
-                      const isMenuOpen = activeMenuId === po.id;
                       return (
                         <tr 
                           key={po.id}
@@ -553,51 +537,35 @@ const SupplierDetails: React.FC = () => {
                             <StatusBadge status={po.status} />
                           </td>
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative flex justify-end">
-                              <button
-                                onClick={() => setActiveMenuId(isMenuOpen ? null : po.id)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#334155] transition"
-                              >
-                                <MoreVertical size={14} />
-                              </button>
-
-                              {isMenuOpen && (
-                                <div
-                                  ref={menuRef}
-                                  className="absolute right-0 top-7 z-50 w-40 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-gray-200 divide-y divide-[#334155] animate-in fade-in zoom-in-95 duration-100"
-                                >
-                                  <div className="p-1">
-                                    <button
-                                      onClick={() => {
-                                        setActiveMenuId(null);
-                                        navigate(`/purchase-orders/${po.id}`);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-purple-600/20 text-gray-200 hover:text-purple-300 transition text-left"
-                                    >
-                                      <Eye size={13} className="text-purple-400" />
-                                      <span>View PO Details</span>
-                                    </button>
-
-                                    {po.paymentStatus !== 'paid' && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveMenuId(null);
-                                          setSettlementForm(prev => ({
-                                            ...prev,
-                                            amount: po.totalAmount.toString(),
-                                            notes: `Payment settlement for ${po.poNumber}`,
-                                          }));
-                                          setShowPaymentModal(true);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left font-medium"
-                                      >
-                                        <DollarSign size={13} />
-                                        <span>Settle PO</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                            <div className="flex justify-end">
+                              <ActionMenu
+                                title="PO Actions"
+                                items={[
+                                  {
+                                    label: 'View PO Details',
+                                    icon: <Eye size={13} />,
+                                    variant: 'purple',
+                                    onClick: () => navigate(`/purchase-orders/${po.id}`),
+                                  },
+                                  ...(po.paymentStatus !== 'paid'
+                                    ? [
+                                        {
+                                          label: 'Record Settlement',
+                                          icon: <DollarSign size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => {
+                                            setSettlementForm(prev => ({
+                                              ...prev,
+                                              amount: po.totalAmount.toString(),
+                                              notes: `Payment settlement for ${po.poNumber}`,
+                                            }));
+                                            setShowPaymentModal(true);
+                                          },
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>

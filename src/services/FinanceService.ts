@@ -4,6 +4,15 @@ import { mapFinanceTransaction } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export interface NextTransactionNumberResponse {
   nextTransactionNumber: string;
 }
@@ -15,14 +24,20 @@ export interface DeleteTransactionResponse {
 export const financeService = {
   // Get all transactions
   async getAll(): Promise<FinanceTransaction[]> {
-    const res = await fetch(`${API_BASE}/finance`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/finance`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Failed to fetch transactions`);
     return ((await res.json()) as unknown[]).map(mapFinanceTransaction);
   },
 
   // Get next transaction ID
   async getNextId(): Promise<string> {
-    const res = await fetch(`${API_BASE}/finance/next-id`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/finance/next-id`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Failed to fetch next transaction ID`);
     const data = await res.json();
     return data.nextTransactionNumber || `TXN-${Date.now()}`;
@@ -30,7 +45,10 @@ export const financeService = {
 
   // Get transaction by ID
   async getById(id: string): Promise<FinanceTransaction> {
-    const res = await fetch(`${API_BASE}/finance/${id}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/finance/${id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Transaction ${id} not found`);
     return mapFinanceTransaction(await res.json());
   },
@@ -39,7 +57,7 @@ export const financeService = {
   async create(transactionData: FinancePaymentData): Promise<FinanceTransaction> {
     const res = await fetch(`${API_BASE}/finance`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ ...transactionData, amount: moneyToApi(transactionData.amount) }),
     });
@@ -54,7 +72,7 @@ export const financeService = {
   async update(id: string, updateData: Partial<FinancePaymentData>): Promise<FinanceTransaction> {
     const res = await fetch(`${API_BASE}/finance/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ ...updateData, amount: updateData.amount === undefined ? undefined : moneyToApi(updateData.amount) }),
     });
@@ -69,6 +87,7 @@ export const financeService = {
   async delete(id: string): Promise<DeleteTransactionResponse> {
     const res = await fetch(`${API_BASE}/finance/${id}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
     if (!res.ok) {

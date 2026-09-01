@@ -99,7 +99,7 @@ const PurchaseOrderDetails: React.FC = () => {
         {/* Page Header */}
         <PageHeader
           title={`PURCHASE ORDER — ${po.poNumber}`}
-          description={`Issued on ${po.poDate}`}
+          description={`Issued on ${po.poDate ? String(po.poDate).split('T')[0] : 'N/A'}`}
           breadcrumbs={[
             { label: 'Dashboard', path: '/dashboard' },
             { label: 'Purchase Orders', path: '/purchase-orders' },
@@ -156,10 +156,6 @@ const PurchaseOrderDetails: React.FC = () => {
             <div className="flex justify-between md:justify-start gap-4">
               <span className="text-gray-400 min-w-[100px]">Company:</span>
               <span className="font-semibold text-gray-200">{po.supplierName}</span>
-            </div>
-            <div className="flex justify-between md:justify-start gap-4">
-              <span className="text-gray-400 min-w-[100px]">Supplier ID:</span>
-              <span className="font-mono text-gray-300">{po.supplierId}</span>
             </div>
             <div className="flex justify-between md:justify-start gap-4">
               <span className="text-gray-400 min-w-[100px]">Contact Person:</span>

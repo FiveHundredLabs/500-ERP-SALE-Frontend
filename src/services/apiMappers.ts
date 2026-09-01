@@ -122,7 +122,7 @@ export const mapOrder = (value: any): Order => ({
 
 export const mapPurchaseOrder = (value: any): PurchaseOrder => ({
   ...value,
-  sourceOrderNumber: value.sourceOrder?.orderNumber,
+  sourceOrderNumber: value.sourceOrder?.orderNumber ?? value.sourceOrderNumber ?? value.referenceOrderNum,
   items: (value.items ?? []).map((item: any) => ({
     ...item,
     unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),

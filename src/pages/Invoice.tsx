@@ -22,11 +22,11 @@ import {
   Share2,
   MessageCircle,
   RotateCcw,
-  UserCheck,
-  MoreVertical
+  UserCheck
 } from "lucide-react";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
+import { ActionMenu } from "../components/erp";
 import { CreateReturnModal } from "../components/invoice/CreateReturnModal";
 import PaymentModal from "../components/PaymentModal";
 import PaymentBreakdownTooltip from "../components/invoice/PaymentBreakdownTooltip";
@@ -102,18 +102,6 @@ const Invoice: React.FC = () => {
 
   // state for copy confirmation
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
-  const [activeInvoiceMenuId, setActiveInvoiceMenuId] = useState<string | null>(null);
-  const invoiceMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(e.target as Node)) {
-        setActiveInvoiceMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -1206,7 +1194,6 @@ const Invoice: React.FC = () => {
                           <tbody className="divide-y divide-[#334155] text-sm">
                             {currentInvoices.map((inv) => {
                               const calc = getInvoiceCalculatedStatus(inv);
-                              const isMenuOpen = activeInvoiceMenuId === (inv.id || inv.invoiceNumber);
                               const salesmanName = getSalesmanDisplay(inv);
 
                               return (
@@ -1289,95 +1276,72 @@ const Invoice: React.FC = () => {
                                     {formatDate(inv.issueDate)}
                                   </td>
                                   <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                                    <div className="relative flex justify-end">
-                                      <button
-                                        onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv.id || inv.invoiceNumber))}
-                                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                                        title="Actions"
-                                      >
-                                        <MoreVertical size={16} />
-                                      </button>
-
-                                      {isMenuOpen && (
-                                        <div 
-                                          ref={invoiceMenuRef}
-                                          className="absolute right-0 top-8 z-50 w-48 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
-                                        >
-                                          <div className="p-1">
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                                setShowPreviewModal(true);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
-                                            >
-                                              <Eye size={13} className="text-blue-400" />
-                                              <span>Preview & PDF</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
-                                            >
-                                              <Edit size={13} className="text-purple-400" />
-                                              <span>Edit Invoice</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                                setShowPreviewModal(true);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left"
-                                            >
-                                              <MessageCircle size={13} className="text-emerald-400" />
-                                              <span>Share on WhatsApp</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                                setShowReturnModal(true);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 transition text-left"
-                                            >
-                                              <RotateCcw size={13} className="text-yellow-400" />
-                                              <span>Return Invoice</span>
-                                            </button>
-                                          </div>
-
-                                          <div className="p-1">
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleCopyInvoiceLink(inv.id || '', inv.invoiceNumber);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-left"
-                                            >
-                                              {copiedInvoiceId === inv.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                                              <span>Copy Link</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleDeleteInvoice(inv.id || '', inv.invoiceNumber);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
-                                            >
-                                              <Trash2 size={13} className="text-red-400" />
-                                              <span>Delete Invoice</span>
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
+                                     <div className="flex justify-end">
+                                       <ActionMenu
+                                         title="Actions"
+                                         items={[
+                                           {
+                                             items: [
+                                               {
+                                                 label: 'Preview & PDF',
+                                                 icon: <Eye size={13} />,
+                                                 variant: 'blue',
+                                                 onClick: () => {
+                                                   handleLoadInvoice(inv);
+                                                   setShowPreviewModal(true);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Edit Invoice',
+                                                 icon: <Edit size={13} />,
+                                                 variant: 'purple',
+                                                 onClick: () => {
+                                                   handleLoadInvoice(inv);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Share on WhatsApp',
+                                                 icon: <MessageCircle size={13} />,
+                                                 variant: 'emerald',
+                                                 onClick: () => {
+                                                   handleLoadInvoice(inv);
+                                                   setShowPreviewModal(true);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Return Invoice',
+                                                 icon: <RotateCcw size={13} />,
+                                                 variant: 'amber',
+                                                 onClick: () => {
+                                                   handleLoadInvoice(inv);
+                                                   setShowReturnModal(true);
+                                                 },
+                                               },
+                                             ],
+                                           },
+                                           {
+                                             items: [
+                                               {
+                                                 label: copiedInvoiceId === inv.id ? 'Copied!' : 'Copy Link',
+                                                 icon: copiedInvoiceId === inv.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />,
+                                                 variant: 'default',
+                                                 onClick: () => {
+                                                   handleCopyInvoiceLink(inv.id || '', inv.invoiceNumber);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Delete Invoice',
+                                                 icon: <Trash2 size={13} />,
+                                                 variant: 'danger',
+                                                 onClick: () => {
+                                                   handleDeleteInvoice(inv.id || '', inv.invoiceNumber);
+                                                 },
+                                               },
+                                             ],
+                                           },
+                                         ]}
+                                       />
+                                     </div>
                                   </td>
                                 </tr>
                               );

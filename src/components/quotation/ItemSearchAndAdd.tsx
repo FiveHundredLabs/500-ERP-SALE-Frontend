@@ -155,7 +155,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
       </div>
 
       {/* Single-Row Grid for All Fields */}
-      <div className="grid grid-cols-12 gap-3 items-end pt-1">
+      <div className="grid grid-cols-12 gap-3 items-start pt-1">
         {/* 1. Product Search Field */}
         <div ref={containerRef} className="col-span-12 md:col-span-4 lg:col-span-4 relative">
           <label className="block text-[11px] font-semibold text-gray-300 mb-1">

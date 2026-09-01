@@ -194,8 +194,18 @@ const PurchaseOrders: React.FC = () => {
     {
       key: 'referenceOrderNum',
       header: 'Ref Order',
-      minWidth: '100px',
-      render: (row) => <span className="font-mono text-xs text-[#CBD5E1]">{row.sourceOrderNumber || '—'}</span>,
+      minWidth: '110px',
+      render: (row) => {
+        const refNum = row.sourceOrderNumber || (row as any).sourceOrder?.orderNumber || (row as any).sourceOrderId || (row as any).refOrder;
+        return refNum ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-mono text-[11px] font-semibold">
+            <FileText size={11} className="text-blue-400 shrink-0" />
+            <span>{refNum}</span>
+          </span>
+        ) : (
+          <span className="text-slate-500 text-xs font-mono">—</span>
+        );
+      },
     },
     {
       key: 'supplierName',
@@ -219,7 +229,11 @@ const PurchaseOrders: React.FC = () => {
       header: 'Created Date',
       sortable: true,
       minWidth: '110px',
-      render: (row) => <span className="text-xs text-[#CBD5E1]">{row.poDate}</span>,
+      render: (row) => {
+        if (!row.poDate) return <span className="text-xs text-slate-500 font-mono">—</span>;
+        const cleanDate = String(row.poDate).split('T')[0];
+        return <span className="text-xs text-slate-300 font-mono font-medium">{cleanDate}</span>;
+      },
     },
     {
       key: 'numberOfItems',

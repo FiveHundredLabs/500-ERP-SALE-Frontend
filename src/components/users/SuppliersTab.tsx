@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../erp';
+import { DataTable, FilterBar, StatusBadge, ConfirmDialog, ActionMenu, useToast } from '../erp';
 import type { Column } from '../erp/DataTable';
 import type { Supplier, SupplierCreateDto } from '../../types/suppliers';
 import { 
@@ -11,13 +11,12 @@ import {
   X, 
   MessageCircle, 
   Phone, 
-  MoreVertical, 
   Truck, 
   Building2, 
   User, 
   MapPin, 
   Mail, 
-  Check 
+  Check
 } from 'lucide-react';
 import { supplierService } from '../../services/SupplierService';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
@@ -28,21 +27,6 @@ const SuppliersTab: React.FC = () => {
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Floating Action Menu state
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menus on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const loadSuppliers = async () => {
     setLoading(true);
@@ -358,65 +342,41 @@ const SuppliersTab: React.FC = () => {
       header: '',
       align: 'right',
       minWidth: '50px',
-      render: (row) => {
-        const isMenuOpen = activeMenuId === row.id;
-        return (
-          <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setActiveMenuId(isMenuOpen ? null : row.id)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              title="Supplier actions"
-            >
-              <MoreVertical size={16} />
-            </button>
-
-            {/* Three-Dot Floating Menu */}
-            {isMenuOpen && (
-              <div 
-                ref={menuRef}
-                className="absolute right-0 top-8 z-50 w-44 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-[#334155]/60 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <div className="p-1 space-y-0.5">
-                  <button
-                    onClick={() => {
-                      setActiveMenuId(null);
-                      navigate(`/suppliers/${row.id}`);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
-                  >
-                    <Eye size={14} className="text-purple-400" />
-                    <span>View & Settle</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveMenuId(null);
-                      handleOpenEdit(row);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
-                  >
-                    <Edit2 size={14} className="text-blue-400" />
-                    <span>Edit Supplier</span>
-                  </button>
-                </div>
-
-                <div className="p-1">
-                  <button
-                    onClick={() => {
-                      setActiveMenuId(null);
-                      setDeleteSupplier(row);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
-                  >
-                    <Trash2 size={14} className="text-red-400" />
-                    <span>Delete Supplier</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      },
+      render: (row) => (
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <ActionMenu
+            title="Supplier Actions"
+            items={[
+              {
+                items: [
+                  {
+                    label: 'View & Settle',
+                    icon: <Eye size={14} />,
+                    variant: 'purple',
+                    onClick: () => navigate(`/suppliers/${row.id}`),
+                  },
+                  {
+                    label: 'Edit Supplier',
+                    icon: <Edit2 size={14} />,
+                    variant: 'blue',
+                    onClick: () => handleOpenEdit(row),
+                  },
+                ],
+              },
+              {
+                items: [
+                  {
+                    label: 'Delete Supplier',
+                    icon: <Trash2 size={14} />,
+                    variant: 'danger',
+                    onClick: () => setDeleteSupplier(row),
+                  },
+                ],
+              },
+            ]}
+          />
+        </div>
+      ),
     },
   ];
 

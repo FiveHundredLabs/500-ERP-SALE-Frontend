@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   FileText, 
   Eye, 
@@ -10,11 +10,11 @@ import {
   Calendar, 
   ShieldAlert, 
   UserCheck, 
-  MoreVertical, 
   DollarSign, 
   Receipt 
 } from "lucide-react";
 import { Button } from "./common";
+import { ActionMenu } from "./erp";
 import type { InvoiceResponse } from "../types/invoice";
 import { getInvoiceCalculatedStatus } from "../types/invoice";
 import type { FinanceTransaction } from "../types/finance";
@@ -138,20 +138,6 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'near_due' | 'partially_paid' | 'completed'>('all');
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceTransaction | null>(null);
-
-  // Three-dot menu state
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
 
   const formatDate = (date: string) => {
     try {
@@ -390,7 +376,6 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
               </thead>
               <tbody className="divide-y divide-[#334155]/60 text-xs">
                 {paginatedInvoices.map((invoice, idx) => {
-                  const isMenuOpen = activeMenuId === invoice.id;
                   const transaction = getTransactionForInvoice(invoice.invoiceNumber);
                   const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
 
@@ -498,73 +483,52 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
 
                       {/* Three-Dot Menu (⋮) */}
                       <td className="py-3 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="relative flex justify-end">
-                          <button
-                            onClick={() => setActiveMenuId(isMenuOpen ? null : (invoice.id || invoice.invoiceId || invoice.invoiceNumber || ''))}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition"
+                        <div className="flex justify-end">
+                          <ActionMenu
                             title="Invoice Actions"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-
-                          {isMenuOpen && (
-                            <div 
-                              ref={menuRef}
-                              className="absolute right-0 top-8 z-50 w-48 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
-                            >
-                              <div className="p-1">
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    onViewInvoice(invoice);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
-                                >
-                                  <Eye size={13} className="text-blue-400" />
-                                  <span>View Invoice</span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    onDownloadInvoice(invoice);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-left"
-                                >
-                                  <Download size={13} />
-                                  <span>Download PDF</span>
-                                </button>
-                              </div>
-
-                              <div className="p-1">
-                                {invoice.effectiveRemainingAmount > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      onMarkAsPaid(invoice);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-green-600/20 text-green-400 hover:text-green-300 transition text-left font-semibold"
-                                  >
-                                    <DollarSign size={13} />
-                                    <span>Pay Remaining</span>
-                                  </button>
-                                )}
-
-                                {hasTransaction && (
-                                  <button
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      handlePaidClick(invoice);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-green-600/20 text-green-400 hover:text-green-300 transition text-left"
-                                  >
-                                    <Receipt size={13} />
-                                    <span>Payment Details</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                            items={[
+                              {
+                                items: [
+                                  {
+                                    label: 'View Invoice',
+                                    icon: <Eye size={13} />,
+                                    variant: 'blue',
+                                    onClick: () => onViewInvoice(invoice),
+                                  },
+                                  {
+                                    label: 'Download PDF',
+                                    icon: <Download size={13} />,
+                                    variant: 'default',
+                                    onClick: () => onDownloadInvoice(invoice),
+                                  },
+                                ],
+                              },
+                              {
+                                items: [
+                                  ...(invoice.effectiveRemainingAmount > 0
+                                    ? [
+                                        {
+                                          label: 'Pay Remaining',
+                                          icon: <DollarSign size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => onMarkAsPaid(invoice),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(hasTransaction
+                                    ? [
+                                        {
+                                          label: 'Payment Details',
+                                          icon: <Receipt size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => handlePaidClick(invoice),
+                                        },
+                                      ]
+                                    : []),
+                                ],
+                              },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>

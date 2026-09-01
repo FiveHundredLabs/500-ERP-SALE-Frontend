@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DataTable, FilterBar, StatusBadge, ConfirmDialog, useToast } from '../erp';
+import { DataTable, FilterBar, StatusBadge, ConfirmDialog, ActionMenu, useToast } from '../erp';
 import type { Column } from '../erp/DataTable';
 import { invoiceService } from '../../services/InvoiceService';
 import { salesOfficerService } from '../../services/SalesOfficerService';
@@ -15,11 +15,13 @@ import {
   X, 
   MessageCircle, 
   Phone, 
-  MoreVertical, 
   UserCheck, 
-  MapPin
+  MapPin, 
+  ChevronDown,
+  Upload
 } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
+import CustomerPdfImportModal from './CustomerPdfImportModal';
 
 const getCustomerSalesRepName = (customer: Customer): string => {
   if (customer.salesRepName) return customer.salesRepName;
@@ -73,23 +75,9 @@ const CustomersTab: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Active three-dot menu ID
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  // Close three-dot menu on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
-
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const [deleteCustomer, setDeleteCustomer] = useState<Customer | null>(null);
 
@@ -115,10 +103,7 @@ const CustomersTab: React.FC = () => {
   ];
 
   const salesRepOptions = useMemo(() => {
-    return [
-      { value: '', label: 'All Sales Reps' },
-      ...salesOfficers.map(s => ({ value: s.fullName, label: s.fullName })),
-    ];
+    return salesOfficers.map(s => ({ value: s.fullName, label: s.fullName }));
   }, [salesOfficers]);
 
   const searchSuggestions = useMemo(() => {
@@ -275,7 +260,6 @@ const CustomersTab: React.FC = () => {
       status: customer.status,
       notes: customer.notes || '',
     });
-    setActiveMenuId(null);
     setShowAddModal(true);
   };
 
@@ -387,18 +371,6 @@ const CustomersTab: React.FC = () => {
       },
     },
     {
-      key: 'creditLimit',
-      header: 'Credit Limit',
-      sortable: true,
-      align: 'right',
-      minWidth: '110px',
-      render: (row) => (
-        <span className="font-mono text-xs text-slate-300 font-medium">
-          {formatCurrency(row.creditLimit || 0)}
-        </span>
-      ),
-    },
-    {
       key: 'outstandingBalance',
       header: 'outstanding',
       sortable: true,
@@ -427,64 +399,41 @@ const CustomersTab: React.FC = () => {
       header: '',
       align: 'right',
       minWidth: '50px',
-      render: (row) => {
-        const isMenuOpen = activeMenuId === row.id;
-
-        return (
-          <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setActiveMenuId(isMenuOpen ? null : row.id)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              title="Customer Actions"
-              aria-label="Actions menu"
-            >
-              <MoreVertical size={16} />
-            </button>
-
-            {/* Three-Dot Floating Dropdown Menu */}
-            {isMenuOpen && (
-              <div 
-                ref={menuRef}
-                className="absolute right-0 top-8 z-50 w-44 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-[#334155]/60 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <div className="p-1 space-y-0.5">
-                  <button
-                    onClick={() => {
-                      setActiveMenuId(null);
-                      navigate(`/customers/${row.id}`);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
-                  >
-                    <Eye size={14} className="text-blue-400" />
-                    <span>View Details</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleOpenEdit(row)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
-                  >
-                    <Edit2 size={14} className="text-purple-400" />
-                    <span>Edit Customer</span>
-                  </button>
-                </div>
-
-                <div className="p-1">
-                  <button
-                    onClick={() => {
-                      setActiveMenuId(null);
-                      setDeleteCustomer(row);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
-                  >
-                    <Trash2 size={14} className="text-red-400" />
-                    <span>Delete Customer</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      },
+      render: (row) => (
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <ActionMenu
+            title="Customer Actions"
+            items={[
+              {
+                items: [
+                  {
+                    label: 'View Details',
+                    icon: <Eye size={14} />,
+                    variant: 'blue',
+                    onClick: () => navigate(`/customers/${row.id}`),
+                  },
+                  {
+                    label: 'Edit Customer',
+                    icon: <Edit2 size={14} />,
+                    variant: 'purple',
+                    onClick: () => handleOpenEdit(row),
+                  },
+                ],
+              },
+              {
+                items: [
+                  {
+                    label: 'Delete Customer',
+                    icon: <Trash2 size={14} />,
+                    variant: 'danger',
+                    onClick: () => setDeleteCustomer(row),
+                  },
+                ],
+              },
+            ]}
+          />
+        </div>
+      ),
     },
   ];
 
@@ -530,16 +479,25 @@ const CustomersTab: React.FC = () => {
             setCurrentPage(1);
           }}
           rightContent={
-            <button
-              onClick={() => {
-                setEditCustomer(null);
-                resetForm();
-                setShowAddModal(true);
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95 hover:shadow-blue-600/30"
-            >
-              <Plus size={15} /> Add Customer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-3.5 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-purple-950/30 active:scale-95 hover:border-purple-400"
+                title="Import Customers from PDF"
+              >
+                <Upload size={14} /> Import Customers
+              </button>
+              <button
+                onClick={() => {
+                  setEditCustomer(null);
+                  resetForm();
+                  setShowAddModal(true);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95 hover:shadow-blue-600/30"
+              >
+                <Plus size={15} /> Add Customer
+              </button>
+            </div>
           }
         />
 
@@ -564,19 +522,19 @@ const CustomersTab: React.FC = () => {
       {/* Add / Edit Customer Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0b132b] border border-[#1e293b] rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl relative text-slate-100 space-y-5">
+          <div className="bg-[#0b132b] border border-[#1e293b] rounded-2xl w-full max-w-4xl p-6 shadow-2xl relative text-slate-100 space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[#1e293b]">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#1e293b]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25">
                   <Plus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-white leading-tight">
                     {editCustomer ? 'Edit Customer Profile' : 'Add New Customer'}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Set shop details, contact person, address, and assigned sales representative
+                    Set shop details, contact numbers, and assigned sales representative
                   </p>
                 </div>
               </div>
@@ -588,12 +546,17 @@ const CustomersTab: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitForm} className="space-y-4 text-xs">
-              {/* General Info */}
-              <div className="bg-[#111c3a]/80 border border-[#1e2e54] rounded-xl p-4 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmitForm} className="space-y-4">
+              {/* 2-Column Responsive Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Column 1: Shop & Business Info */}
+                <div className="bg-[#111c3a]/70 border border-[#1e2e54] rounded-xl p-4 space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2 border-b border-[#1e2e54] text-xs font-bold text-blue-300 uppercase tracking-wider">
+                    <span>Shop & Location Details</span>
+                  </div>
+
                   <div>
-                    <label className="block text-slate-300 mb-1 font-semibold">
+                    <label className="block text-slate-300 mb-1 font-semibold text-xs">
                       Shop Name <span className="text-rose-400">*</span>
                     </label>
                     <input
@@ -607,7 +570,7 @@ const CustomersTab: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 mb-1 font-semibold">
+                    <label className="block text-slate-300 mb-1 font-semibold text-xs">
                       Contact Person <span className="text-slate-500 font-normal text-[11px]">(Optional)</span>
                     </label>
                     <input
@@ -618,206 +581,177 @@ const CustomersTab: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
                     />
                   </div>
-                </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-slate-300 font-semibold">
-                      Address <span className="text-rose-400">*</span>
-                    </label>
-                    <span className="text-[10px] text-emerald-400">
-                      City automatically extracted after comma (e.g. "Main Street, Colombo")
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                      <MapPin size={13} />
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-slate-300 font-semibold text-xs">
+                        Address <span className="text-rose-400">*</span>
+                      </label>
+                      <span className="text-[10px] text-emerald-400">
+                        City extracted after comma
+                      </span>
                     </div>
-                    <input
-                      required
-                      type="text"
-                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl pl-8.5 pr-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
-                      placeholder="e.g. 145, Baseline Road, Colombo 09"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <MapPin size={14} />
+                      </div>
+                      <input
+                        required
+                        type="text"
+                        className="w-full bg-[#0a1024] border border-[#233560] rounded-xl pl-9 pr-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
+                        placeholder="e.g. 145, Baseline Road, Colombo 09"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Phone Numbers Section (Up to 3) */}
-              <div className="p-3.5 rounded-xl bg-[#0f2324]/60 border border-emerald-500/30 space-y-3">
-                <div className="flex items-center justify-between pb-1.5 border-b border-emerald-500/20">
-                  <div className="flex items-center gap-1.5">
-                    <Phone size={13} className="text-emerald-400" />
-                    <span className="text-xs font-bold text-emerald-300">Contact Numbers</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1">
-                    <MessageCircle size={10} /> 1st Phone = WhatsApp Direct
-                  </span>
-                </div>
+                {/* Column 2: Contact Numbers & Credit Terms */}
+                <div className="space-y-4">
+                  {/* WhatsApp & Phones Box */}
+                  <div className="bg-[#0f2324]/60 border border-emerald-500/30 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
+                      <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                        <Phone size={13} className="text-emerald-400" /> Contact Numbers
+                      </span>
+                      <span className="text-[10px] text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono flex items-center gap-1">
+                        <MessageCircle size={10} /> 1st = WhatsApp Direct
+                      </span>
+                    </div>
 
-                <div>
-                  <label className="flex items-center justify-between text-slate-300 mb-1 font-semibold">
-                    <span className="flex items-center gap-1 text-emerald-400">
-                      <MessageCircle size={12} /> WhatsApp Number <span className="text-rose-400">*</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">Chat & Invoicing Target</span>
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    className="w-full bg-[#071518] border border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-emerald-300 placeholder-slate-500 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    placeholder="e.g. +94705787818"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
-                </div>
+                    <div>
+                      <label className="block text-slate-300 mb-1 font-semibold text-xs">
+                        WhatsApp Number <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        required
+                        type="tel"
+                        className="w-full bg-[#071518] border border-emerald-500/50 rounded-xl px-3.5 py-2 text-emerald-300 placeholder-slate-500 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        placeholder="e.g. +94705787818"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-300 mb-1 font-semibold">
-                      Phone 2 <span className="text-slate-500 text-[10px]">(Landline / Office)</span>
-                    </label>
-                    <input
-                      type="tel"
-                      className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3.5 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                      placeholder="e.g. 011-255-4321"
-                      value={formData.phone2 || ''}
-                      onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-300 mb-1 font-semibold">
-                      Phone 3 <span className="text-slate-500 text-[10px]">(Secondary Mobile)</span>
-                    </label>
-                    <input
-                      type="tel"
-                      className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3.5 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                      placeholder="e.g. 077-123-4567"
-                      value={formData.phone3 || ''}
-                      onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Credit Limit & Credit Period & Sales Representative */}
-              <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/40 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between pb-1.5 border-b border-purple-500/20">
-                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Credit Terms & Sales Officer Assignment</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-purple-200 mb-1 font-semibold">Credit Limit (LKR)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="10000"
-                      className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                      value={formData.creditLimit}
-                      onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-purple-200 mb-1 font-semibold">
-                      Credit Period <span className="text-purple-400 font-normal text-[11px]">({formData.creditPeriod || 30} Days)</span>
-                    </label>
-                    <div className="grid grid-cols-6 gap-1">
-                      {[15, 30, 45, 60, 90].map((days) => (
-                        <button
-                          key={days}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, creditPeriod: days })}
-                          className={`py-1.5 rounded-lg text-xs font-bold border transition ${
-                            formData.creditPeriod === days
-                              ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-600/30'
-                              : 'bg-[#0a1024] border-[#2e265c] text-slate-300 hover:border-purple-500/50 hover:bg-purple-900/20'
-                          }`}
-                        >
-                          {days}d
-                        </button>
-                      ))}
-                      <div className="relative">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-300 mb-1 font-semibold text-xs">
+                          Phone 2 <span className="text-slate-500 text-[10px]">(Office)</span>
+                        </label>
                         <input
-                          type="number"
-                          min="1"
-                          placeholder="Cust"
-                          title="Custom Days"
-                          className={`w-full py-1.5 px-1 bg-[#0a1024] border rounded-lg text-xs font-mono text-center text-white focus:outline-none ${
-                            ![15, 30, 45, 60, 90].includes(Number(formData.creditPeriod))
-                              ? 'border-purple-400 bg-purple-950/40 text-purple-200 font-bold'
-                              : 'border-[#2e265c] placeholder:text-slate-500'
-                          }`}
-                          value={![15, 30, 45, 60, 90].includes(Number(formData.creditPeriod)) ? (formData.creditPeriod || '') : ''}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            setFormData({ ...formData, creditPeriod: isNaN(val) ? 0 : val });
-                          }}
+                          type="tel"
+                          className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          placeholder="011-255-4321"
+                          value={formData.phone2 || ''}
+                          onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-300 mb-1 font-semibold text-xs">
+                          Phone 3 <span className="text-slate-500 text-[10px]">(Mobile)</span>
+                        </label>
+                        <input
+                          type="tel"
+                          className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          placeholder="077-123-4567"
+                          value={formData.phone3 || ''}
+                          onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
                         />
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-purple-200 mb-1 font-semibold">Sales Representative</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-400">
-                        <UserCheck size={13} />
+                  {/* Credit Terms & Sales Officer */}
+                  <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/30 rounded-xl p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-purple-200 mb-1 font-semibold text-xs">
+                          Credit Period ({formData.creditPeriod || 30}d)
+                        </label>
+                        <div className="grid grid-cols-5 gap-1">
+                          {[15, 30, 45, 60, 90].map((days) => (
+                            <button
+                              key={days}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, creditPeriod: days })}
+                              className={`py-1.5 rounded-lg text-[11px] font-bold border transition ${
+                                formData.creditPeriod === days
+                                  ? 'bg-purple-600 border-purple-400 text-white shadow-sm'
+                                  : 'bg-[#0a1024] border-[#2e265c] text-slate-300 hover:border-purple-500/50'
+                              }`}
+                            >
+                              {days}d
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <select
-                        className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl pl-8.5 pr-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
-                        value={formData.salesRepId || ''}
-                        onChange={(e) => {
-                          const repId = e.target.value;
-                          const rep = salesOfficers.find(so => so.id === repId);
-                          setFormData({ 
-                            ...formData, 
-                            salesRepId: repId || null,
-                            salesRepName: rep?.fullName || ''
-                          });
-                        }}
-                      >
-                        <option value="">Unassigned</option>
-                        {salesOfficers.map((so: SalesOfficer) => (
-                          <option key={so.id} value={so.id}>
-                            {so.fullName} ({so.assignedTerritory || so.assignedArea || 'Region'})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-purple-200 mb-1 font-semibold">Account Status</label>
-                    <select
-                      className="w-full bg-[#0a1024] border border-[#2e265c] rounded-xl px-3.5 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium"
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
+                      <div>
+                        <label className="block text-purple-200 mb-1 font-semibold text-xs">
+                          Account Status
+                        </label>
+                        <div className="relative">
+                          <select
+                            className="w-full appearance-none bg-[#0a1024] border border-[#2e265c] rounded-xl pl-3 pr-8 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
+                          >
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-purple-200 mb-1 font-semibold text-xs">
+                        Sales Representative
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-400">
+                          <UserCheck size={14} />
+                        </div>
+                        <select
+                          className="w-full appearance-none bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-8 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
+                          value={formData.salesRepId || ''}
+                          onChange={(e) => {
+                            const repId = e.target.value;
+                            const rep = salesOfficers.find(so => so.id === repId);
+                            setFormData({ 
+                              ...formData, 
+                              salesRepId: repId || null,
+                              salesRepName: rep?.fullName || ''
+                            });
+                          }}
+                        >
+                          <option value="">Unassigned</option>
+                          {salesOfficers.map((so: SalesOfficer) => (
+                            <option key={so.id} value={so.id}>
+                              {so.fullName} {so.officerId ? `(${so.officerId})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400 pointer-events-none" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="pt-3 border-t border-[#1e293b] flex justify-end gap-2.5">
+              {/* Actions Footer */}
+              <div className="pt-3 border-t border-[#1e293b] flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-xl transition"
+                  className="px-5 py-2.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-xl transition"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30"
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30 active:scale-98"
                 >
                   {editCustomer ? 'Save Changes' : 'Create Customer'}
                 </button>
@@ -826,6 +760,17 @@ const CustomersTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* PDF Customer Import Modal */}
+      <CustomerPdfImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportSuccess={(count) => {
+          setShowImportModal(false);
+          success('Import Successful', `Successfully imported ${count} customers from PDF.`);
+          fetchCustomers();
+        }}
+      />
 
       {/* Delete Confirm */}
       <ConfirmDialog

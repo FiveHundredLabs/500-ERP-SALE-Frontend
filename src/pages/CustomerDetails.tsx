@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { StatusBadge, useToast } from '../components/erp';
+import { StatusBadge, ActionMenu, useToast } from '../components/erp';
 import { invoiceService } from '../services/InvoiceService';
 import { financeService } from '../services/FinanceService';
 import { orderService } from '../services/OrderService';
@@ -24,7 +24,6 @@ import {
   FileText,
   UserCheck,
   MapPin,
-  MoreVertical,
   Eye,
   X,
   History,
@@ -45,7 +44,6 @@ const CustomerDetails: React.FC = () => {
   // Modal states
   const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
   const [selectedInvoiceForView, setSelectedInvoiceForView] = useState<InvoiceResponse | null>(null);
-  const [activeInvoiceMenuId, setActiveInvoiceMenuId] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Bulk Payment Form State
@@ -57,19 +55,6 @@ const CustomerDetails: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     notes: '',
   });
-
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveInvoiceMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Fetch customer and their invoices
   useEffect(() => {
@@ -616,8 +601,6 @@ const CustomerDetails: React.FC = () => {
                     </tr>
                   ) : (
                     filteredInvoices.map((inv) => {
-                      const isMenuOpen = activeInvoiceMenuId === inv.id;
-
                       return (
                         <tr 
                           key={inv.id}
@@ -682,52 +665,35 @@ const CustomerDetails: React.FC = () => {
                             )}
                           </td>
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative flex justify-end">
-                              <button
-                                onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv.id || inv.invoiceId || inv.invoiceNumber || ''))}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#334155] transition"
+                            <div className="flex justify-end">
+                              <ActionMenu
                                 title="Invoice actions"
-                              >
-                                <MoreVertical size={14} />
-                              </button>
-
-                              {isMenuOpen && (
-                                <div
-                                  ref={menuRef}
-                                  className="absolute right-0 top-7 z-50 w-40 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-gray-200 divide-y divide-[#334155] animate-in fade-in zoom-in-95 duration-100"
-                                >
-                                  <div className="p-1">
-                                    <button
-                                      onClick={() => {
-                                        setActiveInvoiceMenuId(null);
-                                        setSelectedInvoiceForView(inv);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-blue-600/20 text-gray-200 hover:text-blue-300 transition text-left"
-                                    >
-                                      <Eye size={13} className="text-blue-400" />
-                                      <span>View Invoice PDF</span>
-                                    </button>
-
-                                    {inv.effectiveRemainingAmount > 0 && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveInvoiceMenuId(null);
-                                          setBulkPaymentForm(prev => ({
-                                            ...prev,
-                                            amount: inv.effectiveRemainingAmount.toString(),
-                                            notes: `Payment for ${inv.invoiceNumber}`,
-                                          }));
-                                          setShowBulkPaymentModal(true);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left font-medium"
-                                      >
-                                        <DollarSign size={13} />
-                                        <span>Pay Remaining</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                                items={[
+                                  {
+                                    label: 'View Invoice PDF',
+                                    icon: <Eye size={13} />,
+                                    variant: 'blue',
+                                    onClick: () => setSelectedInvoiceForView(inv),
+                                  },
+                                  ...(inv.effectiveRemainingAmount > 0
+                                    ? [
+                                        {
+                                          label: 'Pay Remaining',
+                                          icon: <DollarSign size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => {
+                                            setBulkPaymentForm(prev => ({
+                                              ...prev,
+                                              amount: inv.effectiveRemainingAmount.toString(),
+                                              notes: `Payment for ${inv.invoiceNumber}`,
+                                            }));
+                                            setShowBulkPaymentModal(true);
+                                          },
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>

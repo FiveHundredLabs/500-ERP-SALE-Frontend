@@ -147,12 +147,14 @@ const Orders: React.FC = () => {
     success('Export Completed', `Exported ${sortedOrders.length} orders to CSV.`);
   };
 
-  const handleCreateOrder = async (newOrder: Order) => {
+  const handleCreateOrder = async (newOrder: Order): Promise<Order> => {
     try {
       const created = await orderService.create(newOrder);
-      setOrders(prev => [created, ...prev]);
+      setOrders(prev => [created, ...prev.filter(o => o.id !== newOrder.id)]);
+      return created;
     } catch {
       setOrders(prev => [newOrder, ...prev]);
+      return newOrder;
     }
   };
 
@@ -171,32 +173,43 @@ const Orders: React.FC = () => {
       key: 'orderDate',
       header: 'Date',
       sortable: true,
-      minWidth: '95px',
-      render: (row) => <span className="text-gray-400 text-xs">{row.orderDate}</span>,
+      minWidth: '105px',
+      render: (row) => {
+        const cleanDate = row.orderDate ? String(row.orderDate).split('T')[0] : '—';
+        return <span className="text-gray-300 text-xs font-mono font-medium">{cleanDate}</span>;
+      },
     },
     {
       key: 'customerName',
       header: 'Customer',
       sortable: true,
       minWidth: '180px',
-      render: (row) => (
-        <div className="min-w-0">
-          <p className="font-semibold text-gray-200 text-sm leading-tight truncate max-w-[200px]">{row.customerName}</p>
-          <p className="text-[11px] text-gray-400 truncate">{row.customerCity}</p>
-        </div>
-      ),
+      render: (row) => {
+        const fullAddress = row.customerAddress ? `${row.customerAddress}, ${row.customerCity || ''}` : row.customerCity || 'N/A';
+        const tooltip = `Full Name: ${row.customerName}\nFull Address: ${fullAddress}`;
+        return (
+          <div className="min-w-0 cursor-help" title={tooltip}>
+            <p className="font-semibold text-gray-200 text-sm leading-tight truncate max-w-[200px]">{row.customerName}</p>
+            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{fullAddress}</p>
+          </div>
+        );
+      },
     },
     {
       key: 'salesman',
       header: 'Salesman',
       sortable: true,
       minWidth: '140px',
-      render: (row) => (
-        <div>
-          <p className="text-xs font-semibold text-gray-300">{row.salesman?.fullName || '—'}</p>
-          {row.salesman?.area && <p className="text-[11px] text-gray-400">{row.salesman.area}</p>}
-        </div>
-      ),
+      render: (row) => {
+        const salesmanName = row.salesmanName || (typeof row.salesman === 'object' && row.salesman?.fullName) || (typeof row.salesman === 'string' ? row.salesman : '') || '—';
+        const area = (typeof row.salesman === 'object' && row.salesman?.area) || (row as any).salesmanArea;
+        return (
+          <div>
+            <p className="text-xs font-semibold text-gray-300">{salesmanName}</p>
+            {area && <p className="text-[11px] text-gray-400">{area}</p>}
+          </div>
+        );
+      },
     },
     {
       key: 'numberOfProducts',
@@ -216,12 +229,6 @@ const Orders: React.FC = () => {
       align: 'right',
       minWidth: '120px',
       render: (row) => <span className="font-bold text-white text-sm font-mono">{formatCurrency(row.grandTotal)}</span>,
-    },
-    {
-      key: 'paymentStatus',
-      header: 'Payment',
-      minWidth: '90px',
-      render: (row) => <StatusBadge status={row.paymentStatus} />,
     },
     {
       key: 'status',

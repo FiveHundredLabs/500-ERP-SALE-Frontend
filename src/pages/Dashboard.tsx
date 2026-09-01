@@ -16,7 +16,6 @@ const Dashboard: React.FC = () => {
       headerIcon={<LayoutGrid size={18} />}
       headerTitle="500Core ERP Overview"
       headerSubtitle="Real-time enterprise operational intelligence"
-      showBell
     >
       {loading ? (
         <div className="flex justify-center items-center h-64">
