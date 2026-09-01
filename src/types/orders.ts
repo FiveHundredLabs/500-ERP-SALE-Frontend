@@ -34,7 +34,11 @@ export interface Order {
   updatedAt: string;
   salesmanId?: string | null;
   salesman?: Salesman | null;
-  salesmanName?: string;
+  salesmanName?: string | null;
+  salesmanEmployeeId?: string | null;
+  salesmanPhone?: string | null;
+  salesmanArea?: string | null;
+  salesmanEmail?: string | null;
   customerId: string;
   customerName: string;
   contactPerson: string;
