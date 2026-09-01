@@ -83,19 +83,9 @@ export interface InvoiceItem {
   discountAmount?: number;
 }
 
-export interface InvoiceItemBackend {
-  item: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  _id?: string;
-}
-
-export interface InvoiceResponse {
-  _id?: string;
+export interface InvoiceData {
   id?: string;
   documentTitle?: string;
-  invoiceId?: string; // Some places use invoiceId instead of id/invoiceNumber
   invoiceNumber: string;
   customer: string | InvoiceCustomer;
   customerDetails?: InvoiceCustomer | null;
@@ -126,7 +116,35 @@ export interface InvoiceResponse {
   creditPeriod?: number;
 }
 
-export type InvoiceData = InvoiceResponse;
+export interface InvoiceResponse {
+  id: string;
+  invoiceNumber: string;
+  customerId?: string | null;
+  customer: InvoiceCustomer | null;
+  customerDetails?: InvoiceCustomer | null;
+  salesmanId?: string | null;
+  salesman?: { id: string; fullName?: string; name?: string; email?: string } | null;
+  salesmanName?: string;
+  items: InvoiceItem[];
+  payments: InvoicePaymentRecord[];
+  subTotal: number;
+  discount: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentStatus: PaymentStatusType;
+  paymentMethod: PaymentMethodType;
+  bankDepositDate?: string | null;
+  issueDate: string;
+  dueDate: string;
+  vehicleNumber: string;
+  notes?: string;
+  applyVat: boolean;
+  vatAmount: number;
+  taxRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface BackendInvoiceData {
   id?: string;

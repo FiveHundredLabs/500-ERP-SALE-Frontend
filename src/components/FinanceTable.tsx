@@ -394,9 +394,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                   const transaction = getTransactionForInvoice(invoice.invoiceNumber);
                   const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
 
-                  const sName = typeof invoice.salesman === 'object' && invoice.salesman !== null
-                    ? invoice.salesman.fullName
-                    : (invoice.salesmanName || (typeof invoice.salesman === 'string' ? invoice.salesman : ''));
+                  const sName = invoice.salesman?.fullName || invoice.salesmanName || '';
 
                   return (
                     <tr

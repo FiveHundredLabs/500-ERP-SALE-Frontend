@@ -5,9 +5,8 @@ import type {
   QuotationCustomer 
 } from "../types/quotation";
 import type { InventoryItem } from "../types/inventory"; 
-import { extractCityFromAddress } from "../types/customers";
-import { moneyToApi, moneyToNumber } from '../utils/money';
-import { mapInventoryItem, mapQuotation } from './apiMappers';
+import { moneyToApi } from '../utils/money';
+import { mapCustomer, mapInventoryItem, mapQuotation } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -40,24 +39,7 @@ export const quotationService = {
   async getAllCustomers(): Promise<QuotationCustomer[]> {
     const res = await fetch(`${API_BASE}/customers`, { credentials: 'include' });
     if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
-    const data = await res.json();
-    return (data || []).map((c: any) => ({
-      id: c.id,
-      shopName: c.shopName || c.name || c.businessName || 'Customer',
-      fullName: c.fullName || c.name || c.shopName || 'Customer',
-      contactPerson: c.contactPerson || '',
-      email: c.email || '',
-      phone: c.phone || '',
-      phone2: c.phone2 || '',
-      phone3: c.phone3 || '',
-      vatNumber: c.vatNumber || '',
-      customerCode: c.customerCode || c.id || 'CUST',
-      creditPeriod: c.creditPeriod || 30,
-      paymentTerms: c.paymentTerms || 'Net 30',
-      creditLimit: moneyToNumber(c.creditLimit),
-      address: c.address || '',
-      city: c.city || extractCityFromAddress(c.address || ''),
-    }));
+    return ((await res.json()) as unknown[]).map(mapCustomer);
   },
 
   // Get next quotation ID

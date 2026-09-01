@@ -17,26 +17,22 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
         <div>
           <h2 className="text-sm font-bold text-gray-700 uppercase mb-2">Customer Details</h2>
           <div className="font-semibold text-lg">
-            {typeof returnData.customer === 'string' 
-              ? returnData.customer 
-              : (returnData.customer?.shopName || returnData.customer?.fullName || 'Customer')}
+            {returnData.customer?.shopName || returnData.customer?.fullName || 'Customer'}
           </div>
           <div className="text-sm text-gray-600 mt-1">
-            {typeof returnData.customer !== 'string' && returnData.customer?.phone && (
+            {returnData.customer?.phone && (
               <div>Phone: {returnData.customer.phone}</div>
             )}
-            {typeof returnData.customer !== 'string' && returnData.customer?.address && (
+            {returnData.customer?.address && (
               <div>
-                Address: {typeof returnData.customer.address === 'string' 
-                  ? returnData.customer.address 
-                  : `${(returnData.customer.address as any).street || ''} ${(returnData.customer.address as any).city || ''}`}
+                Address: {returnData.customer.address}
               </div>
             )}
           </div>
         </div>
         <div className="text-right">
           <div className="mb-2"><span className="font-bold text-gray-700">Return ID:</span> {returnData.returnNumber}</div>
-          <div className="mb-2"><span className="font-bold text-gray-700">Original Invoice:</span> {typeof returnData.invoice === 'string' ? returnData.invoice : returnData.invoice.invoiceNumber}</div>
+          <div className="mb-2"><span className="font-bold text-gray-700">Original Invoice:</span> {returnData.invoice.invoiceNumber}</div>
           <div><span className="font-bold text-gray-700">Date:</span> {new Date(returnData.createdAt).toLocaleDateString()}</div>
         </div>
       </div>

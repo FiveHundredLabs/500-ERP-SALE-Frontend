@@ -131,14 +131,7 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
                     </div>
                     {customer.address && (
                       <div className="text-xs text-gray-400 mt-1">
-                        Address: {typeof customer.address === 'string' 
-                          ? customer.address 
-                          : `${customer.address.street || ''} ${customer.address.city || ''}`}
-                      </div>
-                    )}
-                    {customer.vehicle_number && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Vehicle: {customer.vehicle_number} {customer.vehicle_model && `(${customer.vehicle_model})`}
+                        Address: {customer.address}
                       </div>
                     )}
                   </div>

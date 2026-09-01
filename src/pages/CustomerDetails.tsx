@@ -156,7 +156,7 @@ const CustomerDetails: React.FC = () => {
   const customerOrders = useMemo(() => {
     if (!customer) return [];
     return orders.filter(
-      (o) => o.customerId === customer.id || o.customerName === (customer.shopName || customer.businessName || customer.fullName)
+      (o) => o.customerId === customer.id || o.customerName === (customer.shopName || customer.fullName)
     );
   }, [customer, orders]);
 
@@ -266,8 +266,8 @@ const CustomerDetails: React.FC = () => {
 
       const updatedInvoicesList = await invoiceService.getAll();
       const matching = updatedInvoicesList.filter((inv) => {
-        const invCustName = (inv.customer as any)?.fullName || (inv.customer as any)?.shopName || inv.customer;
-        const targetName = customer?.shopName || customer?.businessName;
+        const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
+        const targetName = customer?.shopName;
         return invCustName === targetName;
       });
       setInvoices(matching);
@@ -366,7 +366,7 @@ const CustomerDetails: React.FC = () => {
           </button>
           <span>/</span>
           <span className="text-slate-200 font-medium truncate max-w-[200px]">
-            {customer.shopName || customer.businessName}
+            {customer.shopName}
           </span>
         </div>
 
@@ -377,7 +377,7 @@ const CustomerDetails: React.FC = () => {
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="text-xl font-bold text-white tracking-tight">
-                  {customer.shopName || customer.businessName}
+                  {customer.shopName}
                 </h1>
                 <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-md">
                   {customer.customerCode}
@@ -855,7 +855,7 @@ const CustomerDetails: React.FC = () => {
                     </span>
                   </h2>
                   <p className="text-xs text-gray-400">
-                    Applying payment for <strong className="text-white">{customer.shopName || customer.businessName}</strong> ({customer.customerCode})
+                    Applying payment for <strong className="text-white">{customer.shopName}</strong> ({customer.customerCode})
                   </p>
                 </div>
               </div>
@@ -1115,12 +1115,12 @@ const CustomerDetails: React.FC = () => {
           onClose={() => setSelectedInvoiceForView(null)}
           invoiceData={{
             ...selectedInvoiceForView,
-            salesman: typeof selectedInvoiceForView.salesman === 'object' && selectedInvoiceForView.salesman !== null
-              ? selectedInvoiceForView.salesman
-              : { id: 'so-001', name: typeof selectedInvoiceForView.salesman === 'string' ? selectedInvoiceForView.salesman : 'Kasun Perera' },
-            customer: typeof selectedInvoiceForView.customer === 'object' ? (selectedInvoiceForView.customer as any)?.id || '' : selectedInvoiceForView.customer,
-            customerDetails: typeof selectedInvoiceForView.customer === 'object' ? (selectedInvoiceForView.customer as any) : undefined,
-            items: selectedInvoiceForView.items.map((item: any) => ({
+            salesman: selectedInvoiceForView.salesman || (selectedInvoiceForView.salesmanName
+              ? { id: '', name: selectedInvoiceForView.salesmanName }
+              : null),
+            customer: selectedInvoiceForView.customer?.id || '',
+            customerDetails: selectedInvoiceForView.customer ?? undefined,
+            items: selectedInvoiceForView.items.map(item => ({
               id: item.id || Math.random().toString(),
               inventoryItemId: item.inventoryItemId || item.itemCode || '',
               itemName: item.itemName || item.inventoryItem?.productName || 'Product',

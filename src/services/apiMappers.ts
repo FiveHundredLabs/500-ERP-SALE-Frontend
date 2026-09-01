@@ -15,10 +15,8 @@ export const mapCustomer = (value: any): Customer => ({
   ...value,
   shopName: value.shopName ?? value.fullName ?? 'Customer',
   fullName: value.fullName ?? value.shopName ?? 'Customer',
-  address: typeof value.address === 'string'
-    ? value.address
-    : [value.address?.street, value.address?.city, value.address?.country, value.address?.zip].filter(Boolean).join(', '),
-  city: value.city ?? value.address?.city,
+  address: value.address ?? '',
+  city: value.city,
   creditLimit: money(value.creditLimit),
   totalInvoiced: money(value.totalInvoiced),
   totalPaid: money(value.totalPaid),
@@ -48,7 +46,7 @@ export const mapInventoryItem = (value: any): InventoryItem => ({
 export const mapInvoice = (value: any): InvoiceResponse => ({
   ...value,
   customer: value.customer ? mapCustomer(value.customer) : null,
-  customerDetails: value.customerSnapshot ?? value.customer ?? null,
+  customerDetails: value.customerDetails ?? value.customer ?? null,
   salesmanName: value.salesmanName ?? value.salesman?.fullName,
   items: (value.items ?? []).map((item: any) => ({
     ...item,
@@ -88,7 +86,7 @@ export const mapQuotation = (value: any): QuotationResponse => ({
 
 export const mapInvoiceReturn = (value: any): InvoiceReturn => ({
   ...value,
-  invoice: value.invoice ? mapInvoice(value.invoice) : value.invoice,
+  invoice: value.invoice,
   customer: value.customer ? mapCustomer(value.customer) : value.customer,
   items: (value.items ?? []).map((item: any) => ({
     ...item,
@@ -104,10 +102,7 @@ export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
   paymentMethod: ({
     Cash: 'cash', Credit: 'credit', Card: 'card', 'Bank Deposit': 'bank_deposit',
     'Bank Transfer': 'bank_transfer', Cheque: 'cheque',
-  } as Record<string, string>)[value.paymentMethod?.type ?? value.paymentMethod] ?? value.paymentMethod,
-  bankName: value.bankName ?? value.paymentMethod?.bankName,
-  accountNumber: value.accountNumber ?? value.paymentMethod?.accountNumber,
-  transactionRef: value.transactionRef ?? value.paymentMethod?.transactionRef,
+  } as Record<string, string>)[value.paymentMethod] ?? value.paymentMethod,
   invoice: value.invoice?.id ? value.invoice : null,
   invoiceNumber: value.invoiceNumber ?? value.invoice?.invoiceNumber ?? '',
   amount: money(value.amount),

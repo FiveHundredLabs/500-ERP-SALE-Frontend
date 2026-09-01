@@ -372,14 +372,13 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
                 invoiceData={{
                   documentTitle: "QUOTATION",
                   invoiceNumber: quotationData.quotationNumber || "Draft",
-                  invoiceId: quotationData.quotationNumber || "Draft",
                   customer: quotationData.customer,
                   customerDetails: quotationData.customerDetails as any,
                   items: quotationData.items.map(item => ({
                     id: item.id || Date.now().toString(),
-                    inventoryItemId: item.inventoryItemId || 'unknown',
-                    itemName: item.itemName || 'Product',
-                    itemCode: item.productCode || '',
+                    inventoryItemId: item.inventoryItemId,
+                    itemName: item.itemName || item.inventoryItem?.productName || 'Item',
+                    itemCode: item.productCode || item.inventoryItem?.productCode,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                     total: item.total,

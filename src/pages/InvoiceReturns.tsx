@@ -31,7 +31,7 @@ const InvoiceReturns: React.FC = () => {
   // Pagination & Sorting
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [sortColumn, setSortColumn] = useState('created_at');
+  const [sortColumn, setSortColumn] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Modals
@@ -55,14 +55,14 @@ const InvoiceReturns: React.FC = () => {
   }, []);
 
   const getCustomerInfo = (r: InvoiceReturn) => {
-    if (typeof r.customer === 'object' && r.customer) {
+    if (r.customer) {
       return {
         name: r.customer.shopName || r.customer.fullName || 'Customer',
         phone: r.customer.phone || '',
       };
     }
     return {
-      name: typeof r.customer === 'string' ? r.customer : 'Walk-in Customer',
+      name: 'Walk-in Customer',
       phone: '',
     };
   };
@@ -73,7 +73,7 @@ const InvoiceReturns: React.FC = () => {
 
     returns.forEach((r) => {
       const cust = getCustomerInfo(r);
-      const invId = typeof r.invoice === 'string' ? r.invoice : r.invoice?.invoiceId || '';
+      const invId = r.invoice?.invoiceNumber || '';
 
       suggestions.push({
         id: `ret-${r.id}`,
@@ -117,9 +117,13 @@ const InvoiceReturns: React.FC = () => {
       if (!q) return matchesStatus;
 
       const retId = (r.returnNumber || '').toLowerCase();
+<<<<<<< HEAD
       const invId = (
         typeof r.invoice === 'string' ? r.invoice : r.invoice?.invoiceId || ''
       ).toLowerCase();
+=======
+      const invId = (r.invoice?.invoiceNumber || '').toLowerCase();
+>>>>>>> 4bc26992a091978c1aeb8977ebab55ccf3f32304
       const cust = getCustomerInfo(r);
       const custName = (cust.name || '').toLowerCase();
       const custPhone = (cust.phone || '').toLowerCase();
@@ -145,8 +149,8 @@ const InvoiceReturns: React.FC = () => {
       let bVal: any = (b as any)[sortColumn];
 
       if (sortColumn === 'invoice') {
-        aVal = typeof a.invoice === 'string' ? a.invoice : a.invoice?.invoiceId || '';
-        bVal = typeof b.invoice === 'string' ? b.invoice : b.invoice?.invoiceId || '';
+        aVal = a.invoice?.invoiceNumber || '';
+        bVal = b.invoice?.invoiceNumber || '';
       } else if (sortColumn === 'customer') {
         aVal = getCustomerInfo(a).name;
         bVal = getCustomerInfo(b).name;
@@ -225,7 +229,7 @@ const InvoiceReturns: React.FC = () => {
       sortable: true,
       minWidth: '160px',
       render: (row) => {
-        const invId = typeof row.invoice === 'string' ? row.invoice : row.invoice?.invoiceId || 'INV';
+        const invId = row.invoice?.invoiceNumber || 'INV';
         return (
           <span className="font-mono text-cyan-400 font-semibold whitespace-nowrap flex items-center gap-1.5 text-xs">
             <FileText size={13} className="text-cyan-500 shrink-0" />

@@ -37,11 +37,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
   const renderAddress = () => {
     if (!customer.address) return "N/A";
-    if (typeof customer.address === 'string') return customer.address;
-    const parts = [];
-    if (customer.address.street) parts.push(customer.address.street);
-    if (customer.address.city) parts.push(customer.address.city);
-    return parts.join(', ');
+    return customer.address;
   };
 
   const getDiscountDisplay = (item: any) => {
@@ -141,7 +137,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   Date: <span style={{ color: '#111827' }}>{formatDate(invoiceData.issueDate)}</span>
                 </div>
                 <div style={{ fontSize: '13px', color: '#4b5563', fontWeight: '600' }}>
-                  {documentLabel} <span style={{ color: '#111827' }}>{invoiceData.invoiceId}</span>
+                  {documentLabel} <span style={{ color: '#111827' }}>{invoiceData.invoiceNumber}</span>
                 </div>
                 {chunkedItems.length > 1 && (
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
@@ -220,7 +216,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   return (
                     <tr key={item.id || globalIndex} style={rowStyle}>
                       <td style={{ padding: '2px 5px', border: '1px solid #e2e8f0', color: '#64748b', textAlign: 'center', whiteSpace: 'nowrap' }}>{globalIndex + 1}</td>
-                      <td style={{ padding: '2px 10px', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName || item.item}</td>
+                      <td style={{ padding: '2px 10px', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName || item.inventoryItem?.productName || 'Item'}</td>
                       <td style={{ padding: '2px 5px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap' }}>{item.quantity}</td>
                       <td style={{ padding: '2px 10px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap' }}>{Math.round(item.unitPrice).toLocaleString()}</td>
                       <td style={{ padding: '2px 5px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap' }}>
@@ -255,7 +251,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                     <span style={{ color: '#0f172a' }}>Rs. {Math.round(subTotal).toLocaleString()}</span>
                   </div>
 
-                  {(invoiceData.discount > 0 || (invoiceData.discountPercentage || 0) > 0) && (
+                  {(invoiceData.discount > 0 || (invoiceData.discountPercentage ?? 0) > 0) && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
                       <span>Total Discount:</span>
                       <span style={{ color: '#dc2626', fontWeight: '600' }}>- Rs. {Math.round(invoiceData.discount).toLocaleString()}</span>

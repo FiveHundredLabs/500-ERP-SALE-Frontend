@@ -5,9 +5,8 @@ import type {
   InvoiceCustomer
 } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory"; 
-import { extractCityFromAddress } from "../types/customers";
 import { moneyToApi, moneyToNumber } from '../utils/money';
-import { mapInventoryItem, mapInvoice } from './apiMappers';
+import { mapCustomer, mapInventoryItem, mapInvoice } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -72,23 +71,7 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
-    const data = await res.json();
-    return (data || []).map((c: any) => ({
-      id: c.id,
-      customerCode: c.customerCode,
-      shopName: c.shopName || c.name || c.businessName || 'Customer',
-      fullName: c.fullName || c.name || c.shopName || 'Customer',
-      contactPerson: c.contactPerson || '',
-      phone: c.phone || '',
-      phone2: c.phone2 || '',
-      phone3: c.phone3 || '',
-      creditLimit: moneyToNumber(c.creditLimit),
-      salesRepId: c.salesRepId,
-      salesRep: c.salesRep,
-      salesRepName: c.salesRepName,
-      address: c.address || '',
-      city: c.city || extractCityFromAddress(c.address || ''),
-    }));
+    return ((await res.json()) as unknown[]).map(mapCustomer);
   },
 
   // Get next invoice ID

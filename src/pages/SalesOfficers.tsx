@@ -144,10 +144,7 @@ export const SalesOfficers: React.FC = () => {
       const officer = officers.find((o) => o.id === selectedOfficerId || o.officerId === selectedOfficerId);
       const officerName = officer ? officer.fullName : "";
       list = list.filter((inv: InvoiceResponse) => {
-        const sName =
-          typeof inv.salesman === "object" && inv.salesman !== null
-            ? inv.salesman.fullName
-            : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
+        const sName = inv.salesman?.fullName || inv.salesmanName || "";
         return sName === officerName || inv.salesman?.id === selectedOfficerId;
       });
     }
@@ -175,11 +172,8 @@ export const SalesOfficers: React.FC = () => {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((inv: InvoiceResponse) => {
         const idMatch = inv.invoiceNumber.toLowerCase().includes(q);
-        const custMatch = (inv.customer as any)?.fullName?.toLowerCase().includes(q);
-        const sName =
-          typeof inv.salesman === "object" && inv.salesman !== null
-            ? inv.salesman.fullName || ""
-            : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
+        const custMatch = inv.customer?.fullName?.toLowerCase().includes(q);
+        const sName = inv.salesman?.fullName || inv.salesmanName || "";
         const salesMatch = sName.toLowerCase().includes(q);
         return idMatch || custMatch || salesMatch;
       });
@@ -462,10 +456,7 @@ export const SalesOfficers: React.FC = () => {
               {officers.map((officer) => {
                 const isSelected = selectedOfficerId === officer.id || selectedOfficerId === officer.officerId;
                 const officerInvoices = periodFilteredInvoices.filter((inv: InvoiceResponse) => {
-                  const sName =
-                    typeof inv.salesman === "object" && inv.salesman !== null
-                      ? inv.salesman.fullName
-                      : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
+                  const sName = inv.salesman?.fullName || inv.salesmanName || "";
                   return sName === officer.fullName;
                 });
                 const officerSales = officerInvoices.reduce((sum: number, i: InvoiceResponse) => sum + (i.totalAmount || 0), 0);
@@ -689,10 +680,7 @@ export const SalesOfficers: React.FC = () => {
                     </tr>
                   ) : (
                     displayedInvoices.map((inv: InvoiceResponse) => {
-                      const sName =
-                        typeof inv.salesman === "object" && inv.salesman !== null
-                          ? inv.salesman.fullName
-                          : inv.salesmanName || (typeof inv.salesman === "string" ? inv.salesman : "");
+                      const sName = inv.salesman?.fullName || inv.salesmanName || "";
 
                       return (
                         <tr
@@ -829,9 +817,9 @@ export const SalesOfficers: React.FC = () => {
             applyVat: selectedInvoice.applyVat || false,
             vatAmount: selectedInvoice.vatAmount || 0,
             taxRate: selectedInvoice.taxRate || 0,
-            salesman: typeof selectedInvoice.salesman === 'object' && selectedInvoice.salesman !== null
-              ? selectedInvoice.salesman
-              : { id: 'so-001', name: typeof selectedInvoice.salesman === 'string' ? selectedInvoice.salesman : 'Kasun Perera' },
+            salesman: selectedInvoice.salesman || (selectedInvoice.salesmanName
+              ? { id: '', name: selectedInvoice.salesmanName }
+              : null),
           }}
         />
       )}
