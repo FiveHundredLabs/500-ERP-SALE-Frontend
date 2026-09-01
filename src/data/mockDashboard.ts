@@ -261,7 +261,7 @@ export const recentActivityFeed = [
   },
   overdueInvoice && {
     type: 'payment',
-    message: `⚠ Overdue: Invoice ${overdueInvoice.invoiceNumber} — ${overdueInvoice.customer?.fullName || 'Customer'}`,
+    message: `⚠ Overdue: Invoice ${overdueInvoice.invoiceNumber} — ${(overdueInvoice.customer as any)?.fullName || 'Customer'}`,
     time: '3 hrs ago',
     color: '#f87171',
   },

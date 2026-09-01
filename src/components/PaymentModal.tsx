@@ -162,7 +162,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
               <div className="col-span-2">
                 <p className="text-gray-500 text-xs uppercase tracking-wide">Customer</p>
-                <p className="text-gray-200 font-medium">{selectedInvoice.customer?.fullName || 'N/A'}</p>
+                <p className="text-gray-200 font-medium">{(selectedInvoice.customer as any)?.fullName || 'N/A'}</p>
               </div>
             </div>
           </div>

@@ -150,7 +150,7 @@ const Finance: React.FC = () => {
       await financeService.create(paymentData);
 
       // Update invoice payment status to "completed"
-      await invoiceService.updatePaymentStatus(selectedInvoice.id, 'completed');
+      await invoiceService.updatePaymentStatus(selectedInvoice.id || selectedInvoice.invoiceId || '', 'completed');
 
       setAlert({
         type: 'success',
@@ -219,9 +219,9 @@ const Finance: React.FC = () => {
         // Render the InvoiceCanvas
         const invoiceData = {
           invoiceNumber: invoice.invoiceNumber,
-          customer: invoice.customer?.id || "",
-          customerDetails: invoice.customer ?? undefined,
-          items: invoice.items.map(item => ({
+          customer: typeof invoice.customer === 'object' ? (invoice.customer as any)?.id || '' : invoice.customer,
+          customerDetails: (typeof invoice.customer === 'object' ? invoice.customer : undefined) as any,
+          items: invoice.items.map((item: any) => ({
             id: item.id || Date.now().toString(),
             inventoryItemId: item.inventoryItemId,
             itemName: item.itemName || item.inventoryItem?.productName || "Item",
@@ -332,7 +332,7 @@ const Finance: React.FC = () => {
           try {
             // Update payment status if pending
             if (invoice.paymentStatus === 'pending') {
-              await invoiceService.updatePaymentStatus(invoice.id, 'completed');
+              await invoiceService.updatePaymentStatus(invoice.id || invoice.invoiceId || '', 'completed');
               await loadInvoices();
             }
             await proceedWithDownload();
@@ -370,20 +370,20 @@ const Finance: React.FC = () => {
       suggestions.push({
         id: `inv-${inv.id || inv.invoiceNumber}`,
         title: inv.invoiceNumber,
-        subtitle: `${inv.customer?.fullName || 'Customer'} · LKR ${(inv.totalAmount || 0).toLocaleString()} · ${inv.paymentStatus}`,
+        subtitle: `${(inv.customer as any)?.fullName || 'Customer'} · LKR ${(inv.totalAmount || 0).toLocaleString()} · ${inv.paymentStatus}`,
         category: 'Invoice ID',
         value: inv.invoiceNumber,
       });
 
       // 2. Customers
-      if (inv.customer?.fullName && !seenCustomers.has(inv.customer.fullName)) {
-        seenCustomers.add(inv.customer.fullName);
+      if ((inv.customer as any)?.fullName && !seenCustomers.has((inv.customer as any).fullName)) {
+        seenCustomers.add((inv.customer as any).fullName);
         suggestions.push({
-          id: `cust-${inv.customer.id || inv.customer.fullName}`,
-          title: inv.customer.fullName,
-          subtitle: `${inv.customer.phone ? `${inv.customer.phone} · ` : ''}${(inv.customer as any).shopName || (inv.customer as any).address || ''}`,
+          id: `cust-${(inv.customer as any).id || (inv.customer as any).fullName}`,
+          title: (inv.customer as any).fullName,
+          subtitle: `${(inv.customer as any).phone ? `${(inv.customer as any).phone} · ` : ''}${(inv.customer as any).shopName || (inv.customer as any).address || ''}`,
           category: 'Customer',
-          value: inv.customer.fullName,
+          value: (inv.customer as any).fullName,
         });
       }
 
@@ -415,14 +415,14 @@ const Finance: React.FC = () => {
       } else if (filterConfig.selectedField === "Invoice ID") {
         if (!invoice.invoiceNumber.toLowerCase().includes(query)) return false;
       } else if (filterConfig.selectedField === "Customer Name") {
-        if (!invoice.customer?.fullName?.toLowerCase().includes(query)) return false;
+        if (!(invoice.customer as any)?.fullName?.toLowerCase().includes(query)) return false;
       } else if (filterConfig.selectedField === "Status") {
         if (!invoice.paymentStatus.toLowerCase().includes(query)) return false;
       } else {
         // "All Fields"
         const matchesSearch =
           invoice.invoiceNumber.toLowerCase().includes(query) ||
-          invoice.customer?.fullName?.toLowerCase().includes(query) ||
+          (invoice.customer as any)?.fullName?.toLowerCase().includes(query) ||
           salesmanName.toLowerCase().includes(query) ||
           invoice.totalAmount.toString().includes(query);
 

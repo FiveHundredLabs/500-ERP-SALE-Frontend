@@ -86,8 +86,8 @@ const CustomerDetails: React.FC = () => {
         setOrders(allOrders);
 
         const customerInvoices = allInvoices.filter((inv) => {
-          const invCustId = inv.customer?.id;
-          const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
+          const invCustId = (inv.customer as any)?.id || inv.customer;
+          const invCustName = (inv.customer as any)?.fullName || (inv.customer as any)?.shopName || inv.customer;
           const targetName = foundCustomer?.shopName || foundCustomer?.fullName;
           const targetId = foundCustomer?.id || foundCustomer?.customerCode;
 
@@ -266,7 +266,7 @@ const CustomerDetails: React.FC = () => {
 
       const updatedInvoicesList = await invoiceService.getAll();
       const matching = updatedInvoicesList.filter((inv) => {
-        const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
+        const invCustName = (inv.customer as any)?.fullName || (inv.customer as any)?.shopName || inv.customer;
         const targetName = customer?.shopName || customer?.businessName;
         return invCustName === targetName;
       });
@@ -684,7 +684,7 @@ const CustomerDetails: React.FC = () => {
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="relative flex justify-end">
                               <button
-                                onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : inv.id)}
+                                onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv.id || inv.invoiceId || inv.invoiceNumber || ''))}
                                 className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#334155] transition"
                                 title="Invoice actions"
                               >
@@ -1118,11 +1118,11 @@ const CustomerDetails: React.FC = () => {
             salesman: typeof selectedInvoiceForView.salesman === 'object' && selectedInvoiceForView.salesman !== null
               ? selectedInvoiceForView.salesman
               : { id: 'so-001', name: typeof selectedInvoiceForView.salesman === 'string' ? selectedInvoiceForView.salesman : 'Kasun Perera' },
-            customer: selectedInvoiceForView.customer?.id || '',
-            customerDetails: selectedInvoiceForView.customer ?? undefined,
-            items: selectedInvoiceForView.items.map(item => ({
+            customer: typeof selectedInvoiceForView.customer === 'object' ? (selectedInvoiceForView.customer as any)?.id || '' : selectedInvoiceForView.customer,
+            customerDetails: typeof selectedInvoiceForView.customer === 'object' ? (selectedInvoiceForView.customer as any) : undefined,
+            items: selectedInvoiceForView.items.map((item: any) => ({
               id: item.id || Math.random().toString(),
-              inventoryItemId: item.inventoryItemId,
+              inventoryItemId: item.inventoryItemId || item.itemCode || '',
               itemName: item.itemName || item.inventoryItem?.productName || 'Product',
               itemCode: item.itemCode || item.inventoryItem?.productCode || '',
               discount: item.discount || 0,

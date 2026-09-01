@@ -255,7 +255,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                     <span style={{ color: '#0f172a' }}>Rs. {Math.round(subTotal).toLocaleString()}</span>
                   </div>
 
-                  {(invoiceData.discount > 0 || invoiceData.discountPercentage > 0) && (
+                  {(invoiceData.discount > 0 || (invoiceData.discountPercentage || 0) > 0) && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
                       <span>Total Discount:</span>
                       <span style={{ color: '#dc2626', fontWeight: '600' }}>- Rs. {Math.round(invoiceData.discount).toLocaleString()}</span>

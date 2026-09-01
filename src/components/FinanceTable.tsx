@@ -412,7 +412,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
 
                       <td className="py-3 px-3">
                         <span className="font-semibold text-white truncate block max-w-[150px]">
-                          {invoice.customer?.shopName || invoice.customer?.fullName || "N/A"}
+                          {(invoice.customer as any)?.shopName || (invoice.customer as any)?.fullName || "N/A"}
                         </span>
                       </td>
 
@@ -502,7 +502,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                       <td className="py-3 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="relative flex justify-end">
                           <button
-                            onClick={() => setActiveMenuId(isMenuOpen ? null : invoice.id)}
+                            onClick={() => setActiveMenuId(isMenuOpen ? null : (invoice.id || invoice.invoiceId || invoice.invoiceNumber || ''))}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition"
                             title="Invoice Actions"
                           >

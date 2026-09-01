@@ -469,8 +469,8 @@ const Invoice: React.FC = () => {
 
     const backendData: BackendInvoiceData = {
       invoiceNumber: data.invoiceNumber,
-      customerId: data.customer,
-      salesmanId: data.salesman?.id || null,
+      customerId: typeof data.customer === 'object' ? (data.customer as any)?.id || '' : data.customer,
+      salesmanId: data.salesman?._id || data.salesman?.id || null,
       items: data.items.map(item => ({
         inventoryItemId: item.inventoryItemId,
         quantity: item.quantity,

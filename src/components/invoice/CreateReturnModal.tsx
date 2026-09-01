@@ -80,7 +80,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
   // Load past returns when invoice is selected
   useEffect(() => {
     if (selectedInvoice) {
-      const invId = selectedInvoice._id || selectedInvoice.invoiceId;
+      const invId = selectedInvoice._id || selectedInvoice.invoiceId || selectedInvoice.id || selectedInvoice.invoiceNumber || '';
       fetchPastReturns(invId);
     } else {
       setPastReturns([]);
@@ -103,7 +103,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     try {
       setIsFetchingPastReturns(true);
       const returns = await invoiceReturnService.getByInvoiceId(invoiceId);
-      setPastReturns(returns.filter(r => r.status !== 'Cancelled'));
+      setPastReturns(returns.filter(r => r.status !== 'cancelled'));
     } catch (err) {
       console.error('Failed to fetch past returns:', err);
     } finally {
@@ -150,7 +150,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     let sum = 0;
     pastReturns.forEach((pr) => {
       const match = pr.items.find((i) => {
-        const itemObjId = typeof i.item === 'string' ? i.item : (i.item as any)?._id;
+        const itemObjId = i.inventoryItemId || (i as any).item;
         return itemObjId === itemId;
       });
       if (match) sum += match.quantity;
@@ -170,7 +170,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     if (!selectedInvoice) return;
     const allQtys: Record<string, number> = {};
     selectedInvoice.items.forEach((item, idx) => {
-      const itemId = (item.item as any)?._id || (item as any)._id || `item-${idx}`;
+      const itemId = item.inventoryItemId || (item as any).item || `item-${idx}`;
       const alreadyReturned = getAlreadyReturned(itemId);
       const returnable = Math.max(0, item.quantity - alreadyReturned);
       allQtys[itemId] = returnable;
@@ -198,9 +198,10 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     }> = [];
 
     selectedInvoice.items.forEach((item, idx) => {
-      const itemId = (item.item as any)?._id || (item as any)._id || `item-${idx}`;
+      const itemId = item.inventoryItemId || (item as any).item || `item-${idx}`;
       const itemName =
-        (item.item as any)?.product_name || (item as any).itemName || 'Item ' + (idx + 1);
+        (item as any).item?.product_name ||
+        (item as any).itemName || 'Item ' + (idx + 1);
       const qty = returnQuantities[itemId] || 0;
 
       if (qty > 0) {
@@ -251,9 +252,9 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     try {
       setIsSubmitting(true);
       const payload = {
-        invoice: selectedInvoice._id || selectedInvoice.invoiceId,
+        invoiceId: selectedInvoice._id || selectedInvoice.invoiceId || '',
         items: returnSummary.itemsToReturn.map((i) => ({
-          item: i.item,
+          inventoryItemId: (i as any).item,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           total: i.total,
@@ -264,7 +265,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
       };
 
       const result = await invoiceReturnService.create(payload);
-      toast.success(`Return note ${result.returnId || ''} created successfully!`);
+      toast.success(`Return note ${result.returnNumber || ''} created successfully!`);
       onSuccess(result);
       onClose();
     } catch (err: any) {
@@ -502,11 +503,11 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1e293b]">
-                      {selectedInvoice.items.map((item, idx) => {
+                      {selectedInvoice.items.map((item: any, idx: number) => {
                         const itemId =
-                          (item.item as any)?._id || (item as any)._id || `item-${idx}`;
+                          item.inventoryItemId || (item as any).item || `item-${idx}`;
                         const itemName =
-                          (item.item as any)?.product_name ||
+                          (item as any).item?.product_name ||
                           (item as any).itemName ||
                           'Item ' + (idx + 1);
                         const itemCode =

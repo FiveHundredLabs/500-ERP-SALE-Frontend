@@ -3,56 +3,52 @@ import type { InvoiceResponse } from '../types/invoice';
 import type { Order } from '../types/orders';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-const STORAGE_KEY = 'erp_sales_officers_list';
+
 
 export class SalesOfficerService {
-  private getStored(): SalesOfficer[] {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
+  private getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+    const headers: Record<string, string> = { ...extraHeaders };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-  }
-
-  private saveStored(data: SalesOfficer[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return headers;
   }
 
   async getAll(): Promise<SalesOfficer[]> {
     try {
-      const res = await fetch(`${API_BASE}/users`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/users`, { 
+        headers: this.getAuthHeaders(),
+        credentials: 'include' 
+      });
       if (res.ok) {
         const users = await res.json();
         if (Array.isArray(users)) {
           const salesmen = users.filter((u: any) => u.role === 'salesman');
-          if (salesmen.length > 0) {
-            return salesmen.map((u: any, idx: number) => ({
-              id: u.id,
-              officerId: `SO-${String(idx + 1).padStart(3, '0')}`,
-              fullName: u.fullName || u.email,
-              contactNumber: u.phone || '+94705787818',
-              phone: u.phone || '+94705787818',
-              joiningDate: u.createdAt ? u.createdAt.split('T')[0] : '2026-01-01',
-              username: u.email ? u.email.split('@')[0] : `user${idx + 1}`,
-              email: u.email,
-              status: 'Active' as const,
-              assignedTerritory: u.area || 'All Regions',
-              assignedArea: u.area || 'All Regions',
-              monthlyTarget: 1000000,
-              commissionRate: 5,
-              assignedCustomerIds: [],
-              createdAt: u.createdAt || new Date().toISOString(),
-              updatedAt: u.updatedAt || new Date().toISOString(),
-            }));
-          }
+          return salesmen.map((u: any, idx: number) => ({
+            id: u._id || u.id,
+            officerId: u.officerId || `SO-${String(idx + 1).padStart(3, '0')}`,
+            fullName: u.fullName || u.email,
+            contactNumber: u.contactNumber || u.phone || '+94705787818',
+            phone: u.phone || '+94705787818',
+            joiningDate: u.joiningDate ? u.joiningDate.split('T')[0] : (u.createdAt ? u.createdAt.split('T')[0] : '2026-01-01'),
+            username: u.username || (u.email ? u.email.split('@')[0] : `user${idx + 1}`),
+            email: u.email,
+            status: u.status || 'Active',
+            assignedTerritory: u.assignedTerritory || u.assignedArea || 'All Regions',
+            assignedArea: u.assignedArea || u.assignedTerritory || 'All Regions',
+            monthlyTarget: 1000000,
+            commissionRate: 5,
+            assignedCustomerIds: u.assignedCustomerIds || [],
+            createdAt: u.createdAt || new Date().toISOString(),
+            updatedAt: u.updatedAt || new Date().toISOString(),
+          }));
         }
       }
-    } catch {
-      // fallback to stored
+    } catch (e) {
+      console.error("Failed to load sales officers", e);
     }
-    return this.getStored();
+    return [];
   }
 
   async getById(id: string): Promise<SalesOfficer | undefined> {
@@ -60,41 +56,78 @@ export class SalesOfficerService {
     return all.find(so => so.id === id || so.officerId === id);
   }
 
-  async create(data: Omit<SalesOfficer, 'id' | 'createdAt' | 'updatedAt'>): Promise<SalesOfficer> {
+  async create(data: Omit<SalesOfficer, 'id' | 'createdAt' | 'updatedAt'> & { password?: string; assignedCustomers?: string[] }): Promise<SalesOfficer> {
     const all = await this.getAll();
-    const newOfficer: SalesOfficer = {
-      ...data,
-      id: `so-${Date.now()}`,
+    const payload = {
+      fullName: data.fullName,
+      email: data.email || `${data.username || Date.now()}@erp.local`,
+      password: data.password || '123456',
+      role: 'salesman',
+      phone: data.contactNumber,
+      contactNumber: data.contactNumber,
+      joiningDate: data.joiningDate,
+      status: data.status,
+      assignedCustomerIds: data.assignedCustomerIds,
+      assignedCustomers: data.assignedCustomers,
+      assignedTerritory: data.assignedTerritory,
+      assignedArea: data.assignedArea,
+      username: data.username,
       officerId: data.officerId || `SO-${String(all.length + 1).padStart(3, '0')}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      assignedCustomerIds: data.assignedCustomerIds || [],
     };
-    all.unshift(newOfficer);
-    this.saveStored(all);
-    return newOfficer;
+
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create sales officer');
+    }
+
+    const created = await res.json();
+    return {
+      ...data,
+      id: created._id || created.id,
+      officerId: payload.officerId,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    } as SalesOfficer;
   }
 
-  async update(id: string, data: Partial<SalesOfficer>): Promise<SalesOfficer> {
-    const all = await this.getAll();
-    const index = all.findIndex(so => so.id === id || so.officerId === id);
-    if (index === -1) {
-      throw new Error(`Sales officer with ID ${id} not found`);
+  async update(id: string, data: Partial<SalesOfficer> & { password?: string; assignedCustomers?: string[] }): Promise<SalesOfficer> {
+    const res = await fetch(`${API_BASE}/users/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to update sales officer ${id}`);
     }
-    const updated = {
-      ...all[index],
+
+    const updated = await res.json();
+    return {
       ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    all[index] = updated;
-    this.saveStored(all);
-    return updated;
+      id: updated._id || updated.id,
+      updatedAt: updated.updatedAt,
+    } as SalesOfficer;
   }
 
   async delete(id: string): Promise<boolean> {
-    const all = await this.getAll();
-    const filtered = all.filter(so => so.id !== id && so.officerId !== id);
-    this.saveStored(filtered);
+    const res = await fetch(`${API_BASE}/users/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to delete sales officer ${id}`);
+    }
     return true;
   }
 
