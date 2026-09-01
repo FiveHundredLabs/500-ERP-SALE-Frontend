@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, StatusBadge, useToast } from '../components/erp';
 import type { Order, OrderStatusType } from '../types/orders';
@@ -13,12 +13,12 @@ import {
   Building2,
   Clock,
   ArrowLeft,
-  CheckCircle,
-  XCircle,
   FileCheck,
+  FileText,
   Printer,
   Info,
   MessageCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
@@ -174,6 +174,20 @@ const OrderDetails: React.FC = () => {
                 <FileCheck size={14} /> Convert to PO
               </button>
             )}
+
+            {/* Convert to Invoice — available unless already completed/cancelled */}
+            {order.status !== 'cancelled' && (
+              <button
+                onClick={() => navigate('/invoice', {
+                  state: {
+                    convertFromOrder: order,
+                  }
+                })}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-600/20"
+              >
+                <FileText size={14} /> Convert to Invoice
+              </button>
+            )}
           </div>
         }
       />
@@ -259,6 +273,24 @@ const OrderDetails: React.FC = () => {
               </div>
             </div>
 
+            {/* Converted PO reference — only shown if converted */}
+            {order.convertedPurchaseOrder && (
+              <div className="bg-[#1e293b]/70 border border-purple-500/30 rounded-xl p-4 shadow-lg flex items-center gap-3">
+                <div className="p-2.5 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                  <ShoppingBag size={17} className="text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Converted Purchase Order</p>
+                  <Link
+                    to={`/purchase-orders/${order.convertedPurchaseOrder.id}`}
+                    className="text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors underline underline-offset-2 flex items-center gap-1 mt-0.5"
+                  >
+                    {order.convertedPurchaseOrder.poNumber} <ExternalLink size={12} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Salesman Info Card */}
             <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#334155]">
@@ -274,28 +306,8 @@ const OrderDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Bar */}
-            <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Update Order Status</h3>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleUpdateStatus('approved')}
-                  disabled={order.status === 'approved'}
-                  className="w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <CheckCircle size={14} /> Approve Order
-                </button>
 
-                <button
-                  onClick={() => handleUpdateStatus('rejected')}
-                  disabled={order.status === 'rejected'}
-                  className="w-full py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <XCircle size={14} /> Reject Order
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Right Column: Products Table & Summary */}

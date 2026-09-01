@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, useToast } from '../components/erp';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
+import { orderService } from '../services/OrderService';
 import {
   ShoppingCart,
   Truck,
@@ -12,18 +13,32 @@ import {
   MessageCircle,
   MessageSquare,
   FileText,
+  PackageCheck,
+  ShoppingBag,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 import PurchaseOrderViewModal from '../components/orders/PurchaseOrderViewModal';
 
+const PO_STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  pending_approval: 'Pending Approval',
+  approved: 'Approved',
+  processing: 'Processing',
+  goods_received: 'Goods Received',
+  partially_received: 'Partially Received',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
 const PurchaseOrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -75,9 +90,41 @@ const PurchaseOrderDetails: React.FC = () => {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
-  // Returns salesman from original order if PO was converted from an order
-  const getSalesmanFromPO = (_po: PurchaseOrder) => {
-    return undefined;
+  const handleMarkGoodsReceived = async () => {
+    if (!po || !id) return;
+    setUpdatingStatus(true);
+    try {
+      const updated = await purchaseOrderService.updateStatus(id, 'goods_received');
+      setPo(updated);
+      success('Goods Received', `PO ${po.poNumber} marked as Goods Received.`);
+    } catch {
+      toastError('Update Failed', 'Could not update PO status. Please try again.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const getSalesmanFromPO = (_po: PurchaseOrder) => undefined;
+
+  const handleConvertToInvoice = async () => {
+    if (!po) return;
+    // If this PO was created from an order, fetch the original order
+    // so the Invoice form can pre-fill the customer, selling prices and discounts.
+    let sourceOrder = null;
+    if (po.sourceOrderId) {
+      try {
+        sourceOrder = await orderService.getById(po.sourceOrderId);
+      } catch {
+        // sourceOrder stays null — will fall back to PO data
+      }
+    }
+    navigate('/invoice', {
+      state: {
+        convertFromPO: po,
+        convertFromOrder: sourceOrder,   // null if no source order — Invoice.tsx handles both
+        salesman: getSalesmanFromPO(po),
+      },
+    });
   };
 
   return (
@@ -95,6 +142,41 @@ const PurchaseOrderDetails: React.FC = () => {
       }
     >
       <div className="space-y-6 pb-8">
+
+        {/* Status + Source Order Banner */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 shadow-lg flex items-center gap-4">
+            <div className="p-3 bg-[#0f172a] border border-[#334155] rounded-lg">
+              <ShoppingCart size={20} className="text-purple-400" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">PO Status</p>
+              <p className="text-sm font-bold text-purple-300 mt-0.5">{PO_STATUS_LABELS[po.status] || po.status}</p>
+            </div>
+          </div>
+
+          {/* Source Order reference — only shown if this PO was converted from an Order */}
+          {(po.sourceOrderNumber || po.sourceOrderId) && (
+            <div className="bg-[#1e293b]/70 border border-blue-500/30 rounded-xl p-4 shadow-lg flex items-center gap-4">
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <ShoppingBag size={20} className="text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Source Order</p>
+                {po.sourceOrderId ? (
+                  <Link
+                    to={`/orders/${po.sourceOrderId}`}
+                    className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors underline underline-offset-2 mt-0.5 block"
+                  >
+                    {po.sourceOrderNumber || po.sourceOrderId}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-bold text-blue-300 mt-0.5">{po.sourceOrderNumber}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Page Header */}
         <PageHeader
@@ -114,10 +196,20 @@ const PurchaseOrderDetails: React.FC = () => {
                 <Printer size={14} /> Print
               </button>
 
+              {/* Mark Goods Received — only shown when status allows it */}
+              {po.status !== 'goods_received' && po.status !== 'completed' && po.status !== 'cancelled' && (
+                <button
+                  onClick={handleMarkGoodsReceived}
+                  disabled={updatingStatus}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-amber-600/20"
+                  title="Mark this PO as Goods Received from supplier"
+                >
+                  <PackageCheck size={15} /> {updatingStatus ? 'Updating...' : 'Mark Goods Received'}
+                </button>
+              )}
+
               <button
-                onClick={() => {
-                  navigate('/invoice', { state: { convertFromPO: po, salesman: getSalesmanFromPO(po) } });
-                }}
+                onClick={handleConvertToInvoice}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-600/20"
                 title="Convert Purchase Order to Sales Invoice"
               >

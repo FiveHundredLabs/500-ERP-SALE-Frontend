@@ -415,58 +415,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const handleConvertToInvoice = async () => {
     if (!createdOrder) return;
-    let nextIdStr = `INV-2026-${Date.now()}`;
-    try {
-      nextIdStr = await invoiceService.getNextId();
-    } catch {
-      // ignore
-    }
-
-    const newInv: any = {
-      invoiceNumber: nextIdStr,
-      customer: {
-        id: `c-${Date.now()}`,
-        fullName: createdOrder.customerName,
-        phone: createdOrder.contactPhone || '011-0000000',
-        customerCode: createdOrder.customerId || 'CUST-000',
-        address: {
-          street: createdOrder.customerAddress || 'N/A',
-          city: createdOrder.customerCity || 'Colombo',
-          country: 'Sri Lanka',
-          zip: '00100',
-        },
-      },
-      items: createdOrder.items.map((p, idx) => ({
-        id: `ii-${Date.now()}-${idx}`,
-        inventoryItemId: p.inventoryItemId || p.id,
-        itemName: p.productName,
-        itemCode: p.sku,
-        discount: p.discount,
-        quantity: p.quantity,
-        unitPrice: p.unitPrice,
-        total: p.total,
-      })),
-      subTotal: createdOrder.subTotal,
-      discount: createdOrder.totalDiscount,
-      totalAmount: createdOrder.grandTotal,
-      paymentStatus: 'pending',
-      paymentMethod: 'bank_transfer',
-      issueDate: new Date().toISOString(),
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-      vehicleNumber: 'WP-CAD-1024',
-      notes: `Generated from Order ${createdOrder.orderNumber}`,
-    };
-
-    try {
-      await invoiceService.create(newInv);
-    } catch {
-      // ignore
-    }
-
-    toast.success('Converted to Invoice', `Invoice ${nextIdStr} created from ${createdOrder.orderNumber}`);
+    // Navigate to Invoice page with the order as context.
+    // The Invoice page will pre-fill the form so the user can review and save.
     handleReset();
     onClose();
-    navigate('/invoice');
+    navigate('/invoice', { state: { convertFromOrder: createdOrder } });
   };
 
   const handleReset = () => {

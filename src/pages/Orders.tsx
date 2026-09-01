@@ -50,13 +50,11 @@ const Orders: React.FC = () => {
   }, [orders]);
 
   const statusOptions = [
-    { value: 'pending', label: 'pending' },
-    { value: 'reviewing', label: 'reviewing' },
-    { value: 'approved', label: 'approved' },
-    { value: 'rejected', label: 'rejected' },
-    { value: 'converted_to_po', label: 'converted_to_po' },
-    { value: 'completed', label: 'completed' },
-    { value: 'cancelled', label: 'cancelled' },
+    { value: 'pending',             label: 'Pending' },
+    { value: 'rejected',            label: 'Rejected' },
+    { value: 'converted_to_po',     label: 'Converted to PO' },
+    { value: 'converted_to_invoice',label: 'Converted to Invoice' },
+    { value: 'completed',           label: 'Completed' },
   ];
 
   const paymentOptions = [

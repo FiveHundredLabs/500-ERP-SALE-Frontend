@@ -155,11 +155,67 @@ const Invoice: React.FC = () => {
       const convertFromPO = location.state?.convertFromPO as PurchaseOrder | undefined;
       // salesman can be explicitly passed in location.state, e.g. from an order conversion
       const convertFromSalesman = location.state?.salesman as { id: string; name: string } | undefined;
+      // convertFromOrder: direct Order → Invoice conversion
+      const convertFromOrder = location.state?.convertFromOrder as import('../types/orders').Order | undefined;
 
       let initialInvoiceItems: InvoiceItem[] = [];
       let initialNotes = "";
+      let initialCustomer: string | import('../types/invoice').InvoiceCustomer = "";
+      let initialSubTotal = 0;
+      let initialDiscount = 0;
+      let initialTotalAmount = 0;
+      let initialSalesman = convertFromSalesman || null;
 
-      if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
+      if (convertFromOrder && convertFromOrder.items && convertFromOrder.items.length > 0) {
+        // Build customer object from order fields
+        initialCustomer = {
+          id: convertFromOrder.customerId,
+          customerCode: convertFromOrder.customerId,
+          shopName: convertFromOrder.customerName,
+          fullName: convertFromOrder.customerName,
+          contactPerson: convertFromOrder.contactPerson,
+          phone: convertFromOrder.contactPhone,
+          address: convertFromOrder.customerAddress,
+          city: convertFromOrder.customerCity,
+        };
+
+        // Build items: convert % discount to LKR amount for the invoice backend
+        initialInvoiceItems = convertFromOrder.items.map((p, idx) => {
+          const subtotalBeforeDiscount = p.quantity * p.unitPrice;
+          // OrderItem.discount is stored as a percentage (0-100)
+          const discountLkr = subtotalBeforeDiscount * (p.discount / 100);
+          const total = Math.max(0, subtotalBeforeDiscount - discountLkr);
+          return {
+            id: `inv-item-${Date.now()}-${idx}`,
+            inventoryItemId: p.inventoryItemId || p.id,
+            itemName: p.productName,
+            itemCode: p.sku,
+            productCode: p.sku,
+            quantity: p.quantity,
+            unitPrice: p.unitPrice,
+            discountType: 'percentage' as const,
+            discountScope: 'per_unit' as const,
+            discountValue: p.discount,             // keep % for display
+            discountAmount: discountLkr,            // LKR amount for calculation
+            discount: discountLkr,                  // what backend expects
+            total,
+          };
+        });
+
+        initialSubTotal = initialInvoiceItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+        initialDiscount = convertFromOrder.totalDiscount;
+        initialTotalAmount = convertFromOrder.grandTotal;
+        initialNotes = `Converted from Order #${convertFromOrder.orderNumber}`;
+
+        // Use salesman from order if available
+        if (convertFromOrder.salesmanId || convertFromOrder.salesmanName) {
+          initialSalesman = {
+            id: convertFromOrder.salesmanId || '',
+            name: convertFromOrder.salesmanName || '',
+          };
+        }
+
+      } else if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
         initialInvoiceItems = convertFromPO.items.map((p, idx) => ({
           id: `inv-item-${Date.now()}-${idx}`,
           inventoryItemId: p.inventoryItemId || p.id,
@@ -168,13 +224,16 @@ const Invoice: React.FC = () => {
           quantity: p.quantityOrdered,
           unitPrice: p.unitPrice, // PO Cost Price automatically becomes Invoice Selling Price!
           costPrice: p.unitPrice,
-          discountType: 'percentage',
-          discountScope: 'per_unit',
+          discountType: 'percentage' as const,
+          discountScope: 'per_unit' as const,
           discountValue: 0,
           discountAmount: 0,
+          discount: 0,
           total: p.quantityOrdered * p.unitPrice,
         }));
         initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
+        initialSubTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
+        initialTotalAmount = initialSubTotal;
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
@@ -182,11 +241,14 @@ const Invoice: React.FC = () => {
       const initialInvoiceData: InvoiceData = {
         ...getInitialInvoiceData(),
         invoiceNumber: nextId,
+        customer: initialCustomer,
+        customerDetails: typeof initialCustomer === 'object' && initialCustomer ? initialCustomer : undefined,
         items: initialInvoiceItems,
-        subTotal,
-        totalAmount: subTotal,
+        subTotal: initialSubTotal || subTotal,
+        discount: initialDiscount,
+        totalAmount: initialTotalAmount || subTotal,
         notes: initialNotes,
-        salesman: convertFromSalesman || null,
+        salesman: initialSalesman,
       };
       setInvoiceData(initialInvoiceData);
       lastSavedRef.current = null;
@@ -201,11 +263,18 @@ const Invoice: React.FC = () => {
 
       if (initialInvoiceItems.length > 0) {
         setViewMode('edit');
-        const salesmanNote = convertFromSalesman ? ` Salesman: ${convertFromSalesman.name}.` : '';
-        setAlert({
-          type: 'info',
-          message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.${salesmanNote}`,
-        });
+        if (convertFromOrder) {
+          setAlert({
+            type: 'info',
+            message: `Converted from Order #${convertFromOrder.orderNumber}: ${initialInvoiceItems.length} products loaded. Customer, quantities and discounts pre-filled. Review and save the invoice.`,
+          });
+        } else if (convertFromPO) {
+          const salesmanNote = convertFromSalesman ? ` Salesman: ${convertFromSalesman.name}.` : '';
+          setAlert({
+            type: 'info',
+            message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.${salesmanNote}`,
+          });
+        }
       }
 
     } catch (error) {

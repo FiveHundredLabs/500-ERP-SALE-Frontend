@@ -31,6 +31,9 @@ const STATUS_MAP: Record<string, string> = {
   'Partially Delivered':'badge badge-partial',
   'partial':          'badge badge-partial-pay',
 
+  // Goods Received — distinct teal/amber treatment
+  'goods_received':   'badge badge-processing',
+
   // Danger Badges
   'rejected':         'badge badge-rejected',
   'cancelled':        'badge badge-cancelled',
@@ -41,6 +44,7 @@ const STATUS_MAP: Record<string, string> = {
 
   // Info Badges
   'converted_to_po':  'badge badge-converted',
+  'converted_to_invoice': 'badge badge-completed',
   'Converted':        'badge badge-converted',
   'processing':       'badge badge-processing',
   'Sent':             'badge badge-sent',
@@ -51,6 +55,15 @@ const STATUS_MAP: Record<string, string> = {
   'Inactive':         'badge badge-inactive',
 };
 
+// Human-friendly labels for raw enum values
+const STATUS_LABELS: Record<string, string> = {
+  pending_approval:    'Pending Approval',
+  partially_received:  'Partially Received',
+  goods_received:      'Goods Received',
+  converted_to_po:     'Converted to PO',
+  converted_to_invoice:'Converted to Invoice',
+};
+
 interface StatusBadgeProps {
   status: StatusValue;
   className?: string;
@@ -58,9 +71,10 @@ interface StatusBadgeProps {
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => {
   const cls = STATUS_MAP[status] || 'badge badge-draft';
+  const label = STATUS_LABELS[status] || status;
   return (
     <span className={`${cls} ${className}`}>
-      {status}
+      {label}
     </span>
   );
 };
