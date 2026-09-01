@@ -39,15 +39,10 @@ export const mapInventoryItem = (value: any): InventoryItem => ({
   productCode: value.productCode ?? value.product_code ?? '',
   quantity: value.quantity ?? 0,
   soldCount: value.soldCount ?? value.sold_count ?? 0,
-  brand: value.brand ?? value.vehicle?.brand ?? '',
-  model: value.model ?? value.vehicle?.model ?? '',
-  chassisNo: value.chassisNo ?? value.vehicle?.chassis_no ?? '',
-  year: value.year ?? value.vehicle?.year ?? 0,
   purchasePrice: money(value.purchasePrice ?? value.purchase_price),
   sellPrice: money(value.sellPrice ?? value.sell_price),
   discountRate: money(value.discountRate ?? value.discount_rate),
   actualSoldPrice: money(value.actualSoldPrice ?? value.actual_sold_price),
-  shipmentCode: value.shipmentCode ?? value.shipment_code ?? '',
 });
 
 export const mapInvoice = (value: any): InvoiceResponse => ({

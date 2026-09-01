@@ -4,6 +4,7 @@ import type {
   DeleteInventoryRes,
   CreateInventoryItemData,
   UpdateInventoryItemData,
+  BulkImportResponse,
 } from "../types/inventory";
 import { moneyToApi } from '../utils/money';
 import { mapInventoryItem } from './apiMappers';
@@ -51,15 +52,15 @@ export const inventoryService = {
 
   async create(itemData: CreateInventoryItemData): Promise<InventoryItem> {
     const payload = {
-      ...itemData,
-      product_name: itemData.productName,
-      product_code: itemData.productCode,
-      sold_count: itemData.soldCount,
-      purchase_price: moneyToApi(itemData.purchasePrice),
-      sell_price: moneyToApi(itemData.sellPrice),
-      discount_rate: moneyToApi(itemData.discountRate),
-      actual_sold_price: moneyToApi(itemData.actualSoldPrice),
-      shipment_code: itemData.shipmentCode,
+      productName: itemData.productName,
+      productCode: itemData.productCode,
+      inventoryCode: itemData.inventoryCode,
+      soldCount: itemData.soldCount,
+      status: itemData.status,
+      purchasePrice: moneyToApi(itemData.purchasePrice),
+      sellPrice: moneyToApi(itemData.sellPrice),
+      discountRate: moneyToApi(itemData.discountRate),
+      actualSoldPrice: moneyToApi(itemData.actualSoldPrice),
     };
     
     const res = await fetch(`${API_BASE}/inventory-items`, {
@@ -75,16 +76,75 @@ export const inventoryService = {
     return mapInventoryItem(await res.json());
   },
 
+  async createBulk(
+    items: CreateInventoryItemData[],
+    onProgress?: (processed: number, total: number) => void
+  ): Promise<BulkImportResponse> {
+    const payload = items.map((item) => ({
+      productName: item.productName,
+      productCode: item.productCode,
+      inventoryCode: item.inventoryCode || item.productCode,
+      soldCount: item.soldCount ?? 0,
+      status: item.status || 'in_stock',
+      purchasePrice: moneyToApi(item.purchasePrice),
+      sellPrice: moneyToApi(item.sellPrice),
+      discountRate: moneyToApi(item.discountRate),
+      actualSoldPrice: moneyToApi(item.actualSoldPrice),
+    }));
+
+    const BATCH_SIZE = 100;
+    let totalCreated = 0;
+    let totalFailed = 0;
+    let totalDuplicates = 0;
+    const allErrors: Array<{ row?: number; code?: string; message: string }> = [];
+
+    for (let i = 0; i < payload.length; i += BATCH_SIZE) {
+      const chunk = payload.slice(i, i + BATCH_SIZE);
+      const res = await fetch(`${API_BASE}/inventory-items/bulk`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        credentials: 'include',
+        body: JSON.stringify({ items: chunk }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Failed to import products (batch starting at row ${i + 1})`);
+      }
+
+      const batchResult: BulkImportResponse = await res.json();
+      totalCreated += batchResult.created || 0;
+      totalFailed += batchResult.failed || 0;
+      totalDuplicates += batchResult.duplicates || 0;
+      if (batchResult.errors && Array.isArray(batchResult.errors)) {
+        allErrors.push(...batchResult.errors);
+      }
+
+      if (onProgress) {
+        onProgress(Math.min(i + chunk.length, payload.length), payload.length);
+      }
+    }
+
+    return {
+      total: items.length,
+      created: totalCreated,
+      failed: totalFailed,
+      duplicates: totalDuplicates,
+      errors: allErrors,
+    };
+  },
+
   async update(id: string, updateData: UpdateInventoryItemData): Promise<InventoryItem> {
-    const payload: any = { ...updateData };
-    if (updateData.productName !== undefined) payload.product_name = updateData.productName;
-    if (updateData.productCode !== undefined) payload.product_code = updateData.productCode;
-    if (updateData.soldCount !== undefined) payload.sold_count = updateData.soldCount;
-    if (updateData.purchasePrice !== undefined) payload.purchase_price = moneyToApi(updateData.purchasePrice);
-    if (updateData.sellPrice !== undefined) payload.sell_price = moneyToApi(updateData.sellPrice);
-    if (updateData.discountRate !== undefined) payload.discount_rate = moneyToApi(updateData.discountRate);
-    if (updateData.actualSoldPrice !== undefined) payload.actual_sold_price = moneyToApi(updateData.actualSoldPrice);
-    if (updateData.shipmentCode !== undefined) payload.shipment_code = updateData.shipmentCode;
+    const payload: any = {};
+    if (updateData.productName !== undefined) payload.productName = updateData.productName;
+    if (updateData.productCode !== undefined) payload.productCode = updateData.productCode;
+    if (updateData.inventoryCode !== undefined) payload.inventoryCode = updateData.inventoryCode;
+    if (updateData.soldCount !== undefined) payload.soldCount = updateData.soldCount;
+    if (updateData.status !== undefined) payload.status = updateData.status;
+    if (updateData.purchasePrice !== undefined) payload.purchasePrice = moneyToApi(updateData.purchasePrice);
+    if (updateData.sellPrice !== undefined) payload.sellPrice = moneyToApi(updateData.sellPrice);
+    if (updateData.discountRate !== undefined) payload.discountRate = moneyToApi(updateData.discountRate);
+    if (updateData.actualSoldPrice !== undefined) payload.actualSoldPrice = moneyToApi(updateData.actualSoldPrice);
 
     const res = await fetch(`${API_BASE}/inventory-items/${id}`, {
       method: 'PUT',
@@ -124,6 +184,8 @@ export const getAllInventoryItems = inventoryService.getAll;
 export const getNextInventoryId = inventoryService.getNextId;
 export const getInventoryItemById = inventoryService.getById;
 export const createInventoryItem = inventoryService.create;
+export const createBulkInventoryItems = inventoryService.createBulk;
 export const updateInventoryItem = inventoryService.update;
 export const deleteInventoryItem = inventoryService.delete;
 export const getInventoryStats = inventoryService.getStats;
+

@@ -16,10 +16,8 @@ export const useItemSearch = (inventoryItems: InventoryItem[]) => {
     const filtered = inventoryItems.filter(item => {
       const matchesProductName = item.productName?.toLowerCase().includes(searchTermLower);
       const matchesProductCode = item.productCode?.toLowerCase().includes(searchTermLower);
-      const matchesVehicleBrand = item.brand?.toLowerCase().includes(searchTermLower);
-      const matchesVehicleModel = item.model?.toLowerCase().includes(searchTermLower);
       
-      return matchesProductName || matchesProductCode || matchesVehicleBrand || matchesVehicleModel;
+      return matchesProductName || matchesProductCode;
     });
     
     setFilteredItems(filtered);

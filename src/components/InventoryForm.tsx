@@ -85,9 +85,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
         sellPrice: parseFloat(formData.sellPrice) || 0,
         quantity: 0,
         soldCount: parseInt(formData.soldCount) || 0,
-        status: "in_stock",
-        brand: "Universal", model: "All Models", chassisNo: "N/A", year: 2026,
-        shipmentCode: "SHP-AUTO",
+        status: "in_stock" as const,
       };
       await onSubmit(payload);
       onClose();

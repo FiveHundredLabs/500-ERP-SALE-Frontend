@@ -7,6 +7,8 @@ interface TableProps {
   endpoint: string;
   columns?: string[];
   columnLabels?: { [key: string]: string };
+  headerTitle?: string;
+  customActions?: React.ReactNode;
   onAdd?: () => void;
   onEdit?: (item: any) => void;
   onDelete?: (item: any) => void;
@@ -22,6 +24,8 @@ const ReusableTable: React.FC<TableProps> = ({
   endpoint, 
   columns, 
   columnLabels = {},
+  headerTitle = "Data Table",
+  customActions,
   onAdd,
   onEdit,
   onDelete,
@@ -89,9 +93,7 @@ const ReusableTable: React.FC<TableProps> = ({
       const term = searchTerm.toLowerCase().trim();
       filtered = filtered.filter(item =>
         item.productName?.toLowerCase().includes(term) ||
-        item.productCode?.toLowerCase().includes(term) ||
-        item.brand?.toLowerCase().includes(term) ||
-        item.model?.toLowerCase().includes(term)
+        item.productCode?.toLowerCase().includes(term)
       );
     }
 
@@ -120,13 +122,8 @@ const ReusableTable: React.FC<TableProps> = ({
     setPage(1);
   }, [data, searchTerm, selectedCategory]);
 
-  const formatCellValue = (value: any, column: string): string => {
+  const formatCellValue = (value: any, _column: string): string => {
     if (value === null || value === undefined) return 'N/A';
-    
-    if (column === 'vehicle' && typeof value === 'object') {
-      const vehicle = value as { brand?: string; model?: string; chassisNo?: string; year?: number };
-      return `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.chassisNo ? `(${vehicle.chassisNo})` : ''} ${vehicle.year ? `- ${vehicle.year}` : ''}`.trim();
-    }
     
     if (typeof value === 'object') {
       return JSON.stringify(value);
@@ -163,17 +160,20 @@ const ReusableTable: React.FC<TableProps> = ({
 
   return (
     <div className="rounded-2xl bg-[#0f172a] border border-[#334155] shadow-xl p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-white">Data Table</h2>
-        {onAdd && (
-          <button
-            onClick={onAdd}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} />
-            Add New
-          </button>
-        )}
+      <div className="flex justify-between items-center mb-4 gap-3">
+        <h2 className="text-xl font-semibold text-white">{headerTitle}</h2>
+        <div className="flex items-center gap-2.5">
+          {customActions}
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus size={16} />
+              Add New
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
