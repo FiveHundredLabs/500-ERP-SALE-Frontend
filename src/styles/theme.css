@@ -269,8 +269,31 @@ html.light .border-b.border-\[\#334155\] {
 /* ====================================================
    TEXT COLORS
    ==================================================== */
-html.light .text-white {
+/* Only turn text dark if it's NOT on a colored/primary button, badge, or avatar */
+html.light .text-white:not([class*="bg-blue-"]):not([class*="bg-emerald-"]):not([class*="bg-green-"]):not([class*="bg-purple-"]):not([class*="bg-red-"]):not([class*="bg-rose-"]):not([class*="bg-indigo-"]):not([class*="bg-amber-"]):not(button.bg-blue-600 *):not(button.bg-blue-700 *):not(button.bg-emerald-600 *):not(button.bg-emerald-700 *):not(button.bg-purple-600 *):not(button.bg-purple-700 *):not(button.bg-red-600 *):not(.btn-primary *):not(.badge-solid *) {
   color: #0f172a !important;
+}
+
+/* Explicitly preserve crisp white text on primary/action buttons & links */
+html.light button[class*="bg-blue-"],
+html.light button[class*="bg-blue-"] *,
+html.light button[class*="bg-emerald-"],
+html.light button[class*="bg-emerald-"] *,
+html.light button[class*="bg-green-"],
+html.light button[class*="bg-green-"] *,
+html.light button[class*="bg-purple-"],
+html.light button[class*="bg-purple-"] *,
+html.light button[class*="bg-red-"],
+html.light button[class*="bg-red-"] *,
+html.light button[class*="bg-indigo-"],
+html.light button[class*="bg-indigo-"] *,
+html.light a[class*="bg-blue-"],
+html.light a[class*="bg-blue-"] *,
+html.light a[class*="bg-emerald-"],
+html.light a[class*="bg-emerald-"] *,
+html.light .btn-primary,
+html.light .btn-primary * {
+  color: #ffffff !important;
 }
 
 html.light .text-gray-100,
@@ -412,9 +435,49 @@ html.light .erp-btn-ghost:hover {
 
 /* Tailwind-style dark button overrides */
 html.light .bg-\[\#1e293b\].border.border-\[\#334155\] {
-  background-color: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-  color: #374151 !important;
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light button.bg-\[\#0f172a\],
+html.light button.bg-\[\#1e293b\],
+html.light .btn-back,
+html.light .btn-secondary {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light button.bg-\[\#0f172a\]:hover,
+html.light button.bg-\[\#1e293b\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Soft Action Buttons (e.g. Import Customers, Quick Actions) */
+html.light button.bg-purple-600\/20,
+html.light button.bg-purple-500\/20,
+html.light button.bg-purple-500\/10,
+html.light .text-purple-300 {
+  background-color: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+  color: #7c3aed !important;
+}
+
+html.light button.bg-purple-600\/20:hover,
+html.light button.bg-purple-500\/20:hover {
+  background-color: #ede9fe !important;
+  color: #6d28d9 !important;
+}
+
+html.light button.bg-emerald-500\/10,
+html.light button.bg-emerald-500\/15,
+html.light button.bg-emerald-500\/20 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #059669 !important;
 }
 
 html.light .hover\:bg-\[\#334155\]:hover {
@@ -695,12 +758,58 @@ html.light .text-gray-400.uppercase {
 /* ====================================================
    MODALS & DIALOGS
    ==================================================== */
+html.light .bg-\[\#1e293b\].border.border-\[\#334155\],
+html.light .bg-\[\#0f172a\].border.border-\[\#334155\],
+html.light .bg-\[\#0b132b\].border.border-\[\#1e293b\],
+html.light .bg-\[\#0b1120\].border.border-\[\#2e265c\],
+html.light .bg-\[\#111827\].border.border-\[\#334155\],
 html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-\[10px\],
 html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-xl,
-html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-lg {
+html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-lg,
+html.light .bg-\[\#1E293B\].border.border-\[\#334155\].rounded-2xl,
+html.light div[role="dialog"] {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important;
+  box-shadow: 0 20px 40px -8px rgba(15, 23, 42, 0.15) !important;
+  color: #0f172a !important;
+}
+
+/* Modal Headers */
+html.light .bg-gradient-to-r.from-\[\#1e293b\].to-\[\#0f172a\],
+html.light .bg-gradient-to-r.from-\[\#111836\].to-\[\#0f172a\],
+html.light .border-b.border-\[\#334155\].bg-gradient-to-r,
+html.light .border-b.border-\[\#1e293b\],
+html.light .border-b.border-\[\#2e265c\]\/80 {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-gradient-to-r.from-\[\#1e293b\].to-\[\#0f172a\] h2,
+html.light .bg-gradient-to-r.from-\[\#111836\].to-\[\#0f172a\] h2,
+html.light .bg-gradient-to-r.from-\[\#1e293b\].to-\[\#0f172a\] .text-white,
+html.light .border-b.border-\[\#1e293b\] h3,
+html.light .border-b.border-\[\#1e293b\] .text-white {
+  color: #0f172a !important;
+}
+
+/* Modal Inner Section Cards */
+html.light .bg-\[\#071518\],
+html.light .bg-\[\#1e1b4b\],
+html.light .bg-\[\#0a1024\],
+html.light .bg-\[\#111c3a\]\/70,
+html.light .bg-\[\#0f2324\]\/60,
+html.light .bg-\[\#0f172a\]\/70,
+html.light .border-\[\#2e265c\],
+html.light .bg-gradient-to-br.from-\[\#1b1539\]\/90.to-\[\#10193b\]\/90 {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Form labels and subtitles inside modals */
+html.light div[role="dialog"] label,
+html.light .bg-\[\#0b132b\] label,
+html.light .bg-\[\#0b1120\] label {
+  color: #334155 !important;
 }
 
 html.light h3.text-base.font-semibold.text-\[\#F8FAFC\] {

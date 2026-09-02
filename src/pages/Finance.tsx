@@ -40,21 +40,21 @@ interface KpiCardProps {
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({ label, value, icon, iconBg, valueColor, sub, trend }) => (
-  <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden group hover:border-[#475569] transition-all duration-200">
-    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+  <div className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-[#334155] rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden group hover:border-slate-300 dark:hover:border-[#475569] transition-all duration-200 shadow-sm">
+    <div className="absolute inset-0 bg-gradient-to-br from-black/[0.01] to-transparent dark:from-white/[0.02] pointer-events-none" />
     <div className="flex items-center justify-between">
-      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">{label}</span>
       <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
     </div>
     <div className="flex items-end justify-between gap-2">
       <span className={`text-xl font-bold font-mono ${valueColor} leading-tight`}>{value}</span>
       {trend && (
-        <span className={`flex items-center gap-0.5 text-xs font-semibold ${trend === "up" ? "text-emerald-400" : trend === "down" ? "text-red-400" : "text-gray-400"}`}>
+        <span className={`flex items-center gap-0.5 text-xs font-semibold ${trend === "up" ? "text-emerald-600 dark:text-emerald-400" : trend === "down" ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-gray-400"}`}>
           {trend === "up" ? <ArrowUpRight size={12} /> : trend === "down" ? <ArrowDownRight size={12} /> : null}
         </span>
       )}
     </div>
-    {sub && <p className="text-[11px] text-gray-500 leading-tight">{sub}</p>}
+    {sub && <p className="text-[11px] text-slate-500 dark:text-gray-500 leading-tight">{sub}</p>}
   </div>
 );
 
@@ -87,47 +87,49 @@ const ReturnsTab: React.FC<ReturnsTabProps> = ({ returns, loading, searchQuery }
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#334155]">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#334155]">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[#1e293b] border-b border-[#334155]">
+          <tr className="bg-slate-50 dark:bg-[#1e293b] border-b border-slate-200 dark:border-[#334155]">
             {["Return #", "Invoice #", "Customer", "Items", "Return Total", "Reason", "Status", "Date"].map(h => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#1e293b]">
+        <tbody className="divide-y divide-slate-200 dark:divide-[#1e293b]">
           {filtered.length === 0 ? (
-            <tr><td colSpan={8} className="text-center py-12 text-gray-500">No returns found</td></tr>
+            <tr><td colSpan={8} className="text-center py-12 text-slate-400 dark:text-gray-500">No returns found</td></tr>
           ) : filtered.map(r => {
             const customer = r.customer;
             return (
-              <tr key={r.id} className="bg-[#0f172a] hover:bg-[#1e293b]/70 transition-colors">
+              <tr key={r.id} className="bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-[#1e293b]/70 transition-colors">
                 <td className="px-4 py-3">
-                  <span className="font-mono text-xs font-bold text-red-400">{r.returnNumber}</span>
+                  <span className="font-mono text-xs font-bold text-red-600 dark:text-red-400">{r.returnNumber}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="font-mono text-xs text-cyan-400">{r.invoice?.invoiceNumber || "—"}</span>
+                  <span className="font-mono text-xs font-semibold text-cyan-600 dark:text-cyan-400">{r.invoice?.invoiceNumber || "—"}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-200 text-xs">{customer?.shopName || customer?.fullName || "Walk-in"}</div>
-                  {customer?.phone && <div className="text-[10px] text-gray-500">{customer.phone}</div>}
+                  <div className="font-medium text-slate-800 dark:text-gray-200 text-xs">{customer?.shopName || customer?.fullName || "Walk-in"}</div>
+                  {customer?.phone && <div className="text-[10px] text-slate-500 dark:text-gray-500">{customer.phone}</div>}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <span className="text-xs font-bold text-gray-300">{r.items?.length ?? 0}</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-gray-300">{r.items?.length ?? 0}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="font-mono text-xs font-bold text-red-400">LKR {Math.round(r.returnTotal).toLocaleString()}/=</span>
+                  <span className="font-mono text-xs font-bold text-red-600 dark:text-red-400">LKR {Math.round(r.returnTotal).toLocaleString()}/=</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-gray-300 max-w-[140px] block truncate" title={r.returnReason}>{r.returnReason}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusColors[r.status] ?? "bg-gray-500/20 text-gray-400"}`}>
-                    {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                  <span className="text-xs text-slate-600 dark:text-gray-400 max-w-[150px] truncate block" title={r.returnReason || ""}>
+                    {r.returnReason || "—"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[11px] text-gray-500 whitespace-nowrap">
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${statusColors[r.status] || "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                    {r.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-[11px] text-slate-500 dark:text-gray-500 whitespace-nowrap">
                   {new Date(r.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                 </td>
               </tr>
@@ -162,52 +164,52 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({ transactions, loading
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#334155]">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#334155]">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[#1e293b] border-b border-[#334155]">
+          <tr className="bg-slate-50 dark:bg-[#1e293b] border-b border-slate-200 dark:border-[#334155]">
             {["Transaction #", "Type", "Invoice #", "Method", "Ref", "Amount", "Date"].map(h => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#1e293b]">
+        <tbody className="divide-y divide-slate-200 dark:divide-[#1e293b]">
           {filtered.length === 0 ? (
-            <tr><td colSpan={7} className="text-center py-12 text-gray-500">No transactions found</td></tr>
+            <tr><td colSpan={7} className="text-center py-12 text-slate-400 dark:text-gray-500">No transactions found</td></tr>
           ) : filtered.map(t => {
             const isRefund = t.transactionType === "refund";
             return (
-              <tr key={t.id} className={`hover:bg-[#1e293b]/70 transition-colors ${isRefund ? "bg-red-950/10" : "bg-[#0f172a]"}`}>
+              <tr key={t.id} className={`hover:bg-slate-50 dark:hover:bg-[#1e293b]/70 transition-colors ${isRefund ? "bg-red-50 dark:bg-red-950/10" : "bg-white dark:bg-[#0f172a]"}`}>
                 <td className="px-4 py-3">
-                  <span className={`font-mono text-xs font-bold ${isRefund ? "text-red-400" : "text-emerald-400"}`}>
+                  <span className={`font-mono text-xs font-bold ${isRefund ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                     {t.transactionNumber}
                   </span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                     isRefund
-                      ? "bg-red-500/20 text-red-300 border-red-500/30"
-                      : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30"
+                      : "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
                   }`}>
                     {isRefund ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
                     {isRefund ? "Refund" : "Payment"}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="font-mono text-xs text-cyan-400">{t.invoiceNumber}</span>
+                  <span className="font-mono text-xs font-semibold text-cyan-600 dark:text-cyan-400">{t.invoiceNumber}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-gray-300 capitalize">{(t.paymentMethod ?? "").replaceAll("_", " ")}</span>
+                  <span className="text-xs text-slate-700 dark:text-gray-300 capitalize">{(t.paymentMethod ?? "").replaceAll("_", " ")}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-gray-400 font-mono">{t.transactionRef || "—"}</span>
+                  <span className="text-xs text-slate-500 dark:text-gray-400 font-mono">{t.transactionRef || "—"}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`font-mono text-sm font-bold ${isRefund ? "text-red-400" : "text-emerald-400"}`}>
+                  <span className={`font-mono text-sm font-bold ${isRefund ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                     {isRefund ? "-" : "+"}LKR {Math.abs(Math.round(t.amount)).toLocaleString()}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[11px] text-gray-500 whitespace-nowrap">
+                <td className="px-4 py-3 text-[11px] text-slate-500 dark:text-gray-500 whitespace-nowrap">
                   {new Date(t.transactionDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                 </td>
               </tr>
@@ -463,18 +465,18 @@ const Finance: React.FC = () => {
         />
 
         {/* Header */}
-        <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 sm:px-6 shadow-lg relative z-40 flex-shrink-0">
+        <div className="h-[68px] bg-white/90 dark:bg-[#1e293b]/90 backdrop-blur-xl border-b border-slate-200 dark:border-[#334155] flex items-center justify-between px-4 sm:px-6 shadow-sm relative z-40 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
+            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-500 dark:text-blue-400 border border-blue-500/30 flex-shrink-0">
               <DollarSign className="w-5 h-5" />
             </div>
-            <h1 className="text-[1.15rem] font-bold text-gray-100 leading-tight tracking-tight">Finance & Accounts</h1>
+            <h1 className="text-[1.15rem] font-bold text-slate-800 dark:text-gray-100 leading-tight tracking-tight">Finance & Accounts</h1>
           </div>
           <div className="flex items-center gap-2.5">
             <button
               onClick={loadAll}
               disabled={loading}
-              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors disabled:opacity-50"
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-[#334155] transition-colors disabled:opacity-50"
               title="Refresh"
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -526,23 +528,23 @@ const Finance: React.FC = () => {
           </div>
 
           {/* Search + Tabs Row */}
-          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-[#334155] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 shadow-sm">
             {/* Tab Buttons */}
-            <div className="flex gap-1 bg-[#0f172a] p-1 rounded-lg border border-[#334155]">
+            <div className="flex gap-1 bg-slate-100 dark:bg-[#0f172a] p-1 rounded-lg border border-slate-200 dark:border-[#334155]">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 whitespace-nowrap ${
                     activeTab === tab.id
-                      ? "bg-blue-600 text-white shadow-lg"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-[#1e293b]"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/60 dark:hover:bg-[#1e293b]"
                   }`}
                 >
                   {tab.icon}
                   {tab.label}
                   <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-[#334155] text-gray-400"
+                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700 dark:bg-[#334155] dark:text-gray-400"
                   }`}>{tab.count}</span>
                 </button>
               ))}
@@ -554,12 +556,12 @@ const Finance: React.FC = () => {
               placeholder={`Search ${activeTab}...`}
               value={globalSearch}
               onChange={e => setGlobalSearch(e.target.value)}
-              className="flex-1 w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+              className="flex-1 w-full bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
 
             {/* Transaction Type Filter (only on transactions tab) */}
             {activeTab === "transactions" && (
-              <div className="flex gap-1 bg-[#0f172a] p-1 rounded-lg border border-[#334155]">
+              <div className="flex gap-1 bg-slate-100 dark:bg-[#0f172a] p-1 rounded-lg border border-slate-200 dark:border-[#334155]">
                 {(["all", "payment", "refund"] as const).map(f => (
                   <button
                     key={f}
@@ -567,7 +569,7 @@ const Finance: React.FC = () => {
                     className={`px-2.5 py-1 rounded text-[11px] font-semibold capitalize transition-colors ${
                       txTypeFilter === f
                         ? f === "refund" ? "bg-red-600 text-white" : f === "payment" ? "bg-emerald-600 text-white" : "bg-blue-600 text-white"
-                        : "text-gray-400 hover:text-gray-200"
+                        : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200"
                     }`}
                   >{f}</button>
                 ))}

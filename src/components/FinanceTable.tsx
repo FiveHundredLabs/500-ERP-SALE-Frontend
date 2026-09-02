@@ -296,61 +296,61 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
       <div className="space-y-5">
         {/* Credit Period & Due Date Tracking KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-3.5 flex items-center gap-3 shadow-md">
-            <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-[#334155] rounded-xl p-3.5 flex items-center gap-3 shadow-sm">
+            <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-500/20 shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 font-medium truncate">Outstanding Total</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-white tracking-tight truncate">
+              <p className="text-xs text-slate-500 dark:text-gray-400 font-medium truncate">Outstanding Total</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-slate-900 dark:text-white tracking-tight truncate">
                 {formatCurrency(totalOutstandingAmount)}
               </p>
-              <p className="text-[11px] text-gray-500 truncate">
+              <p className="text-[11px] text-slate-500 dark:text-gray-500 truncate">
                 {trackedInvoices.filter(i => i.effectiveRemainingAmount > 0).length} pending balance
               </p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-red-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md bg-gradient-to-r from-red-950/20 to-transparent">
-            <div className="p-2.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-red-200 dark:border-red-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-sm bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20">
+            <div className="p-2.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg border border-red-500/20 shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-red-300 font-medium truncate">Overdue Payments</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-red-400 tracking-tight truncate">
+              <p className="text-xs text-red-700 dark:text-red-300 font-medium truncate">Overdue Payments</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-red-600 dark:text-red-400 tracking-tight truncate">
                 {formatCurrency(totalOverdueAmount)}
               </p>
-              <p className="text-[11px] text-red-400/80 font-medium truncate">
+              <p className="text-[11px] text-red-600/80 dark:text-red-400/80 font-medium truncate">
                 {overdueInvoices.length} invoices passed due date
               </p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-amber-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md bg-gradient-to-r from-amber-950/20 to-transparent">
-            <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-amber-200 dark:border-amber-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-sm bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-950/20">
+            <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg border border-amber-500/20 shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-amber-300 font-medium truncate">Near Expiry (7d)</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-amber-400 tracking-tight truncate">
+              <p className="text-xs text-amber-700 dark:text-amber-300 font-medium truncate">Near Expiry (7d)</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-amber-600 dark:text-amber-400 tracking-tight truncate">
                 {formatCurrency(totalNearDueAmount)}
               </p>
-              <p className="text-[11px] text-amber-400/80 font-medium truncate">
+              <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 font-medium truncate">
                 {nearDueInvoices.length} invoices due in 7d
               </p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-green-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md">
-            <div className="p-2.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-emerald-200 dark:border-green-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-sm">
+            <div className="p-2.5 bg-green-500/10 text-emerald-600 dark:text-green-400 rounded-lg border border-green-500/20 shrink-0">
               <CheckCircle className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 font-medium truncate">Settled / Completed</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-green-400 tracking-tight truncate">
+              <p className="text-xs text-slate-500 dark:text-gray-400 font-medium truncate">Settled / Completed</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-green-400 tracking-tight truncate">
                 {formatCurrency(completedInvoices.reduce((sum, i) => sum + i.totalAmount, 0))}
               </p>
-              <p className="text-[11px] text-green-500 truncate">{completedInvoices.length} invoices fully paid</p>
+              <p className="text-[11px] text-emerald-600 dark:text-green-500 truncate">{completedInvoices.length} invoices fully paid</p>
             </div>
           </div>
         </div>
@@ -379,7 +379,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
         )}
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#334155] pb-2.5">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-[#334155] pb-2.5">
           {[
             { id: 'all', label: 'All Invoices', count: trackedInvoices.length },
             { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
@@ -389,41 +389,40 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                setCurrentPage(1);
-              }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+              onClick={() => { setActiveTab(tab.id as any); setCurrentPage(1); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                 activeTab === tab.id
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold shadow-sm'
-                  : 'text-gray-400 hover:bg-[#1e293b] hover:text-gray-200 border border-transparent'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1e293b]'
               }`}
             >
               <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono border ${tab.badge || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700 dark:bg-[#0f172a] dark:text-gray-400'
+              }`}>
                 {tab.count}
               </span>
             </button>
           ))}
         </div>
 
-        {/* Compact Table (Desktop & Tablet) - Zero horizontal scroll */}
-        <div className="bg-[#1e293b]/60 backdrop-blur-sm border border-[#334155] rounded-xl overflow-hidden shadow-lg">
+        {/* Compact Table Container */}
+        <div className="bg-white dark:bg-[#1e293b]/60 backdrop-blur-sm border border-slate-200 dark:border-[#334155] rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-[#334155] bg-[#1e293b] text-gray-400 uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-3">Invoice ID</th>
-                  <th className="py-3 px-3">Customer</th>
-                  <th className="py-3 px-2.5">Sales Officer</th>
-                  <th className="py-3 px-2.5 text-right">Invoice Total</th>
-                  <th className="py-3 px-2.5 text-right">Remaining</th>
-                  <th className="py-3 px-2.5 text-center">Status</th>
-                  <th className="py-3 px-2.5">Due Date</th>
-                  <th className="py-3 px-3 text-right w-12"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#334155]/60 text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-[#334155] bg-slate-50 dark:bg-[#1e293b] text-slate-500 dark:text-gray-400 uppercase tracking-wider text-[11px]">
+                <th className="py-3 px-3">Invoice ID</th>
+                <th className="py-3 px-3">Customer</th>
+                <th className="py-3 px-2.5">Sales Officer</th>
+                <th className="py-3 px-2.5 text-right">Invoice Total</th>
+                <th className="py-3 px-2.5 text-right">Remaining</th>
+                <th className="py-3 px-2.5 text-center">Status</th>
+                <th className="py-3 px-2.5">Due Date</th>
+                <th className="py-3 px-3 text-right w-12"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-[#334155]/60 text-xs">
                 {paginatedInvoices.map((invoice, idx) => {
                   const transaction = getTransactionForInvoice(invoice.invoiceNumber);
                   const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
@@ -445,23 +444,23 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                   return (
                     <tr
                       key={invoice.id}
-                      className={`transition-colors hover:bg-[#1e293b] ${
+                      className={`transition-colors hover:bg-slate-50 dark:hover:bg-[#1e293b] ${
                         isFullyReturned
-                          ? 'bg-red-950/15'
+                          ? 'bg-red-50/50 dark:bg-red-950/15'
                           : invoice.calculatedStatus === 'overdue'
-                          ? 'bg-red-950/15'
+                          ? 'bg-red-50/50 dark:bg-red-950/15'
                           : idx % 2 === 0
-                          ? 'bg-[#1e293b]/30'
-                          : 'bg-[#1e293b]/10'
+                          ? 'bg-white dark:bg-[#1e293b]/30'
+                          : 'bg-slate-50/40 dark:bg-[#1e293b]/10'
                       }`}
                     >
-                      <td className="py-3 px-3 font-mono font-bold text-blue-400">
+                      <td className="py-3 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                         <div>{invoice.invoiceNumber}</div>
-                        <div className="text-[10px] text-gray-400 font-sans">{formatDate(invoice.issueDate)}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-gray-400 font-sans">{formatDate(invoice.issueDate)}</div>
                       </td>
 
                       <td className="py-3 px-3">
-                        <span className="font-semibold text-white truncate block max-w-[150px]">
+                        <span className="font-semibold text-slate-900 dark:text-white truncate block max-w-[150px]">
                           {(invoice.customer as any)?.shopName || (invoice.customer as any)?.fullName || "N/A"}
                         </span>
                       </td>

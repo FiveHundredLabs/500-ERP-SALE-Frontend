@@ -161,10 +161,10 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
   // Shared input class builder
   const inputCls = (errKey?: string) =>
-    `w-full bg-[#1e293b] border rounded-xl px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors ${errKey && errors[errKey] ? 'border-red-500' : 'border-[#334155]'}`;
+    `w-full bg-white dark:bg-[#1e293b] border rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors ${errKey && errors[errKey] ? 'border-red-500' : 'border-slate-300 dark:border-[#334155]'}`;
 
   const darkInputCls = (errKey?: string) =>
-    `w-full bg-[#0f172a] border rounded-xl px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors ${errKey && errors[errKey] ? 'border-red-500' : 'border-[#334155]'}`;
+    `w-full bg-white dark:bg-[#0f172a] border rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors ${errKey && errors[errKey] ? 'border-red-500' : 'border-slate-300 dark:border-[#334155]'}`;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -175,23 +175,23 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-[#0f172a] border border-[#334155] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-md bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#334155] bg-gradient-to-r from-[#1e293b] to-[#0f172a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#334155] bg-slate-50 dark:bg-gradient-to-r dark:from-[#1e293b] dark:to-[#0f172a]">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/25">
-              <DollarSign size={18} className="text-emerald-400" />
+              <DollarSign size={18} className="text-emerald-500 dark:text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">{modalTitle}</h2>
-              <p className="text-[11px] text-gray-500 mt-0.5 truncate max-w-[220px]">{documentNumber} · {partyName}</p>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">{modalTitle}</h2>
+              <p className="text-[11px] text-slate-500 dark:text-gray-500 mt-0.5 truncate max-w-[220px]">{documentNumber} · {partyName}</p>
             </div>
           </div>
           {!isProcessing && (
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#334155] transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:text-gray-500 dark:hover:text-white dark:hover:bg-[#334155] transition-colors"
             >
               <X size={16} />
             </button>
@@ -202,13 +202,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
         <div className="overflow-y-auto max-h-[calc(100vh-200px)] px-5 py-4 space-y-4">
 
           {/* Outstanding summary */}
-          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 space-y-3">
+          <div className="bg-slate-50 dark:bg-[#1e293b] border border-slate-200 dark:border-[#334155] rounded-xl p-4 space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                <p className="text-[10px] text-slate-500 dark:text-gray-500 uppercase tracking-wider mb-1">
                   {mode === 'supplier' ? 'PO Total' : 'Invoice Total'}
                 </p>
-                <p className="text-xs font-bold text-gray-300 font-mono">
+                <p className="text-xs font-bold text-slate-800 dark:text-gray-300 font-mono">
                   {Math.round(totalAmount).toLocaleString()}/=
                 </p>
               </div>
@@ -243,8 +243,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
           {/* Payment Method */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
-              Payment Method <span className="text-red-400">*</span>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-gray-400 mb-2 uppercase tracking-wider">
+              Payment Method <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-3 gap-1.5">
               {METHOD_OPTIONS.map(opt => (
@@ -255,7 +255,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   className={`px-2 py-2.5 rounded-xl border text-[11px] font-semibold transition-all duration-150 leading-tight ${
                     form.method === opt.value
                       ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                      : 'bg-[#1e293b] border-[#334155] text-gray-400 hover:border-[#475569] hover:text-gray-200'
+                      : 'bg-slate-50 dark:bg-[#1e293b] border-slate-200 dark:border-[#334155] text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-[#475569] hover:text-slate-900 dark:hover:text-gray-200'
                   }`}
                 >
                   {opt.label}
@@ -438,7 +438,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-1.5">Notes (Optional)</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-gray-400 mb-1.5">Notes (Optional)</label>
             <textarea
               rows={2}
               placeholder={
@@ -448,18 +448,18 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               }
               value={form.notes}
               onChange={e => set('notes', e.target.value)}
-              className="w-full bg-[#1e293b] border border-[#334155] rounded-xl px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors resize-none"
+              className="w-full bg-white dark:bg-[#1e293b] border border-slate-300 dark:border-[#334155] rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors resize-none"
             />
           </div>
         </div>
 
         {/* ── Footer ── */}
-        <div className="px-5 py-4 border-t border-[#334155] bg-[#0f172a] flex gap-3">
+        <div className="px-5 py-4 border-t border-slate-200 dark:border-[#334155] bg-slate-50 dark:bg-[#0f172a] flex gap-3">
           <button
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-[#334155] text-sm font-semibold text-gray-400 hover:text-white hover:border-[#475569] hover:bg-[#1e293b] transition-all duration-150 disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-[#334155] text-sm font-semibold text-slate-700 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1e293b] transition-all duration-150 disabled:opacity-50"
           >
             Cancel
           </button>

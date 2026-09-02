@@ -534,7 +534,7 @@ const CustomersTab: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowImportModal(true)}
-                className="px-3.5 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-purple-950/30 active:scale-95 hover:border-purple-400"
+                className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-600/20 dark:hover:bg-purple-600/30 dark:text-purple-300 dark:border-purple-500/40 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-sm active:scale-95"
                 title="Import Customers from PDF"
               >
                 <Upload size={14} /> Import Customers
@@ -573,26 +573,26 @@ const CustomersTab: React.FC = () => {
 
       {/* Add / Edit Customer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0b132b] border border-[#1e293b] rounded-2xl w-full max-w-4xl p-6 shadow-2xl relative text-slate-100 space-y-4">
+        <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0b132b] border border-slate-200 dark:border-[#1e293b] rounded-2xl w-full max-w-4xl p-6 shadow-2xl relative text-slate-900 dark:text-slate-100 space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-[#1e293b]">
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-[#1e293b]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25">
                   <Plus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white leading-tight">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
                     {editCustomer ? 'Edit Customer Profile' : 'Add New Customer'}
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Set shop details, contact numbers, and assigned sales representative
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowAddModal(false)} 
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-[#1e293b] transition"
               >
                 <X size={18} />
               </button>
@@ -602,19 +602,19 @@ const CustomersTab: React.FC = () => {
               {/* 2-Column Responsive Layout */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Column 1: Shop & Business Info */}
-                <div className="bg-[#111c3a]/70 border border-[#1e2e54] rounded-xl p-4 space-y-3.5">
-                  <div className="flex items-center gap-2 pb-2 border-b border-[#1e2e54] text-xs font-bold text-blue-300 uppercase tracking-wider">
+                <div className="bg-slate-50 dark:bg-[#111c3a]/70 border border-slate-200 dark:border-[#1e2e54] rounded-xl p-4 space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-[#1e2e54] text-xs font-bold text-blue-600 dark:text-blue-300 uppercase tracking-wider">
                     <span>Shop & Location Details</span>
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 mb-1 font-semibold text-xs">
-                      Shop Name <span className="text-rose-400">*</span>
+                    <label className="block text-slate-700 dark:text-slate-300 mb-1 font-semibold text-xs">
+                      Shop Name <span className="text-rose-500">*</span>
                     </label>
                     <input
                       required
                       type="text"
-                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
+                      className="w-full bg-white dark:bg-[#0a1024] border border-slate-300 dark:border-[#233560] rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
                       placeholder="e.g. Nirosha Enterprise"
                       value={formData.shopName}
                       onChange={(e) => setFormData({ ...formData, shopName: e.target.value })}
@@ -622,12 +622,12 @@ const CustomersTab: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 mb-1 font-semibold text-xs">
+                    <label className="block text-slate-700 dark:text-slate-300 mb-1 font-semibold text-xs">
                       Contact Person <span className="text-slate-500 font-normal text-[11px]">(Optional)</span>
                     </label>
                     <input
                       type="text"
-                      className="w-full bg-[#0a1024] border border-[#233560] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
+                      className="w-full bg-white dark:bg-[#0a1024] border border-slate-300 dark:border-[#233560] rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-medium"
                       placeholder="e.g. Nirosha Bandara"
                       value={formData.contactPerson || ''}
                       onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
@@ -636,21 +636,21 @@ const CustomersTab: React.FC = () => {
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-slate-300 font-semibold text-xs">
-                        Address <span className="text-rose-400">*</span>
+                      <label className="text-slate-700 dark:text-slate-300 font-semibold text-xs">
+                        Address <span className="text-rose-500">*</span>
                       </label>
-                      <span className="text-[10px] text-emerald-400">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                         City extracted after comma
                       </span>
                     </div>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                         <MapPin size={14} />
                       </div>
                       <input
                         required
                         type="text"
-                        className="w-full bg-[#0a1024] border border-[#233560] rounded-xl pl-9 pr-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
+                        className="w-full bg-white dark:bg-[#0a1024] border border-slate-300 dark:border-[#233560] rounded-xl pl-9 pr-3.5 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs"
                         placeholder="e.g. 145, Baseline Road, Colombo 09"
                         value={formData.address}
                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -662,24 +662,24 @@ const CustomersTab: React.FC = () => {
                 {/* Column 2: Contact Numbers & Credit Terms */}
                 <div className="space-y-4">
                   {/* WhatsApp & Phones Box */}
-                  <div className="bg-[#0f2324]/60 border border-emerald-500/30 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
-                      <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                        <Phone size={13} className="text-emerald-400" /> Contact Numbers
+                  <div className="bg-emerald-50/60 dark:bg-[#0f2324]/60 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200 dark:border-emerald-500/20">
+                      <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                        <Phone size={13} className="text-emerald-600 dark:text-emerald-400" /> Contact Numbers
                       </span>
-                      <span className="text-[10px] text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono flex items-center gap-1">
+                      <span className="text-[10px] text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/15 border border-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-full font-mono flex items-center gap-1">
                         <MessageCircle size={10} /> 1st = WhatsApp Direct
                       </span>
                     </div>
 
                     <div>
-                      <label className="block text-slate-300 mb-1 font-semibold text-xs">
-                        WhatsApp Number <span className="text-rose-400">*</span>
+                      <label className="block text-slate-700 dark:text-slate-300 mb-1 font-semibold text-xs">
+                        WhatsApp Number <span className="text-rose-500">*</span>
                       </label>
                       <input
                         required
                         type="tel"
-                        className="w-full bg-[#071518] border border-emerald-500/50 rounded-xl px-3.5 py-2 text-emerald-300 placeholder-slate-500 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="w-full bg-white dark:bg-[#071518] border border-emerald-300 dark:border-emerald-500/50 rounded-xl px-3.5 py-2 text-emerald-800 dark:text-emerald-300 placeholder-slate-400 dark:placeholder-slate-500 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         placeholder="e.g. +94705787818"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -688,24 +688,24 @@ const CustomersTab: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-slate-300 mb-1 font-semibold text-xs">
+                        <label className="block text-slate-700 dark:text-slate-300 mb-1 font-semibold text-xs">
                           Phone 2 <span className="text-slate-500 text-[10px]">(Office)</span>
                         </label>
                         <input
                           type="tel"
-                          className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          className="w-full bg-white dark:bg-[#0a1024] border border-slate-300 dark:border-[#1e2e54] rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                           placeholder="011-255-4321"
                           value={formData.phone2 || ''}
                           onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-300 mb-1 font-semibold text-xs">
+                        <label className="block text-slate-700 dark:text-slate-300 mb-1 font-semibold text-xs">
                           Phone 3 <span className="text-slate-500 text-[10px]">(Mobile)</span>
                         </label>
                         <input
                           type="tel"
-                          className="w-full bg-[#0a1024] border border-[#1e2e54] rounded-xl px-3 py-2 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          className="w-full bg-white dark:bg-[#0a1024] border border-slate-300 dark:border-[#1e2e54] rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                           placeholder="077-123-4567"
                           value={formData.phone3 || ''}
                           onChange={(e) => setFormData({ ...formData, phone3: e.target.value })}
@@ -715,10 +715,10 @@ const CustomersTab: React.FC = () => {
                   </div>
 
                   {/* Credit Terms & Sales Officer */}
-                  <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/30 rounded-xl p-4 space-y-3">
+                  <div className="bg-purple-50/60 dark:bg-gradient-to-br dark:from-[#1b1539]/90 dark:to-[#10193b]/90 border border-purple-200 dark:border-purple-500/30 rounded-xl p-4 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-purple-200 mb-1 font-semibold text-xs">
+                        <label className="block text-purple-900 dark:text-purple-200 mb-1 font-semibold text-xs">
                           Credit Period ({formData.creditPeriod || 30}d)
                         </label>
                         <div className="grid grid-cols-5 gap-1">
@@ -729,8 +729,8 @@ const CustomersTab: React.FC = () => {
                               onClick={() => setFormData({ ...formData, creditPeriod: days })}
                               className={`py-1.5 rounded-lg text-[11px] font-bold border transition ${
                                 formData.creditPeriod === days
-                                  ? 'bg-purple-600 border-purple-400 text-white shadow-sm'
-                                  : 'bg-[#0a1024] border-[#2e265c] text-slate-300 hover:border-purple-500/50'
+                                  ? 'bg-purple-600 border-purple-500 text-white shadow-sm'
+                                  : 'bg-white dark:bg-[#0a1024] border-purple-200 dark:border-[#2e265c] text-slate-700 dark:text-slate-300 hover:border-purple-400'
                               }`}
                             >
                               {days}d
@@ -740,33 +740,33 @@ const CustomersTab: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-purple-200 mb-1 font-semibold text-xs">
+                        <label className="block text-purple-900 dark:text-purple-200 mb-1 font-semibold text-xs">
                           Account Status
                         </label>
                         <div className="relative">
                           <select
-                            className="w-full appearance-none bg-[#0a1024] border border-[#2e265c] rounded-xl pl-3 pr-8 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
+                            className="w-full appearance-none bg-white dark:bg-[#0a1024] border border-purple-200 dark:border-[#2e265c] rounded-xl pl-3 pr-8 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
                             value={formData.status}
                             onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerStatusValue })}
                           >
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                           </select>
-                          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400 pointer-events-none" />
+                          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-500 dark:text-purple-400 pointer-events-none" />
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-purple-200 mb-1 font-semibold text-xs">
+                      <label className="block text-purple-900 dark:text-purple-200 mb-1 font-semibold text-xs">
                         Sales Representative
                       </label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-400">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-500 dark:text-purple-400">
                           <UserCheck size={14} />
                         </div>
                         <select
-                          className="w-full appearance-none bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-8 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
+                          className="w-full appearance-none bg-white dark:bg-[#0a1024] border border-purple-200 dark:border-[#2e265c] rounded-xl pl-9 pr-8 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
                           value={formData.salesRepId || ''}
                           onChange={(e) => {
                             const repId = e.target.value;
@@ -785,7 +785,7 @@ const CustomersTab: React.FC = () => {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400 pointer-events-none" />
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-500 dark:text-purple-400 pointer-events-none" />
                       </div>
                     </div>
                   </div>
@@ -793,11 +793,11 @@ const CustomersTab: React.FC = () => {
               </div>
 
               {/* Actions Footer */}
-              <div className="pt-3 border-t border-[#1e293b] flex items-center justify-end gap-3">
+              <div className="pt-3 border-t border-slate-200 dark:border-[#1e293b] flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-5 py-2.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-xl transition"
+                  className="px-5 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-[#1e293b] rounded-xl transition"
                 >
                   Cancel
                 </button>

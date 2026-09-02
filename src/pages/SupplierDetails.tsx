@@ -21,7 +21,6 @@ import {
   User,
   ShoppingBag,
   Eye,
-  X,
   History
 } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../utils/whatsapp';
@@ -361,7 +360,7 @@ const SupplierDetails: React.FC = () => {
             <div className="flex items-center gap-2.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[#334155]">
               <button
                 onClick={() => navigate('/suppliers')}
-                className="px-3.5 py-2 border border-[#334155] bg-[#0f172a] hover:bg-[#1e293b] text-gray-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                className="px-3.5 py-2 border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0f172a] hover:bg-slate-100 dark:hover:bg-[#1e293b] text-slate-700 dark:text-gray-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
               >
                 <ArrowLeft size={14} /> Back
               </button>
@@ -375,7 +374,7 @@ const SupplierDetails: React.FC = () => {
                 className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-md ${
                   totalOutstanding > 0
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                    : 'bg-[#1e293b] text-gray-500 border border-[#334155] cursor-not-allowed shadow-none'
+                    : 'bg-slate-100 dark:bg-[#1e293b] text-slate-400 dark:text-gray-500 border border-slate-300 dark:border-[#334155] cursor-not-allowed shadow-none'
                 }`}
               >
                 <DollarSign size={14} /> {totalOutstanding > 0 ? 'Settle Payment' : 'All Settled'}
@@ -387,73 +386,73 @@ const SupplierDetails: React.FC = () => {
         {/* ── 4 Minimal KPI Cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Total Purchased */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Total Purchases</p>
-              <p className="text-lg font-bold font-mono text-white mt-0.5 tracking-tight truncate">
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Total Purchases</p>
+              <p className="text-lg font-bold font-mono text-slate-900 dark:text-white mt-0.5 tracking-tight truncate">
                 {formatCurrency(totalPurchases)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{purchaseOrders.length} POs processed</p>
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{purchaseOrders.length} POs processed</p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-blue-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-blue-500 dark:text-blue-400 shrink-0">
               <FileText size={18} />
             </div>
           </div>
 
           {/* Total Settled / Paid */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Total Paid / Settled</p>
-              <p className="text-lg font-bold font-mono text-emerald-400 mt-0.5 tracking-tight truncate">
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Total Paid / Settled</p>
+              <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
                 {formatCurrency(totalPaid)}
               </p>
-              <p className="text-[11px] text-emerald-500/80 mt-0.5">{paidPOs.length} POs fully paid</p>
+              <p className="text-[11px] text-emerald-600/80 dark:text-emerald-500/80 mt-0.5">{paidPOs.length} POs fully paid</p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-emerald-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-emerald-500 dark:text-emerald-400 shrink-0">
               <CheckCircle size={18} />
             </div>
           </div>
 
           {/* Outstanding Pay */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Outstanding Due</p>
-              <p className={`text-lg font-bold font-mono mt-0.5 tracking-tight truncate ${totalOutstanding > 0 ? 'text-amber-400' : 'text-gray-200'}`}>
+              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Outstanding Due</p>
+              <p className={`text-lg font-bold font-mono mt-0.5 tracking-tight truncate ${totalOutstanding > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-gray-200'}`}>
                 {formatCurrency(totalOutstanding)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">
                 {totalOutstanding > 0 ? `${unpaidPOs.length} PO(s) pending settlement` : 'All purchases settled'}
               </p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-amber-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-amber-500 dark:text-amber-400 shrink-0">
               <AlertTriangle size={18} />
             </div>
           </div>
 
           {/* Total POs */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider">Purchase Orders</p>
-              <p className="text-lg font-bold font-mono text-purple-300 mt-0.5 tracking-tight truncate">
+              <p className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Purchase Orders</p>
+              <p className="text-lg font-bold font-mono text-purple-700 dark:text-purple-300 mt-0.5 tracking-tight truncate">
                 {purchaseOrders.length} Orders
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{paymentHistory.length} payments recorded</p>
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{paymentHistory.length} payments recorded</p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-purple-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-purple-500 dark:text-purple-400 shrink-0">
               <ShoppingBag size={18} />
             </div>
           </div>
         </div>
 
         {/* ── Main Tabbed Content ── */}
-        <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl overflow-hidden shadow-sm">
           {/* Tab Filter Bar */}
-          <div className="p-3 border-b border-[#334155] flex flex-wrap items-center justify-between gap-2 bg-[#0f172a]">
+          <div className="p-3 border-b border-slate-200 dark:border-[#334155] flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-[#0f172a]">
             <div className="flex flex-wrap items-center gap-1">
               {[
                 { id: 'all', label: 'All Purchase Orders', count: purchaseOrders.length },
-                { id: 'unpaid', label: 'Unpaid / Partial', count: unpaidPOs.length, color: 'text-amber-400' },
-                { id: 'paid', label: 'completed', count: paidPOs.length, color: 'text-emerald-400' },
+                { id: 'unpaid', label: 'Unpaid / Partial', count: unpaidPOs.length, color: 'text-amber-500' },
+                { id: 'paid', label: 'completed', count: paidPOs.length, color: 'text-emerald-500' },
                 { id: 'payments', label: 'Payment Ledger', count: paymentHistory.length, icon: History },
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -465,7 +464,7 @@ const SupplierDetails: React.FC = () => {
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                       isActive
                         ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#1e293b]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/60 dark:hover:bg-[#1e293b]'
                     }`}
                   >
                     {Icon && <Icon size={12} />}
@@ -473,7 +472,7 @@ const SupplierDetails: React.FC = () => {
                     <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
                       isActive 
                         ? 'bg-blue-700 text-white' 
-                        : tab.color ? `${tab.color} bg-[#1e293b]` : 'text-gray-400 bg-[#1e293b]'
+                        : 'bg-slate-200 text-slate-700 dark:bg-[#1e293b] dark:text-gray-300'
                     }`}>
                       {tab.count}
                     </span>
@@ -488,7 +487,7 @@ const SupplierDetails: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="border-b border-[#334155] bg-[#0f172a]/60 text-gray-400 uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 dark:border-[#334155] bg-slate-50 dark:bg-[#0f172a]/60 text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                     <th className="p-3">PO Number</th>
                     <th className="p-3">Order Date</th>
                     <th className="p-3">Expected Date</th>
@@ -499,10 +498,10 @@ const SupplierDetails: React.FC = () => {
                     <th className="p-3 text-right"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#334155]/40">
+                <tbody className="divide-y divide-slate-200 dark:divide-[#334155]/40">
                   {filteredPOs.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-10 text-gray-500">
+                      <td colSpan={8} className="text-center py-10 text-slate-400 dark:text-gray-500">
                         <FileText size={22} className="mx-auto mb-2 opacity-40" />
                         No purchase orders found.
                       </td>
@@ -512,22 +511,22 @@ const SupplierDetails: React.FC = () => {
                       return (
                         <tr 
                           key={po.id}
-                          className="hover:bg-[#1e293b]/70 transition cursor-pointer"
+                          className="hover:bg-slate-50 dark:hover:bg-[#1e293b]/70 transition cursor-pointer"
                           onClick={() => navigate(`/purchase-orders/${po.id}`)}
                         >
-                          <td className="p-3 font-mono font-bold text-purple-400">
+                          <td className="p-3 font-mono font-bold text-purple-600 dark:text-purple-400">
                             {po.poNumber}
                           </td>
-                          <td className="p-3 text-gray-300 font-mono">
+                          <td className="p-3 text-slate-700 dark:text-gray-300 font-mono">
                             {formatDate(po.poDate)}
                           </td>
-                          <td className="p-3 text-gray-300 font-mono">
+                          <td className="p-3 text-slate-700 dark:text-gray-300 font-mono">
                             {formatDate(po.expectedDeliveryDate)}
                           </td>
-                          <td className="p-3 text-right font-mono font-semibold text-gray-300">
+                          <td className="p-3 text-right font-mono font-semibold text-slate-700 dark:text-gray-300">
                             {po.totalItems}
                           </td>
-                          <td className="p-3 text-right font-mono font-bold text-gray-100">
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-gray-100">
                             {formatCurrency(po.totalAmount)}
                           </td>
                           <td className="p-3 text-center">
