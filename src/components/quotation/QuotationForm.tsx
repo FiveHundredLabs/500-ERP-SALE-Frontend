@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { QuotationData, QuotationItem } from "../../types/quotation";
 import type { InventoryItem } from "../../types/inventory";
 import { PaymentMethod } from "../../types/invoice";
@@ -12,7 +12,9 @@ import { QuotationItemsList } from "./QuotationItemsList";
 import { QuotationSummary } from "./QuotationSummary";
 import POPickerModal from "../common/POPickerModal";
 import type { PurchaseOrder } from "../../types/purchaseOrders";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, UserCheck } from "lucide-react";
+import userService from "../../services/UserService";
+import type { User } from "../../types/users";
 
 interface QuotationFormProps {
   quotationData: QuotationData;
@@ -106,6 +108,19 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
+  // Sales Officer list (users with role === 'salesman')
+  const [salesmen, setSalesmen] = useState<User[]>([]);
+  useEffect(() => {
+    userService.getUsers().then(users => {
+      const activeSalesmen = users.filter(u => u.role === 'salesman');
+      setSalesmen(activeSalesmen);
+      if (!quotationData.salesman?.id && activeSalesmen.length > 0) {
+        const defaultOfficer = activeSalesmen[0];
+        onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+      }
+    });
+  }, []);
+
   const handleOrderImport = useCallback((po: PurchaseOrder) => {
     // Map PO items to quotation line items
     po.items.forEach(p => {
@@ -170,7 +185,25 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     const defaultPeriod = (customer as any).creditPeriod ?? 30;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     handleCreditPeriodChange(String(defaultPeriod));
-  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange]);
+
+    // Auto-assign Sales Officer if customer has one assigned or if none selected yet
+    const custSalesRepId = (customer as any).salesRepId;
+    const custSalesRepName = (customer as any).salesRepName;
+    if (custSalesRepId) {
+      const rep = salesmen.find(s => s.id === custSalesRepId);
+      if (rep) {
+        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+      }
+    } else if (custSalesRepName) {
+      const rep = salesmen.find(s => s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
+      if (rep) {
+        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+      }
+    } else if (!quotationData.salesman?.id && salesmen.length > 0) {
+      const defaultOfficer = salesmen[0];
+      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+    }
+  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange, salesmen, quotationData.salesman?.id]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -341,20 +374,43 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         />
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Payment Method*
-            </label>
-            <select
-              value={quotationData.paymentMethod}
-              onChange={(e) => handlePaymentMethodChange(e.target.value)}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              {Object.values(PaymentMethod).map(method => (
-                <option key={method} value={method}>{method}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Sales Officer Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                <span className="flex items-center gap-1.5"><UserCheck size={16} className="text-purple-400" /> Sales Officer*</span>
+              </label>
+              <select
+                value={quotationData.salesman?.id || (typeof quotationData.salesman === 'object' ? (quotationData.salesman as any)?.id : '') || ''}
+                onChange={(e) => {
+                  const selected = salesmen.find(s => s.id === e.target.value);
+                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
+                }}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium"
+              >
+                <option value="">— Select Sales Officer —</option>
+                {salesmen.map(s => (
+                  <option key={s.id} value={s.id}>{s.fullName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Payment Method*
+              </label>
+              <select
+                value={quotationData.paymentMethod}
+                onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                required
+              >
+                {Object.values(PaymentMethod).map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Issue Date / Credit Period / Valid Until */}
@@ -470,6 +526,8 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
             discountPercentage={quotationData.discountPercentage || 0}
             discountAmount={discountAmount}
             totalAmount={totalAmount}
+            items={quotationData.items}
+            inventoryItems={inventoryItems}
             onTotalDiscountChange={onTotalDiscountChange}
           />
         </div>

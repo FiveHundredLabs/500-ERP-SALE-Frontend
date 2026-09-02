@@ -454,3 +454,24 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out both;
 }
+
+/* ============= System-wide Custom Select & Dropdown Styling ============= */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.95rem 0.95rem;
+  padding-right: 2.25rem;
+  cursor: pointer;
+}
+
+/* Clear duplicate background image if a JSX ChevronDown icon is already positioned inside the wrapper */
+.relative:has(> svg) > select,
+.relative > svg + select,
+.relative > select + svg,
+select.no-custom-arrow {
+  background-image: none !important;
+}

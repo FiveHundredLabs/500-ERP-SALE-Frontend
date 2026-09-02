@@ -63,12 +63,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       newErrors.amount = 'Amount must be greater than 0';
     }
 
-    // Validate amount matches invoice amount
+    // Validate amount does not exceed invoice amount
     if (selectedInvoice) {
-      const invoiceAmount = selectedInvoice.totalAmount;
+      const invoiceAmount = (selectedInvoice as any).remainingAmount !== undefined
+        ? (selectedInvoice as any).remainingAmount
+        : selectedInvoice.totalAmount;
       const paymentAmount = parseFloat(paymentDetails.amount);
-      if (Math.abs(paymentAmount - invoiceAmount) > 0.01) {
-        newErrors.amount = `Amount must match invoice amount (LKR ${invoiceAmount.toFixed(2)})`;
+      if (paymentAmount > invoiceAmount + 0.01) {
+        newErrors.amount = `Amount cannot exceed outstanding amount (LKR ${invoiceAmount.toFixed(2)})`;
       }
     }
 
@@ -162,7 +164,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
               <div className="col-span-2">
                 <p className="text-gray-500 text-xs uppercase tracking-wide">Customer</p>
-                <p className="text-gray-200 font-medium">{selectedInvoice.customer?.fullName || 'N/A'}</p>
+                <p className="text-gray-200 font-medium">{(selectedInvoice.customer as any)?.fullName || 'N/A'}</p>
               </div>
             </div>
           </div>

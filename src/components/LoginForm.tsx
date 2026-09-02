@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
-import { ShieldCheck } from "lucide-react";
+import Logo from "../assets/logo_without_bg.png";
 
 const LoginForm: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -63,14 +63,14 @@ const LoginForm: React.FC = () => {
     <div className="w-full max-w-md flex flex-col items-center">
       {/* Brand Header above the card */}
       <div className="text-center mb-8 flex flex-col items-center select-none">
-        <div className="w-12 h-12 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mb-3.5 shadow-lg shadow-blue-500/10">
-          <ShieldCheck size={26} />
+        <div className="w-16 h-16 rounded-2xl bg-[#0f172a] border border-[#334155] flex items-center justify-center mb-3 shadow-xl p-2">
+          <img src={Logo} alt="S & K Enterprises" className="w-full h-full object-contain" />
         </div>
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">
-          500Core
+        <h1 className="text-2xl font-extrabold text-white tracking-tight">
+          S &amp; K Enterprises
         </h1>
         <p className="text-xs font-semibold text-slate-400 tracking-wider uppercase mt-1">
-          Business Management & ERP Platform
+          Automotive &amp; Hardware ERP Suite
         </p>
       </div>
 

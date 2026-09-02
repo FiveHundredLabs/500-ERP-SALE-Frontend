@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, FileCheck, FileText, CheckCircle, TrendingUp, MessageCircle } from 'lucide-react';
+import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, FileCheck, FileText, CheckCircle, TrendingUp, MessageCircle, AlertCircle } from 'lucide-react';
 import type { Order, OrderProduct } from '../../types/orders';
 import type { InventoryItem } from '../../types/inventory';
 import type { PurchaseOrder } from '../../types/purchaseOrders';
@@ -12,11 +12,21 @@ import { useClickOutside } from '../../hooks/useClickOutside';
 import { useToast } from '../erp/Toast';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import CreatePOModal from './CreatePOModal';
+import ConnectedOrderEditModal, { type ConnectedDocsInfo } from './ConnectedOrderEditModal';
+import { orderService } from '../../services/OrderService';
+
+import {
+  validateLineDiscount,
+  validateOverallDiscount,
+  resolveMinPrice,
+} from '../../utils/discountValidator';
 
 interface CreateOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (order: Order) => void;
+  onSubmit: (order: Order) => Promise<Order | void> | void;
+  onOrderSaved?: (order: Order) => void;
+  initialOrder?: Order | null;
 }
 
 interface DraftProduct {
@@ -28,9 +38,12 @@ interface DraftProduct {
   discount: number;
   discountType: 'percentage' | 'amount';
   discountScope?: 'per_unit' | 'total';
+  minPrice?: number;
+  costPrice?: number;
+  actualSoldPrice?: number;
 }
 
-const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit }) => {
+const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit, onOrderSaved, initialOrder }) => {
   const navigate = useNavigate();
   const toast = useToast();
   const today = new Date().toISOString().split('T')[0];
@@ -60,11 +73,51 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   });
   const [quickProductErrors, setQuickProductErrors] = useState<Record<string, string>>({});
 
+  // Connected documents resolution state
+  const [showConnectedModal, setShowConnectedModal] = useState(false);
+  const [connectedDocs, setConnectedDocs] = useState<ConnectedDocsInfo>({});
+  const [pendingOrderToSave, setPendingOrderToSave] = useState<Order | null>(null);
+  const [isProcessingConnected, setIsProcessingConnected] = useState(false);
+
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
+  const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
+
   useEffect(() => {
     if (!isOpen) {
       setCreatedOrder(null);
+    } else if (isOpen && initialOrder) {
+      setSelectedCustomerId(initialOrder.customerId || '');
+      setCustomerSearch(initialOrder.customerName || '');
+      setSelectedSalesmanId(initialOrder.salesmanId || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.id : '') || '');
+      setSalesmanSearch(initialOrder.salesmanName || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.fullName : '') || '');
+      setOrderDate(initialOrder.orderDate ? String(initialOrder.orderDate).split('T')[0] : today);
+      setNotes(initialOrder.notes || '');
+      setTotalDiscountType(initialOrder.totalDiscountType || 'percentage');
+      setTotalDiscountValue(initialOrder.totalDiscountValue !== undefined ? Number(initialOrder.totalDiscountValue) : 0);
+      
+      const mappedProducts: DraftProduct[] = (initialOrder.items || []).map((it) => {
+        const inv = allInventoryItems.find(i => i.id === it.inventoryItemId || i.id === it.id || i.productCode === it.sku);
+        return {
+          id: it.inventoryItemId || it.id,
+          productName: it.productName,
+          quantity: it.quantity,
+          unit: 'PCS',
+          unitPrice: it.unitPrice,
+          discount: it.discountValue !== undefined ? Number(it.discountValue) : (Number(it.discount) || 0),
+          discountType: (it.discountType as 'percentage' | 'amount') || 'percentage',
+          discountScope: (it.discountScope === 'total' || it.discountScope === 'total_qty') ? 'total' : 'per_unit',
+          minPrice: inv ? resolveMinPrice(inv) : 0,
+          costPrice: inv?.purchasePrice,
+          actualSoldPrice: inv?.actualSoldPrice,
+        };
+      });
+      setProducts(mappedProducts);
+      setCreatedOrder(null);
+    } else if (isOpen && !initialOrder) {
+      handleReset();
     }
-  }, [isOpen]);
+  }, [isOpen, initialOrder, allInventoryItems]);
 
   const customerRef = useRef<HTMLDivElement>(null);
   const salesmanRef = useRef<HTMLDivElement>(null);
@@ -84,13 +137,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     discount: 0,
     discountType: 'percentage',
     discountScope: 'per_unit',
+    minPrice: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const [allCustomers, setAllCustomers] = useState<any[]>([]);
-  const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
-  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -135,22 +185,20 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     });
   }, [allSalesmen, salesmanSearch]);
 
-  // Filter products (Prefix / first letter match prioritized, then alphabetical)
+  // Filter products by name only (Prefix / first letter match prioritized, then alphabetical)
   const filteredProducts = useMemo(() => {
+    const activeProducts = allInventoryItems.filter(p => p.status !== 'out_of_stock' && p.status !== 'discontinued');
     const q = productSearch.trim().toLowerCase();
     if (!q) {
-      return [...allInventoryItems].sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
+      return [...activeProducts].sort((a, b) => a.productName.localeCompare(b.productName));
     }
-    const matching = allInventoryItems.filter(item =>
-      (item.productName || '').toLowerCase().includes(q) ||
-      (item.productCode || '').toLowerCase().includes(q)
-    );
+    const matching = activeProducts.filter(p => p.productName.toLowerCase().includes(q));
     return matching.sort((a, b) => {
-      const aStarts = (a.productName || '').toLowerCase().startsWith(q) || (a.productCode || '').toLowerCase().startsWith(q);
-      const bStarts = (b.productName || '').toLowerCase().startsWith(q) || (b.productCode || '').toLowerCase().startsWith(q);
+      const aStarts = a.productName.toLowerCase().startsWith(q);
+      const bStarts = b.productName.toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return (a.productName || '').localeCompare(b.productName || '');
+      return a.productName.localeCompare(b.productName);
     });
   }, [allInventoryItems, productSearch]);
 
@@ -188,24 +236,50 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     return { subtotal, discAmt, total };
   };
 
+  const [totalDiscountType, setTotalDiscountType] = useState<'percentage' | 'amount'>('percentage');
+  const [totalDiscountValue, setTotalDiscountValue] = useState<number>(0);
+
   const totals = useMemo(() => {
-    let subTotal = 0;
-    let totalDiscount = 0;
+    let itemsSubtotal = 0;
+    let lineDiscountTotal = 0;
     for (const p of products) {
       const { subtotal, discAmt } = calcProductLine(p);
-      subTotal += subtotal;
-      totalDiscount += discAmt;
+      itemsSubtotal += subtotal;
+      lineDiscountTotal += discAmt;
     }
-    return { subTotal, totalDiscount, grandTotal: Math.max(0, subTotal - totalDiscount) };
-  }, [products]);
+    const subTotalAfterLineDiscounts = Math.max(0, itemsSubtotal - lineDiscountTotal);
+    let orderDiscount = 0;
+    if (totalDiscountValue > 0) {
+      if (totalDiscountType === 'percentage') {
+        orderDiscount = subTotalAfterLineDiscounts * (Math.min(100, totalDiscountValue) / 100);
+      } else {
+        orderDiscount = Math.min(subTotalAfterLineDiscounts, totalDiscountValue);
+      }
+    }
+    const totalDiscount = lineDiscountTotal + orderDiscount;
+    const grandTotal = Math.max(0, subTotalAfterLineDiscounts - orderDiscount);
+
+    return {
+      itemsSubtotal,
+      lineDiscountTotal,
+      orderDiscount,
+      totalDiscount,
+      subTotal: itemsSubtotal,
+      grandTotal,
+    };
+  }, [products, totalDiscountType, totalDiscountValue]);
 
   const handleSelectProduct = (item: InventoryItem) => {
     setNewProduct(prev => ({
       ...prev,
+      id: item.id,
       productName: item.productName,
       unitPrice: item.sellPrice || 0,
       quantity: 0,
       unit: 'PCS',
+      minPrice: resolveMinPrice(item),
+      costPrice: item.purchasePrice,
+      actualSoldPrice: item.actualSoldPrice,
     }));
     setProductSearch(item.productName);
     setShowProductDropdown(false);
@@ -230,15 +304,13 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       inventoryCode: newCode,
       productName: quickProduct.name.trim(),
       productCode: newCode,
-      quantity: 100,
+      quantity: 0,
       soldCount: 0,
       status: 'in_stock',
-      brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: 2026,
       purchasePrice: Number(quickProduct.cost),
       sellPrice: Number(quickProduct.sellPrice),
       discountRate: 0,
       actualSoldPrice: Number(quickProduct.sellPrice),
-      shipmentCode: 'SHP-NEW',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -261,9 +333,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (!newProduct.productName.trim()) errs.productName = 'Product name required';
     if (newProduct.quantity <= 0) errs.quantity = 'Qty must be > 0';
     if (newProduct.unitPrice <= 0) errs.unitPrice = 'Selling price required';
+
+    const discCheck = validateLineDiscount(newProduct);
+    if (!discCheck.isValid) {
+      errs.discount = discCheck.error || 'Discount reduces price below allowed minimum';
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    setProducts(prev => [...prev, { ...newProduct, id: Date.now().toString() }]);
+    setProducts(prev => [...prev, { ...newProduct, id: newProduct.id || Date.now().toString() }]);
     setNewProduct({
       id: '',
       productName: '',
@@ -273,6 +351,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       discount: 0,
       discountType: 'percentage',
       discountScope: 'per_unit',
+      minPrice: 0,
     });
     setProductSearch('');
     setErrors({});
@@ -280,11 +359,45 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const handleRemoveProduct = (id: string) => setProducts(prev => prev.filter(p => p.id !== id));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleUpdateProduct = (id: string, updates: Partial<DraftProduct>) => {
+    setProducts(prev =>
+      prev.map(p => {
+        if (p.id !== id) return p;
+        return { ...p, ...updates };
+      })
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!selectedCustomerId) errs.customer = 'Please select a customer';
     if (products.length === 0) errs.products = 'Add at least one product';
+
+    // Validate every product line discount against minimum price
+    for (const p of products) {
+      const lineRes = validateLineDiscount(p);
+      if (!lineRes.isValid) {
+        errs.products = lineRes.error || 'One or more items have discounts exceeding the allowed minimum price';
+        toast.error('Invalid Discount', lineRes.error || 'Discount exceeds minimum price floor');
+        setErrors(errs);
+        return;
+      }
+    }
+
+    // Validate overall document discount
+    const overallRes = validateOverallDiscount({
+      items: products,
+      totalDiscountType,
+      totalDiscountValue,
+    });
+    if (!overallRes.isValid) {
+      errs.totalDiscount = overallRes.error || 'Overall discount is too high';
+      toast.error('Invalid Overall Discount', overallRes.error || 'Overall discount reduces price below allowed minimum');
+      setErrors(errs);
+      return;
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     const orderProducts: OrderProduct[] = products.map(p => {
@@ -298,38 +411,59 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         unit: 'PCS',
         unitPrice: p.unitPrice,
         discount: p.discountType === 'percentage' ? p.discount : (subtotal > 0 ? (discAmt / subtotal) * 100 : 0),
+        discountType: p.discountType || 'percentage',
+        discountScope: p.discountScope || 'per_unit',
+        discountValue: p.discount !== undefined ? Number(p.discount) : 0,
+        discountAmount: discAmt,
         tax: 0,
         subTotal: subtotal,
         total,
       };
     });
 
-    const orderId = `ORD-${10025 + Math.floor(Math.random() * 9000)}`;
+    const orderId = initialOrder?.orderNumber || `ORD-${10025 + Math.floor(Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
-    const newOrder: Order = {
-      id: Date.now().toString(),
+    const orderPayload: Order = {
+      id: initialOrder?.id || Date.now().toString(),
       orderNumber: orderId,
       orderDate,
-      createdAt: now,
+      createdAt: initialOrder?.createdAt || now,
       updatedAt: now,
-      salesman: selectedSalesman || null,
-      customerId: selectedCustomer!.id,
-      customerName: selectedCustomer!.shopName || selectedCustomer!.fullName || 'Customer',
-      contactPerson: selectedCustomer!.contactPerson || '',
-      contactPhone: selectedCustomer!.phone,
-      customerAddress: selectedCustomer!.address || '',
-      customerCity: selectedCustomer!.city || '',
+      salesman: selectedSalesman ? { id: selectedSalesman.id, fullName: selectedSalesman.name } as any : null,
+      salesmanId: selectedSalesman?.id || null,
+      salesmanName: selectedSalesman?.name || null,
+      salesmanEmployeeId: selectedSalesman?.employeeId || null,
+      salesmanPhone: selectedSalesman?.phone || null,
+      salesmanArea: selectedSalesman?.area || null,
+      customerId: selectedCustomer?.id || initialOrder?.customerId || selectedCustomerId,
+      customerName: selectedCustomer?.shopName || selectedCustomer?.fullName || initialOrder?.customerName || 'Customer',
+      contactPerson: selectedCustomer?.contactPerson || initialOrder?.contactPerson || '',
+      contactPhone: selectedCustomer?.phone || initialOrder?.contactPhone || '',
+      customerAddress: selectedCustomer?.address || initialOrder?.customerAddress || '',
+      customerCity: selectedCustomer?.city || initialOrder?.customerCity || '',
       items: orderProducts,
       numberOfProducts: orderProducts.length,
       subTotal: totals.subTotal,
       totalDiscount: totals.totalDiscount,
+      totalDiscountType: totalDiscountType,
+      totalDiscountValue: totalDiscountValue,
       totalTax: 0,
       grandTotal: totals.grandTotal,
-      status: 'pending',
-      paymentStatus: 'unpaid',
+      status: initialOrder?.status || 'pending',
+      paymentStatus: initialOrder?.paymentStatus || 'unpaid',
+      convertedPurchaseOrder: initialOrder?.convertedPurchaseOrder,
       notes,
-      timeline: [
+      timeline: initialOrder?.timeline ? [
+        ...initialOrder.timeline,
+        {
+          id: Date.now().toString(),
+          event: 'Order Updated',
+          description: 'Order details updated by Admin',
+          occurredAt: now,
+          actor: 'Admin User',
+        },
+      ] : [
         {
           id: Date.now().toString(),
           event: 'Order Created',
@@ -340,9 +474,58 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       ],
     };
 
-    onSubmit(newOrder);
-    setCreatedOrder(newOrder);
-    toast.success('Order Created', `Order ${newOrder.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+    if (initialOrder) {
+      try {
+        const docs = await orderService.getConnectedDocs(initialOrder.id);
+        const hasConnected = Boolean(docs.po || (docs.invoices && docs.invoices.length > 0));
+        if (hasConnected) {
+          setConnectedDocs(docs);
+          setPendingOrderToSave(orderPayload);
+          setShowConnectedModal(true);
+          return;
+        }
+      } catch {
+        // If lookup fails or order is independent, continue with standard update
+      }
+    }
+
+    let createdResult: Order = orderPayload;
+    try {
+      const res = await onSubmit(orderPayload);
+      if (res && (res as Order).id) {
+        createdResult = res as Order;
+      }
+    } catch {
+      // ignore
+    }
+    setCreatedOrder(createdResult);
+    if (initialOrder) {
+      toast.success('Order Updated', `Order ${createdResult.orderNumber} updated successfully!`);
+    } else {
+      toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+    }
+  };
+
+  const handleDisconnectAndSave = async () => {
+    if (!initialOrder || !pendingOrderToSave) return;
+    try {
+      setIsProcessingConnected(true);
+      const res = await orderService.disconnect(initialOrder.id, pendingOrderToSave);
+      setShowConnectedModal(false);
+      setCreatedOrder(res);
+      if (onOrderSaved) {
+        onOrderSaved(res);
+      } else {
+        await onSubmit(res);
+      }
+      toast.success('Order Disconnected', `Order ${res.orderNumber} disconnected from related PO/Invoice and returned to Pending.`);
+      handleReset();
+      onClose();
+    } catch (err: any) {
+      toast.error('Error', err?.message || 'Failed to disconnect order');
+    } finally {
+      setIsProcessingConnected(false);
+    }
   };
 
   const handleShareWhatsApp = (orderToShare?: Order) => {
@@ -381,58 +564,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const handleConvertToInvoice = async () => {
     if (!createdOrder) return;
-    let nextIdStr = `INV-2026-${Date.now()}`;
-    try {
-      nextIdStr = await invoiceService.getNextId();
-    } catch {
-      // ignore
-    }
-
-    const newInv: any = {
-      invoiceNumber: nextIdStr,
-      customer: {
-        id: `c-${Date.now()}`,
-        fullName: createdOrder.customerName,
-        phone: createdOrder.contactPhone || '011-0000000',
-        customerCode: createdOrder.customerId || 'CUST-000',
-        address: {
-          street: createdOrder.customerAddress || 'N/A',
-          city: createdOrder.customerCity || 'Colombo',
-          country: 'Sri Lanka',
-          zip: '00100',
-        },
-      },
-      items: createdOrder.items.map((p, idx) => ({
-        id: `ii-${Date.now()}-${idx}`,
-        inventoryItemId: p.inventoryItemId || p.id,
-        itemName: p.productName,
-        itemCode: p.sku,
-        discount: p.discount,
-        quantity: p.quantity,
-        unitPrice: p.unitPrice,
-        total: p.total,
-      })),
-      subTotal: createdOrder.subTotal,
-      discount: createdOrder.totalDiscount,
-      totalAmount: createdOrder.grandTotal,
-      paymentStatus: 'pending',
-      paymentMethod: 'bank_transfer',
-      issueDate: new Date().toISOString(),
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-      vehicleNumber: 'WP-CAD-1024',
-      notes: `Generated from Order ${createdOrder.orderNumber}`,
-    };
-
-    try {
-      await invoiceService.create(newInv);
-    } catch {
-      // ignore
-    }
-
-    toast.success('Converted to Invoice', `Invoice ${nextIdStr} created from ${createdOrder.orderNumber}`);
+    // Navigate to Invoice page with the order as context.
+    // The Invoice page will pre-fill the form so the user can review and save.
     handleReset();
     onClose();
-    navigate('/invoice');
+    navigate('/invoice', { state: { convertFromOrder: createdOrder } });
   };
 
   const handleReset = () => {
@@ -446,6 +582,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setProducts([]);
     setErrors({});
     setCreatedOrder(null);
+    setTotalDiscountType('percentage');
+    setTotalDiscountValue(0);
     setNewProduct({
       id: '',
       productName: '',
@@ -478,8 +616,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               <ShoppingBag size={18} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Create New Order</h2>
-              <p className="text-xs text-gray-400">Fill in the details below to create a manual order</p>
+              <h2 className="text-base font-semibold text-white">
+                {initialOrder ? `Edit Order — ${initialOrder.orderNumber}` : 'Create New Order'}
+              </h2>
+              <p className="text-xs text-gray-400">
+                {initialOrder ? 'Modify products, quantities, and discounts for this order' : 'Fill in the details below to create a manual order'}
+              </p>
             </div>
           </div>
           <button
@@ -722,7 +864,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                 </div>
 
                 {/* All Fields in One Row */}
-                <div className="grid grid-cols-12 gap-3 items-end pt-1">
+                <div className="grid grid-cols-12 gap-3 items-start pt-1">
                   {/* Product Name Search Field (Smaller text, compact) */}
                   <div ref={productRef} className="col-span-12 md:col-span-4 lg:col-span-4 relative">
                     <label className="block text-[11px] font-semibold text-gray-300 mb-1">
@@ -836,9 +978,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       <input
                         type="number"
                         min="0"
-                        className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-3 pr-8 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
+                        className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-3 pr-8 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
                         placeholder="0"
-                        value={newProduct.quantity === 0 && !errors.quantity ? '0' : newProduct.quantity || ''}
+                        value={newProduct.quantity > 0 ? newProduct.quantity : ''}
                         onChange={e => setNewProduct(p => ({ ...p, quantity: parseInt(e.target.value) || 0 }))}
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-500 pointer-events-none">
@@ -885,9 +1027,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         min="0"
                         max={newProduct.discountType === 'percentage' ? 100 : undefined}
                         step={newProduct.discountType === 'percentage' ? '0.1' : '1'}
-                        className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+                        className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         placeholder="0"
-                        value={newProduct.discount || ''}
+                        value={newProduct.discount && newProduct.discount > 0 ? newProduct.discount : ''}
                         onChange={e => setNewProduct(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
@@ -930,6 +1072,20 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                   </div>
                 </div>
 
+                {/* Real-time discount validation alert for new product */}
+                {(() => {
+                  const check = validateLineDiscount(newProduct);
+                  if (!check.isValid) {
+                    return (
+                      <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-2.5 flex items-start gap-2 text-xs text-red-400">
+                        <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                        <span>{check.error}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Live calculated line total preview */}
                 {newProduct.quantity > 0 && newProduct.unitPrice > 0 && (
                   <div className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -966,61 +1122,157 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         <tr className="bg-[#1e293b] text-gray-300 text-xs border-b border-[#334155]">
                           <th className="py-2.5 px-3 w-8 text-center">#</th>
                           <th className="py-2.5 px-3 min-w-[140px]">Product</th>
-                          <th className="py-2.5 px-3 w-20 text-center">Qty</th>
-                          <th className="py-2.5 px-3 w-28 text-right">Selling Price</th>
-                          <th className="py-2.5 px-3 w-24 text-center">Discount</th>
-                          <th className="py-2.5 px-3 w-24 text-center">Apply Discount</th>
-                          <th className="py-2.5 px-3 w-32 text-right">Line Total</th>
+                          <th className="py-2.5 px-3 w-24 text-center">Qty</th>
+                          <th className="py-2.5 px-3 w-24 text-right">Selling Price</th>
+                          <th className="py-2.5 px-3 w-36 text-center">Discount</th>
+                          <th className="py-2.5 px-3 w-28 text-center">Apply Discount</th>
+                          <th className="py-2.5 px-3 w-28 text-right">Line Total</th>
                           <th className="py-2.5 px-2 w-10 text-center"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#334155]/60 text-xs">
                         {products.map((p, idx) => {
                           const { discAmt, total } = calcProductLine(p);
+                          const lineValidation = validateLineDiscount(p);
+                          const isInvalid = !lineValidation.isValid;
+
                           return (
-                            <tr
-                              key={p.id}
-                              className={`hover:bg-[#1e293b]/40 transition-colors ${idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'}`}
-                            >
-                              <td className="py-2.5 px-3 text-center text-gray-500 font-mono">{idx + 1}</td>
-                              <td className="py-2.5 px-3">
-                                <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
-                              </td>
-                              <td className="py-2.5 px-3 text-center text-gray-300 font-mono whitespace-nowrap">{p.quantity} PCS</td>
-                              <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
-                              <td className="py-2.5 px-3 text-center font-mono">
-                                {discAmt > 0 ? (
-                                  <span className="text-amber-400">
-                                    {p.discountType === 'percentage' ? `${p.discount}%` : `Rs. ${p.discount}`}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">—</span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                  {p.discountScope === 'total' ? 'Total' : 'Unit'}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-bold text-white font-mono whitespace-nowrap">
-                                <div className="flex flex-col items-end">
-                                  <span className="text-emerald-400">{formatCurrency(total)}</span>
-                                  {discAmt > 0 && (
-                                    <span className="text-[10px] text-amber-400/80 font-normal">-{formatCurrency(discAmt)}</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveProduct(p.id)}
-                                  className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-[#1e293b] transition-colors"
-                                  title="Remove product"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </td>
-                            </tr>
+                            <React.Fragment key={p.id}>
+                              <tr
+                                className={`hover:bg-[#1e293b]/40 transition-colors ${
+                                  isInvalid
+                                    ? 'bg-red-950/20 border-l-2 border-l-red-500'
+                                    : idx % 2 === 0
+                                    ? 'bg-[#0f172a]'
+                                    : 'bg-[#111b2d]'
+                                }`}
+                              >
+                                <td className="py-2.5 px-3 text-center text-gray-500 font-mono">{idx + 1}</td>
+                                <td className="py-2.5 px-3">
+                                  <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <div className="inline-flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      placeholder="0"
+                                      value={p.quantity > 0 ? p.quantity : ''}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        handleUpdateProduct(p.id, { quantity: val });
+                                      }}
+                                      className="w-16 bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-center text-xs font-mono font-semibold text-white focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <span className="text-[10px] text-gray-400 font-medium">PCS</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155] shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountType: 'percentage' })}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                          p.discountType === 'percentage'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-gray-400 hover:text-white'
+                                        }`}
+                                      >
+                                        %
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountType: 'amount' })}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                          p.discountType === 'amount'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-gray-400 hover:text-white'
+                                        }`}
+                                      >
+                                        Rs.
+                                      </button>
+                                    </div>
+                                    <div className="relative w-20">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max={p.discountType === 'percentage' ? 100 : undefined}
+                                        value={p.discount !== undefined && p.discount > 0 ? p.discount : ''}
+                                        placeholder="0"
+                                        onChange={(e) => {
+                                          const val = parseFloat(e.target.value) || 0;
+                                          handleUpdateProduct(p.id, { discount: val });
+                                        }}
+                                        className={`w-full bg-[#1e293b] border rounded-lg px-2 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-6 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                          isInvalid ? 'border-red-500' : 'border-[#334155]'
+                                        }`}
+                                      />
+                                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold pointer-events-none">
+                                        {p.discountType === 'percentage' ? '%' : 'Rs'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex justify-center">
+                                    <div className="inline-flex bg-[#1e293b] p-0.5 border border-[#334155] rounded-lg items-center gap-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountScope: 'per_unit' })}
+                                        className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
+                                          (p.discountScope || 'per_unit') === 'per_unit'
+                                            ? 'bg-purple-600 text-white shadow'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                      >
+                                        Unit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountScope: 'total' })}
+                                        className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
+                                          p.discountScope === 'total'
+                                            ? 'bg-purple-600 text-white shadow'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                      >
+                                        Total
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-bold text-white font-mono whitespace-nowrap">
+                                  <div className="flex flex-col items-end">
+                                    <span className={isInvalid ? 'text-red-400' : 'text-emerald-400'}>{formatCurrency(total)}</span>
+                                    {discAmt > 0 && (
+                                      <span className="text-[10px] text-amber-400/80 font-normal">-{formatCurrency(discAmt)}</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveProduct(p.id)}
+                                    className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-[#1e293b] transition-colors"
+                                    title="Remove product"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                              {isInvalid && (
+                                <tr className="bg-red-950/20 border-b border-red-500/20">
+                                  <td colSpan={8} className="py-1 px-4 text-[11px] text-red-400">
+                                    <div className="flex items-center gap-1.5">
+                                      <AlertCircle size={12} className="shrink-0" />
+                                      <span>{lineValidation.error}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
@@ -1032,17 +1284,88 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
             {/* Section: Order Totals */}
             {products.length > 0 && (
-              <div className="mt-4 bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 space-y-2.5">
+              <div className="mt-4 bg-[#1e293b]/70 border border-[#334155] rounded-xl p-4 space-y-3">
                 <div className="flex justify-between text-sm text-gray-400">
                   <span>Subtotal:</span>
-                  <span className="font-mono text-gray-200">{formatCurrency(totals.subTotal)}</span>
+                  <span className="font-mono text-gray-200">{formatCurrency(totals.itemsSubtotal)}</span>
                 </div>
-                {totals.totalDiscount > 0 && (
-                  <div className="flex justify-between text-sm text-gray-400">
-                    <span>Total Discount:</span>
-                    <span className="font-mono text-amber-400">- {formatCurrency(totals.totalDiscount)}</span>
+
+                {/* Total Order Discount Input (% or Rs.) */}
+                <div className="py-2.5 px-3 bg-[#0f172a]/60 rounded-lg border border-[#334155]/80">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-300 text-xs font-medium">Order Discount:</span>
+                      <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155]">
+                        <button
+                          type="button"
+                          onClick={() => setTotalDiscountType('percentage')}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                            totalDiscountType === 'percentage'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTotalDiscountType('amount')}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                            totalDiscountType === 'amount'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          Rs.
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-28">
+                        <input
+                          type="number"
+                          min="0"
+                          max={totalDiscountType === 'amount' ? undefined : 100}
+                          value={totalDiscountValue > 0 ? totalDiscountValue : ''}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            setTotalDiscountValue(val);
+                          }}
+                          className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
+                          {totalDiscountType === 'amount' ? 'Rs' : '%'}
+                        </span>
+                      </div>
+                      {totals.totalDiscount > 0 && (
+                        <span className="text-amber-400 font-mono text-xs font-medium">
+                          - {formatCurrency(totals.totalDiscount)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  {/* Overall Discount Validation Error */}
+                  {(() => {
+                    const check = validateOverallDiscount({
+                      items: products,
+                      totalDiscountType,
+                      totalDiscountValue,
+                    });
+                    if (!check.isValid) {
+                      return (
+                        <div className="mt-2 text-[11px] text-red-400 flex items-center gap-1.5 pt-1 border-t border-red-500/20">
+                          <AlertCircle size={12} className="shrink-0" />
+                          <span>{check.error}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 <div className="flex justify-between text-sm font-bold text-white border-t border-[#334155] pt-2.5 mt-1">
                   <span>Grand Total:</span>
                   <span className="text-emerald-400 font-mono text-base">{formatCurrency(totals.grandTotal)}</span>
@@ -1121,18 +1444,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               <FileText size={14} /> Convert to Invoice
             </button>
 
-            {/* Create Order button / Created State */}
+            {/* Create / Update Order button */}
             {!createdOrder ? (
               <button
                 type="submit"
                 form="create-order-form"
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
               >
-                <ShoppingBag size={14} /> Create Order
+                <ShoppingBag size={14} /> {initialOrder ? 'Update Order' : 'Create Order'}
               </button>
             ) : (
               <div className="px-3.5 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 select-none">
-                <CheckCircle size={14} /> Order Created
+                <CheckCircle size={14} /> {initialOrder ? 'Order Updated' : 'Order Created'}
               </div>
             )}
           </div>
@@ -1304,6 +1627,21 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               sellingPrice: p.unitPrice,
             })),
           }}
+        />
+      )}
+
+      {/* Connected Order Edit Resolution Modal */}
+      {showConnectedModal && pendingOrderToSave && (
+        <ConnectedOrderEditModal
+          isOpen={showConnectedModal}
+          orderNumber={pendingOrderToSave.orderNumber}
+          connectedDocs={connectedDocs}
+          onDisconnect={handleDisconnectAndSave}
+          onCancel={() => {
+            setShowConnectedModal(false);
+            setPendingOrderToSave(null);
+          }}
+          isProcessing={isProcessingConnected}
         />
       )}
     </div>

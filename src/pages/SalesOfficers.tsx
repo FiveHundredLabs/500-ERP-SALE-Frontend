@@ -183,7 +183,7 @@ export const SalesOfficers: React.FC = () => {
   }, [periodFilteredInvoices, selectedOfficerId, officers, activeTab, searchQuery]);
 
   // Handle Save Officer
-  const handleSaveOfficer = async (data: Omit<SalesOfficer, "id" | "createdAt" | "updatedAt">) => {
+  const handleSaveOfficer = async (data: Omit<SalesOfficer, "id" | "createdAt" | "updatedAt"> & { password?: string; assignedCustomers?: string[] }) => {
     try {
       if (officerModalMode === "create") {
         const created = await salesOfficerService.create(data);
@@ -693,10 +693,10 @@ export const SalesOfficers: React.FC = () => {
                           <td className="p-3.5">
                             <div>
                               <p className="font-semibold text-white truncate max-w-[180px]">
-                                {inv.customer?.fullName || "Walk-in Customer"}
+                                {(typeof inv.customer === 'object' && inv.customer ? (inv.customer as any).fullName : null) || "Walk-in Customer"}
                               </p>
                               {(() => {
-                                const city = inv.customer?.city;
+                                const city = typeof inv.customer === 'object' && inv.customer ? (inv.customer as any).city : null;
                                 return city ? (
                                   <p className="text-[11px] text-gray-400 flex items-center gap-1">
                                     <MapPin size={10} />
@@ -743,9 +743,9 @@ export const SalesOfficers: React.FC = () => {
                           </td>
                           <td className="p-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {inv.customer?.phone && (
+                              {typeof inv.customer === 'object' && inv.customer && (inv.customer as any).phone && (
                                 <a
-                                  href={`https://wa.me/${inv.customer.phone.replace(/[^0-9]/g, "")}`}
+                                  href={`https://wa.me/${(inv.customer as any).phone.replace(/[^0-9]/g, "")}`}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition"
@@ -799,11 +799,11 @@ export const SalesOfficers: React.FC = () => {
           }}
           invoiceData={{
             ...selectedInvoice,
-            customer: selectedInvoice.customer?.id || '',
-            customerDetails: selectedInvoice.customer ?? undefined,
+            customer: typeof selectedInvoice.customer === 'object' ? selectedInvoice.customer?.id || '' : selectedInvoice.customer,
+            customerDetails: typeof selectedInvoice.customer === 'object' ? selectedInvoice.customer : undefined,
             items: selectedInvoice.items.map(item => ({
               id: item.id || Math.random().toString(),
-              inventoryItemId: item.inventoryItemId,
+              inventoryItemId: item.inventoryItemId || item.itemCode || '',
               itemName: item.itemName || item.inventoryItem?.productName || 'Product',
               itemCode: item.itemCode || item.inventoryItem?.productCode || '',
               discount: item.discount || 0,

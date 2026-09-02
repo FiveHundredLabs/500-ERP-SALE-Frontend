@@ -87,7 +87,6 @@ const MobileApp: React.FC = () => {
       headerIcon={<Smartphone size={19} />}
       headerTitle="500Core Mobile App"
       headerSubtitle="Enterprise Android mobility client for Van Sales & Warehousing"
-      showBell
     >
       <div className="max-w-6xl mx-auto space-y-7 animate-fadeIn pb-12">
         {/* ================= HERO UNDER DEVELOPMENT BANNER ================= */}

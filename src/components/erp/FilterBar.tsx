@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, ChevronRight, Tag } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronDown, Tag } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
 export interface SelectOption {
@@ -318,24 +318,28 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
       {/* Select Dropdowns */}
       {selects.map((sel, idx) => (
-        <select
-          key={idx}
-          className={`rounded-lg px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${sel.width || 'w-44'}`}
-          style={{
-            fontSize: '0.9rem',
-            height: '42px',
-            backgroundColor: 'var(--bg-input)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-primary)',
-          }}
-          value={sel.value}
-          onChange={e => sel.onChange(e.target.value)}
-        >
-          {sel.placeholder && <option value="">{sel.placeholder}</option>}
-          {sel.options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <div key={idx} className={`relative inline-flex items-center ${sel.width || 'w-44'}`}>
+          <select
+            className="w-full appearance-none rounded-lg pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+            style={{
+              fontSize: '0.9rem',
+              height: '42px',
+              backgroundColor: 'var(--bg-input)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
+            value={sel.value}
+            onChange={e => sel.onChange(e.target.value)}
+          >
+            {sel.placeholder && !sel.options.some(opt => opt.value === '') && (
+              <option value="">{sel.placeholder}</option>
+            )}
+            {sel.options.map((opt, optIdx) => (
+              <option key={`${opt.value}-${optIdx}`} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        </div>
       ))}
 
       {/* Clear Active Filters */}

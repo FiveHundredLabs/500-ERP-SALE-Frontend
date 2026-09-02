@@ -4,9 +4,10 @@ import InventoryOverview from "../components/InventoryOverview";
 import SearchFilter from "../components/SearchFilter";
 import ReusableTable from "../components/ReusableTable";
 import InventoryForm from "../components/InventoryForm";
+import ProductImportModal from "../components/ProductImportModal";
 import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
-import { Package } from "lucide-react";
+import { Package, FileSpreadsheet } from "lucide-react";
 import { inventoryService } from "../services/InventoryService";
 import type { InventoryItem } from "../types/inventory";
 import UserProfileDropdown from "../components/UserProfileDropdown";
@@ -35,6 +36,7 @@ const Inventory: React.FC = () => {
   });
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewMode, setViewMode] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -176,6 +178,16 @@ const Inventory: React.FC = () => {
             endpoint="/inventory-items"
             columns={inventoryColumns}
             columnLabels={inventoryColumnLabels}
+            headerTitle="Products List"
+            customActions={
+              <button
+                onClick={() => setIsImportOpen(true)}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+              >
+                <FileSpreadsheet size={16} />
+                Import Excel
+              </button>
+            }
             onAdd={handleAddItem}
             onEdit={handleEditItem}
             onDelete={handleDeleteItem}
@@ -228,6 +240,15 @@ const Inventory: React.FC = () => {
             initialData={editingItem}
             isEditing={!!editingItem && !viewMode}
             viewMode={viewMode}
+          />
+
+          <ProductImportModal
+            isOpen={isImportOpen}
+            onClose={() => setIsImportOpen(false)}
+            onSuccess={() => {
+              setRefreshTrigger((prev) => prev + 1);
+              showAlert("Products successfully imported into database!", "success");
+            }}
           />
         </main>
       </div>

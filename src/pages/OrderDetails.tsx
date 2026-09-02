@@ -1,35 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, StatusBadge, useToast } from '../components/erp';
-import type { Order, OrderStatusType } from '../types/orders';
+import type { Order } from '../types/orders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { orderService } from '../services/OrderService';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
+import CreateOrderModal from '../components/orders/CreateOrderModal';
+import CustomConfirm from '../components/CustomConfirm';
 import {
   ShoppingBag,
   UserCheck,
   Building2,
   Clock,
   ArrowLeft,
-  CheckCircle,
-  XCircle,
   FileCheck,
+  FileText,
   Printer,
   Info,
   MessageCircle,
+  ExternalLink,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
 const OrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { success, info } = useToast();
+  const { success } = useToast();
 
   const [order, setOrder] = useState<Order | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showConvertToPOModal, setShowConvertToPOModal] = useState(false);
+  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const isOrderEditable = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    return s === 'pending' || s === 'pending_approval' || s === 'draft' || s === 'converted_to_po' || s === 'converted_to_invoice';
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -105,22 +128,56 @@ const OrderDetails: React.FC = () => {
     success('Converted to PO Successfully!', `Created Purchase Order ${createdPO.poNumber} from Order ${order.orderNumber}.`);
   };
 
-  const handleUpdateStatus = async (newStatus: OrderStatusType) => {
-    if (!order || !id) return;
+  const handleUpdateOrder = async (updatedPayload: Order): Promise<Order> => {
     try {
-      await orderService.updateStatus(order.id || id, newStatus);
-      setOrder(prev => prev ? { ...prev, status: newStatus } : undefined);
+      const saved = await orderService.update(updatedPayload.id, updatedPayload);
+      setOrder(saved);
+      setShowEditOrderModal(false);
+      success('Order Updated', `Order ${saved.orderNumber} updated successfully.`);
+      return saved;
     } catch {
-      setOrder(prev => prev ? { ...prev, status: newStatus } : undefined);
+      setOrder(updatedPayload);
+      setShowEditOrderModal(false);
+      success('Order Updated', `Order ${updatedPayload.orderNumber} updated.`);
+      return updatedPayload;
     }
-    info('Status Updated', `Order ${order.orderNumber} status changed to ${newStatus}.`);
   };
+
+  const handleDeleteOrder = () => {
+    if (!order) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Order?',
+      message: `Are you sure you want to delete Order "${order.orderNumber}"? This action may affect connected documents (Purchase Orders/Invoices) and cannot be undone.`,
+      confirmText: 'Delete Order',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await orderService.delete(order.id);
+          success('Order Deleted', `Order ${order.orderNumber} deleted successfully.`);
+          navigate('/orders');
+        } catch (err: any) {
+          success('Error', err?.message || 'Failed to delete order');
+        }
+      },
+    });
+  };
+
 
   return (
     <AppLayout
       headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
       headerTitle={`Order ${order.orderNumber}`}
-      headerSubtitle={`Created on ${order.orderDate} by ${typeof order.salesman === 'object' && order.salesman ? order.salesman.fullName : (order.salesman || 'Sales Representative')}`}
+      headerSubtitle={`Created on ${order.orderDate ? String(order.orderDate).split('T')[0] : 'N/A'} by ${order.salesmanName || (typeof order.salesman === 'object' && order.salesman?.fullName) || 'Sales Representative'}`}
+      headerRight={
+        <button
+          onClick={() => navigate('/orders')}
+          className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={13} /> Back to Orders
+        </button>
+      }
     >
       <PageHeader
         title={`Order: ${order.orderNumber}`}
@@ -133,12 +190,6 @@ const OrderDetails: React.FC = () => {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/orders')}
-              className="px-3.5 py-1.5 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft size={14} /> Back to Orders
-            </button>
 
             <button
               onClick={() => {
@@ -149,6 +200,7 @@ const OrderDetails: React.FC = () => {
                   orderDate: order.orderDate,
                   itemsCount: order.items?.length || 0,
                   remarks: order.notes,
+                  shareUrl: window.location.href,
                 });
                 const url = getWhatsAppUrl(order.contactPhone || '', text);
                 window.open(url, '_blank');
@@ -166,6 +218,24 @@ const OrderDetails: React.FC = () => {
               <Printer size={14} /> Print Order
             </button>
 
+            {isOrderEditable(order.status) ? (
+              <button
+                onClick={() => setShowEditOrderModal(true)}
+                className="px-3.5 py-1.5 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Edit Order"
+              >
+                <Edit size={14} /> Edit Order
+              </button>
+            ) : (
+              <button
+                disabled
+                className="px-3.5 py-1.5 border border-[#334155]/50 bg-[#1e293b]/50 text-gray-500 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed opacity-50"
+                title={`Order is ${order.status.replace(/_/g, ' ')} and cannot be edited`}
+              >
+                <Edit size={14} /> Edit Locked
+              </button>
+            )}
+
             {order.status !== 'converted_to_po' && order.status !== 'completed' && (
               <button
                 onClick={() => setShowConvertToPOModal(true)}
@@ -174,6 +244,28 @@ const OrderDetails: React.FC = () => {
                 <FileCheck size={14} /> Convert to PO
               </button>
             )}
+
+            {/* Convert to Invoice — available unless already completed/cancelled */}
+            {order.status !== 'cancelled' && (
+              <button
+                onClick={() => navigate('/invoice', {
+                  state: {
+                    convertFromOrder: order,
+                  }
+                })}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-600/20"
+              >
+                <FileText size={14} /> Convert to Invoice
+              </button>
+            )}
+
+            <button
+              onClick={handleDeleteOrder}
+              className="px-3.5 py-1.5 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Delete Order"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
           </div>
         }
       />
@@ -256,62 +348,44 @@ const OrderDetails: React.FC = () => {
                   <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Address</span>
                   <span className="text-gray-300">{order.customerAddress}, {order.customerCity}</span>
                 </div>
-                <div className="pt-1">
-                  <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Customer ID</span>
-                  <span className="font-mono text-blue-400 font-semibold">{order.customerId}</span>
-                </div>
               </div>
             </div>
 
+            {/* Converted PO reference — only shown if converted */}
+            {order.convertedPurchaseOrder && (
+              <div className="bg-[#1e293b]/70 border border-purple-500/30 rounded-xl p-4 shadow-lg flex items-center gap-3">
+                <div className="p-2.5 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                  <ShoppingBag size={17} className="text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Converted Purchase Order</p>
+                  <Link
+                    to={`/purchase-orders/${order.convertedPurchaseOrder.id}`}
+                    className="text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors underline underline-offset-2 flex items-center gap-1 mt-0.5"
+                  >
+                    {order.convertedPurchaseOrder.poNumber} <ExternalLink size={12} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Salesman Info Card */}
             <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#334155]">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#334155]">
                 <UserCheck size={18} className="text-purple-400" />
                 <h3 className="text-sm font-semibold text-gray-200">Sales Representative</h3>
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Name:</span>
-                  <span className="font-semibold text-gray-200">{order.salesman?.fullName || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Employee ID:</span>
-                  <span className="font-mono text-gray-300">{order.salesman?.employeeId || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Assigned Territory:</span>
-                  <span className="text-gray-300">{order.salesman?.area || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Contact Phone:</span>
-                  <span className="text-gray-300">{order.salesman?.phone || '—'}</span>
-                </div>
+              <div className="text-xs space-y-1">
+                <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Sales Officer Name</span>
+                <span className="font-bold text-gray-100 text-sm block">
+                  {order.salesmanName || (typeof order.salesman === 'object' && order.salesman?.fullName) || (typeof order.salesman === 'string' ? order.salesman : '') || '—'}
+                </span>
               </div>
             </div>
 
-            {/* Action Bar */}
-            <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl p-5 shadow-lg space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Update Order Status</h3>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleUpdateStatus('approved')}
-                  disabled={order.status === 'approved'}
-                  className="w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <CheckCircle size={14} /> Approve Order
-                </button>
 
-                <button
-                  onClick={() => handleUpdateStatus('rejected')}
-                  disabled={order.status === 'rejected'}
-                  className="w-full py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <XCircle size={14} /> Reject Order
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Right Column: Products Table & Summary */}
@@ -329,7 +403,6 @@ const OrderDetails: React.FC = () => {
                 <table className="min-w-full border-collapse">
                   <thead>
                     <tr className="bg-[#1e293b] text-gray-200 text-xs font-semibold border-b border-[#334155]">
-                      <th className="p-3.5 text-left">SKU</th>
                       <th className="p-3.5 text-left">Product Name</th>
                       <th className="p-3.5 text-right">Qty</th>
                       <th className="p-3.5 text-right">Unit Price</th>
@@ -345,7 +418,6 @@ const OrderDetails: React.FC = () => {
                           idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'
                         }`}
                       >
-                        <td className="p-3.5 font-mono text-blue-400 font-semibold">{item.sku}</td>
                         <td className="p-3.5">
                           <p className="font-semibold text-gray-200">{item.productName}</p>
                           <p className="text-[10px] text-gray-400">{item.category} · {item.brand}</p>
@@ -354,8 +426,16 @@ const OrderDetails: React.FC = () => {
                           {item.quantity} {item.unit}
                         </td>
                         <td className="p-3.5 text-right text-gray-300 font-mono">{formatCurrency(item.unitPrice)}</td>
-                        <td className="p-3.5 text-right text-amber-400 font-medium">
-                          {item.discount > 0 ? `${item.discount}%` : '—'}
+                        <td className="p-3.5 text-right text-amber-400 font-medium font-mono text-xs">
+                          {(() => {
+                            const dv = item.discountValue ?? item.discount;
+                            if (!dv || Number(dv) <= 0) return '—';
+                            const type = item.discountType || 'percentage';
+                            const scope = item.discountScope || 'per_unit';
+                            const scopeLabel = scope === 'per_unit' ? '/unit' : '/total';
+                            if (type === 'percentage') return `${Number(dv)}%${scopeLabel}`;
+                            return `LKR ${Number(dv).toLocaleString()}${scopeLabel}`;
+                          })()}
                         </td>
                         <td className="p-3.5 text-right font-bold text-white font-mono">{formatCurrency(item.total)}</td>
                       </tr>
@@ -375,14 +455,30 @@ const OrderDetails: React.FC = () => {
                   )}
                 </div>
 
-                <div className="w-full sm:w-64 space-y-2 text-xs">
-                  <div className="flex justify-between text-gray-400">
+                <div className="w-full sm:w-72 space-y-2 text-xs">
+                  {/* Items gross subtotal if line discounts exist */}
+                  {order.subTotal !== (order.items || []).reduce((s, i) => s + (i.total || 0), 0) && (
+                    <div className="flex justify-between text-gray-400">
+                      <span>Gross Subtotal:</span>
+                      <span className="font-mono text-gray-200">{formatCurrency(order.subTotal)}</span>
+                    </div>
+                  )}
+
+                  {/* Effective Subtotal (after item line discounts) */}
+                  <div className="flex justify-between text-gray-400 font-medium">
                     <span>Subtotal:</span>
-                    <span className="font-mono text-gray-200">{formatCurrency(order.subTotal)}</span>
+                    <span className="font-mono text-gray-200">
+                      {formatCurrency((order.items || []).reduce((s, i) => s + (i.total || 0), 0))}
+                    </span>
                   </div>
+
+                  {/* Order-level discount */}
                   {order.totalDiscount > 0 && (
                     <div className="flex justify-between text-gray-400">
-                      <span>Total Discount:</span>
+                      <span>
+                        Order Discount
+                        {order.totalDiscountType === 'percentage' && order.totalDiscountValue ? ` (${order.totalDiscountValue}%)` : ''}:
+                      </span>
                       <span className="font-mono text-amber-400">- {formatCurrency(order.totalDiscount)}</span>
                     </div>
                   )}
@@ -444,6 +540,34 @@ const OrderDetails: React.FC = () => {
           }}
         />
       )}
+      {/* EDIT ORDER MODAL */}
+      {showEditOrderModal && (
+        <CreateOrderModal
+          isOpen={showEditOrderModal}
+          onClose={() => setShowEditOrderModal(false)}
+          onSubmit={handleUpdateOrder}
+          onOrderSaved={(savedOrder) => {
+            setOrder(savedOrder);
+            setShowEditOrderModal(false);
+          }}
+          initialOrder={order}
+        />
+      )}
+
+      {/* CUSTOM CONFIRM MODAL FOR DELETE */}
+      <CustomConfirm
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        type={confirmConfig.type}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppLayout>
   );
 };

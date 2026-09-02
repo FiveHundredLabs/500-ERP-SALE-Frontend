@@ -74,41 +74,40 @@ export const generateQuotationWhatsAppMessage = (params: {
   quotationNumber: string;
   customerName: string;
   totalAmount: number;
-  issueDate: string;
-  itemsCount: number;
+  issueDate?: string;
+  itemsCount?: number;
   remarks?: string;
   notes?: string;
   shareUrl?: string;
 }): string => {
-  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+  const formattedAmount = `LKR ${Number(params.totalAmount || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-  const formattedIssueDate = formatLongDate(params.issueDate) || params.issueDate;
   const remarksText = (params.remarks || params.notes || '').trim();
+  const rawNum = params.quotationNumber.replace(/^#/, '');
+  const qNum = rawNum.startsWith('QUO-') || rawNum.startsWith('Q-') ? `#${rawNum}` : `#QUO-${rawNum}`;
 
-  const lines: string[] = [
-    `S & K Enterprices — QUOTATION ${params.quotationNumber}`,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `Customer: ${params.customerName}`,
-    `Quotation Date: ${formattedIssueDate}`,
-    `Items: ${params.itemsCount}`,
-    `Total Amount: ${formattedAmount}`,
+  const parts: string[] = [
+    `Hello ${params.customerName || 'Valued Customer'},`,
+    `We have prepared a Quotation ${qNum} from S & K Enterprises.`,
+    `Net Total: ${formattedAmount}`,
   ];
 
   if (remarksText) {
-    lines.push(`Remarks: ${remarksText}`);
+    parts.push(`Remarks: ${remarksText}`);
   }
 
   if (params.shareUrl) {
-    lines.push(`\n --View / Download Quotation:\n${params.shareUrl}`);
+    parts.push(
+      `You can view, print, or download this official Quotation online by clicking the link below:\n\n${params.shareUrl}`
+    );
   }
 
-  lines.push(`\n --The official Quotation PDF is attached for your records and review.`);
-  lines.push(`Thank you for your business. We appreciate your continued support.`);
+  parts.push(`Thank you!`);
 
-  return lines.join('\n');
+  return parts.join('\n\n');
 };
 
 /**
@@ -119,48 +118,41 @@ export const generateInvoiceWhatsAppMessage = (params: {
   customerName: string;
   totalAmount: number;
   paymentStatus?: string;
-  issueDate: string;
+  issueDate?: string;
   dueDate?: string;
-  itemsCount: number;
+  itemsCount?: number;
   remarks?: string;
   notes?: string;
   shareUrl?: string;
 }): string => {
-  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+  const formattedAmount = `LKR ${Number(params.totalAmount || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-  const formattedIssueDate = formatLongDate(params.issueDate) || params.issueDate;
-  const formattedDueDate = formatLongDate(params.dueDate) || params.dueDate;
   const remarksText = (params.remarks || params.notes || '').trim();
+  const rawNum = params.invoiceNumber.replace(/^#/, '');
+  const invNum = rawNum.startsWith('INV-') || rawNum.startsWith('I-') ? `#${rawNum}` : `#INV-${rawNum}`;
 
-  const lines: string[] = [
-    `S & K Enterprices — INVOICE ${params.invoiceNumber}`,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `Customer: ${params.customerName}`,
-    `Invoice Date: ${formattedIssueDate}`,
+  const parts: string[] = [
+    `Hello ${params.customerName || 'Valued Customer'},`,
+    `We have issued an Invoice ${invNum} from S & K Enterprises.`,
+    `Net Total: ${formattedAmount}`,
   ];
 
-  if (formattedDueDate) {
-    lines.push(`Due Date: ${formattedDueDate}`);
-  }
-
-  lines.push(`Items: ${params.itemsCount}`);
-  lines.push(`Total Amount: ${formattedAmount}`);
-
   if (remarksText) {
-    lines.push(`Remarks: ${remarksText}`);
+    parts.push(`Remarks: ${remarksText}`);
   }
 
   if (params.shareUrl) {
-    lines.push(`\n -- View / Download Invoice:\n${params.shareUrl}`);
+    parts.push(
+      `You can view, print, or download this official Invoice online by clicking the link below:\n\n${params.shareUrl}`
+    );
   }
 
-  lines.push(`\n -- The official Tax Invoice PDF is attached for your records and payment processing.`);
-  lines.push(`Thank you for your business. We appreciate your continued support.`);
+  parts.push(`Thank you!`);
 
-  return lines.join('\n');
+  return parts.join('\n\n');
 };
 
 /**
@@ -170,41 +162,40 @@ export const generatePOWhatsAppMessage = (params: {
   poNumber: string;
   supplierName: string;
   totalAmount: number;
-  poDate: string;
-  itemsCount: number;
+  poDate?: string;
+  itemsCount?: number;
   remarks?: string;
   notes?: string;
   shareUrl?: string;
 }): string => {
-  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+  const formattedAmount = `LKR ${Number(params.totalAmount || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-  const formattedPoDate = formatLongDate(params.poDate) || params.poDate;
   const remarksText = (params.remarks || params.notes || '').trim();
+  const rawNum = params.poNumber.replace(/^#/, '');
+  const poNum = rawNum.startsWith('PO-') ? `#${rawNum}` : `#PO-${rawNum}`;
 
-  const lines: string[] = [
-    `S & K Enterprices — PURCHASE ORDER ${params.poNumber}`,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `Supplier: ${params.supplierName}`,
-    `PO Date: ${formattedPoDate}`,
-    `Items: ${params.itemsCount}`,
-    `Total Amount: ${formattedAmount}`,
+  const parts: string[] = [
+    `Hello ${params.supplierName || 'Valued Supplier'},`,
+    `We have generated a Purchase Order ${poNum} from S & K Enterprises.`,
+    `Net Total: ${formattedAmount}`,
   ];
 
   if (remarksText) {
-    lines.push(`Remarks: ${remarksText}`);
+    parts.push(`Remarks: ${remarksText}`);
   }
 
   if (params.shareUrl) {
-    lines.push(`\n -- View / Download Purchase Order:\n${params.shareUrl}`);
+    parts.push(
+      `You can view, print, or download this official Purchase Order online by clicking the link below:\n\n${params.shareUrl}`
+    );
   }
 
-  lines.push(`\n -- The official Purchase Order PDF is attached for your records.`);
-  lines.push(`Thank you for your business. We appreciate your continued support.`);
+  parts.push(`Thank you!`);
 
-  return lines.join('\n');
+  return parts.join('\n\n');
 };
 
 /**
@@ -214,39 +205,38 @@ export const generateOrderWhatsAppMessage = (params: {
   orderNumber: string;
   customerName: string;
   totalAmount: number;
-  orderDate: string;
-  itemsCount: number;
+  orderDate?: string;
+  itemsCount?: number;
   remarks?: string;
   notes?: string;
   shareUrl?: string;
 }): string => {
-  const formattedAmount = `LKR ${params.totalAmount.toLocaleString('en-US', {
+  const formattedAmount = `LKR ${Number(params.totalAmount || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-  const formattedOrderDate = formatLongDate(params.orderDate) || params.orderDate;
   const remarksText = (params.remarks || params.notes || '').trim();
+  const rawNum = params.orderNumber.replace(/^#/, '');
+  const ordNum = rawNum.startsWith('ORD-') || rawNum.startsWith('O-') ? `#${rawNum}` : `#ORD-${rawNum}`;
 
-  const lines: string[] = [
-    `S & K Enterprices — SALES ORDER ${params.orderNumber}`,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `Customer: ${params.customerName}`,
-    `Order Date: ${formattedOrderDate}`,
-    `Items: ${params.itemsCount}`,
-    `Total Amount: ${formattedAmount}`,
+  const parts: string[] = [
+    `Hello ${params.customerName || 'Valued Customer'},`,
+    `We have created a Sales Order ${ordNum} from S & K Enterprises.`,
+    `Net Total: ${formattedAmount}`,
   ];
 
   if (remarksText) {
-    lines.push(`Remarks: ${remarksText}`);
+    parts.push(`Remarks: ${remarksText}`);
   }
 
   if (params.shareUrl) {
-    lines.push(`\n -- View / Download Order:\n${params.shareUrl}`);
+    parts.push(
+      `You can view, print, or download this official Sales Order online by clicking the link below:\n\n${params.shareUrl}`
+    );
   }
 
-  lines.push(`\n -- The official Order confirmation has been created in our system.`);
-  lines.push(`Thank you for your business. We appreciate your continued support.`);
+  parts.push(`Thank you!`);
 
-  return lines.join('\n');
+  return parts.join('\n\n');
 };

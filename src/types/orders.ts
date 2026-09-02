@@ -1,6 +1,6 @@
 export const OrderStatus = {
   PENDING: 'pending', REVIEWING: 'reviewing', APPROVED: 'approved', REJECTED: 'rejected',
-  CONVERTED_TO_PO: 'converted_to_po', COMPLETED: 'completed', CANCELLED: 'cancelled',
+  CONVERTED_TO_PO: 'converted_to_po', CONVERTED_TO_INVOICE: 'converted_to_invoice', COMPLETED: 'completed', CANCELLED: 'cancelled',
 } as const;
 export type OrderStatusType = typeof OrderStatus[keyof typeof OrderStatus];
 
@@ -18,6 +18,10 @@ export interface OrderProduct {
   unit: string;
   unitPrice: number;
   discount: number;
+  discountType?: 'percentage' | 'amount';
+  discountScope?: 'per_unit' | 'total_qty' | 'total';
+  discountValue?: number;
+  discountAmount?: number;
   tax: number;
   subTotal: number;
   total: number;
@@ -34,7 +38,11 @@ export interface Order {
   updatedAt: string;
   salesmanId?: string | null;
   salesman?: Salesman | null;
-  salesmanName?: string;
+  salesmanName?: string | null;
+  salesmanEmployeeId?: string | null;
+  salesmanPhone?: string | null;
+  salesmanArea?: string | null;
+  salesmanEmail?: string | null;
   customerId: string;
   customerName: string;
   contactPerson: string;
@@ -45,6 +53,8 @@ export interface Order {
   numberOfProducts: number;
   subTotal: number;
   totalDiscount: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
   totalTax: number;
   grandTotal: number;
   status: OrderStatusType;

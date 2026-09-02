@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import UserProfileDropdown from './UserProfileDropdown';
 import ThemeToggle from './ThemeToggle';
-import { Bell, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 interface AppLayoutProps {
   headerIcon?: React.ReactNode;
   headerTitle: string;
   headerSubtitle?: string;
   headerRight?: React.ReactNode;
-  showBell?: boolean;
   children: React.ReactNode;
 }
 
@@ -22,7 +21,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   headerTitle,
   headerSubtitle,
   headerRight,
-  showBell = false,
   children,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -121,12 +119,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Theme Toggle (Light / Dark Mode) */}
             <ThemeToggle />
 
-            {showBell && (
-              <button className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition-colors relative cursor-pointer">
-                <Bell size={20} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500" />
-              </button>
-            )}
             {headerRight}
             <UserProfileDropdown />
           </div>

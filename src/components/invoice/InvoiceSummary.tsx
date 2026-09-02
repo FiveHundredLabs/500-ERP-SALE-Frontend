@@ -1,4 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { AlertCircle } from 'lucide-react';
+import type { InvoiceItem } from '../../types/invoice';
+import type { InventoryItem } from '../../types/inventory';
+import { validateOverallDiscount, resolveMinPrice } from '../../utils/discountValidator';
 
 interface InvoiceSummaryProps {
   subTotal: number;
@@ -9,6 +13,8 @@ interface InvoiceSummaryProps {
   taxAmount: number;
   totalAmount: number;
   applyVat: boolean;
+  items?: InvoiceItem[];
+  inventoryItems?: InventoryItem[];
   onTotalDiscountChange?: (discountType: 'percentage' | 'amount', discountValue: number) => void;
 }
 
@@ -20,10 +26,63 @@ export const InvoiceSummary: React.FC<InvoiceSummaryProps> = ({
   taxAmount,
   totalAmount,
   applyVat,
+  items = [],
+  inventoryItems = [],
   onTotalDiscountChange,
 }) => {
+  const overallDiscountValidation = useMemo(() => {
+    if (!items.length || !totalDiscountValue) return { isValid: true, error: undefined as string | undefined };
+    return validateOverallDiscount({
+      items: items.map(it => {
+        const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
+        return {
+          productName: it.itemName,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          discountAmount: it.discountAmount,
+          minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
+        };
+      }),
+      totalDiscountType,
+      totalDiscountValue,
+    });
+  }, [items, inventoryItems, totalDiscountType, totalDiscountValue]);
+
+  const productDiscountTotal = useMemo(() => {
+    return items.reduce((sum, it) => {
+      const q = Number(it.quantity) || 0;
+      const p = Number(it.unitPrice) || 0;
+      const exp = q * p;
+      const t = it.total !== undefined ? Number(it.total) : exp;
+      const d = it.discountAmount !== undefined
+        ? Number(it.discountAmount)
+        : it.discount !== undefined
+          ? Number(it.discount)
+          : Math.max(0, exp - t);
+      return sum + Math.max(0, d);
+    }, 0);
+  }, [items]);
+
+  const grossItemsTotal = useMemo(() => {
+    return items.reduce((sum, it) => sum + ((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0)), 0);
+  }, [items]);
+
   return (
     <div className="mt-6 pt-4 border-t border-[#334155] space-y-3">
+      {/* Product-wise Discount Breakdown */}
+      {productDiscountTotal > 0 && (
+        <div className="space-y-1.5 pb-2 border-b border-[#334155]/40">
+          <div className="flex justify-between items-center text-xs text-gray-400">
+            <span>Gross Total:</span>
+            <span className="font-mono">LKR {Math.round(grossItemsTotal).toLocaleString()}/=</span>
+          </div>
+          <div className="flex justify-between items-center text-xs text-red-400">
+            <span>Product-wise Discount:</span>
+            <span className="font-mono">- LKR {Math.round(productDiscountTotal).toLocaleString()}/=</span>
+          </div>
+        </div>
+      )}
+
       {/* Subtotal */}
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-300">Subtotal:</span>
@@ -76,7 +135,9 @@ export const InvoiceSummary: React.FC<InvoiceSummaryProps> = ({
                     const val = Math.max(0, parseFloat(e.target.value) || 0);
                     onTotalDiscountChange(totalDiscountType, val);
                   }}
-                  className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1 text-sm font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7"
+                  className={`w-full bg-[#1e293b] border rounded-lg px-2.5 py-1 text-sm font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                    !overallDiscountValidation.isValid ? 'border-red-500' : 'border-[#334155]'
+                  }`}
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500 pointer-events-none">
                   {totalDiscountType === 'amount' ? 'Rs' : '%'}
@@ -90,6 +151,14 @@ export const InvoiceSummary: React.FC<InvoiceSummaryProps> = ({
             )}
           </div>
         </div>
+
+        {/* Overall Discount Validation Warning */}
+        {!overallDiscountValidation.isValid && (
+          <div className="mt-2 text-[11px] text-red-400 flex items-center gap-1.5 pt-1 border-t border-red-500/20">
+            <AlertCircle size={12} className="shrink-0" />
+            <span>{overallDiscountValidation.error}</span>
+          </div>
+        )}
       </div>
 
       {/* Tax */}

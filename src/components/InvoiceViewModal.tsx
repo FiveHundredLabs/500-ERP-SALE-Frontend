@@ -63,9 +63,9 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
           <InvoiceCanvas
             invoiceData={{
               invoiceNumber: selectedInvoice.invoiceNumber,
-              customer: selectedInvoice.customer?.id || "",
-              customerDetails: selectedInvoice.customer ?? undefined,
-              items: selectedInvoice.items.map(item => ({
+              customer: typeof selectedInvoice.customer === 'object' ? (selectedInvoice.customer as any)?.id || '' : selectedInvoice.customer,
+              customerDetails: (typeof selectedInvoice.customer === 'object' ? selectedInvoice.customer : undefined) as any,
+              items: selectedInvoice.items.map((item: any) => ({
                 id: item.id || Date.now().toString(),
                 inventoryItemId: item.inventoryItemId,
                 itemName: item.itemName || item.inventoryItem?.productName || "Item",
@@ -278,9 +278,9 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 <InvoiceCanvas
                   invoiceData={{
                     invoiceNumber: selectedInvoice.invoiceNumber,
-                    customer: selectedInvoice.customer?.id || "",
-                    customerDetails: selectedInvoice.customer ?? undefined,
-                    items: selectedInvoice.items.map(item => ({
+                    customer: typeof selectedInvoice.customer === 'object' ? (selectedInvoice.customer as any)?.id || '' : selectedInvoice.customer,
+                    customerDetails: (typeof selectedInvoice.customer === 'object' ? selectedInvoice.customer : undefined) as any,
+                    items: selectedInvoice.items.map((item: any) => ({
                       id: item.id || Date.now().toString(),
                       inventoryItemId: item.inventoryItemId,
                       itemName: item.itemName || item.inventoryItem?.productName || "Item",

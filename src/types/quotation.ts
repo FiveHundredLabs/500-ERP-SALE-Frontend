@@ -52,6 +52,8 @@ export interface QuotationResponse {
   validUntil: string;
   status: QuotationStatusType;
   notes?: string;
+  salesman?: { id: string; fullName: string; name?: string; email?: string; role?: string };
+  salesmanName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +63,8 @@ export interface QuotationData {
   quotationNumber: string;
   customer: string;
   customerDetails?: QuotationCustomer;
+  salesman?: { id: string; fullName: string; name?: string; email?: string; role?: string };
+  salesmanName?: string;
   items: QuotationItem[];
   subTotal: number;
   discount: number;

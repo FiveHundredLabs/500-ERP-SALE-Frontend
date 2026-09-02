@@ -1,6 +1,7 @@
 export const POStatus = {
   DRAFT: 'draft', PENDING_APPROVAL: 'pending_approval', APPROVED: 'approved', PROCESSING: 'processing',
-  PARTIALLY_RECEIVED: 'partially_received', COMPLETED: 'completed', CANCELLED: 'cancelled',
+  GOODS_RECEIVED: 'goods_received', PARTIALLY_RECEIVED: 'partially_received',
+  COMPLETED: 'completed', CANCELLED: 'cancelled',
 } as const;
 export type POStatusType = typeof POStatus[keyof typeof POStatus];
 export const POPaymentStatus = { UNPAID: 'unpaid', PAID: 'paid', PARTIAL: 'partial' } as const;

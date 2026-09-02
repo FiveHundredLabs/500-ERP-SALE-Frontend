@@ -10,6 +10,15 @@ import { mapCustomer, mapInventoryItem, mapQuotation } from './apiMappers';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function toQuotationPayload(data: Partial<BackendQuotationData>) {
   const encodeMoney = (value: number | undefined) => value === undefined ? undefined : moneyToApi(value);
   return {
@@ -30,21 +39,30 @@ export interface DeleteQuotationResponse {
 export const quotationService = {
   // Get all quotations
   async getAll(): Promise<QuotationResponse[]> {
-    const res = await fetch(`${API_BASE}/quotations`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/quotations`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Failed to fetch quotations: ${res.statusText}`);
     return ((await res.json()) as unknown[]).map(mapQuotation);
   },
 
   // Get all customers
   async getAllCustomers(): Promise<QuotationCustomer[]> {
-    const res = await fetch(`${API_BASE}/customers`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/customers`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Failed to fetch customers: ${res.statusText}`);
     return ((await res.json()) as unknown[]).map(mapCustomer);
   },
 
   // Get next quotation ID
   async getNextId(): Promise<string> {
-    const res = await fetch(`${API_BASE}/quotations/next-id`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/quotations/next-id`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Failed to fetch next quotation ID: ${res.statusText}`);
     const data = await res.json();
     return data.nextQuotationNumber || `QUO-${Date.now()}`;
@@ -52,14 +70,20 @@ export const quotationService = {
 
   // Get quotation by ID
   async getById(id: string): Promise<QuotationResponse> {
-    const res = await fetch(`${API_BASE}/quotations/${id}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/quotations/${id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Quotation with ID "${id}" not found.`);
     return mapQuotation(await res.json());
   },
 
   // Get quotation by quotationNumber
   async getByQuotationId(quotationNumber: string): Promise<QuotationResponse> {
-    const res = await fetch(`${API_BASE}/quotations/number/${encodeURIComponent(quotationNumber)}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/quotations/number/${encodeURIComponent(quotationNumber)}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Quotation "${quotationNumber}" not found.`);
     return res.json();
   },
@@ -68,7 +92,7 @@ export const quotationService = {
   async create(quotationData: BackendQuotationData): Promise<QuotationResponse> {
     const res = await fetch(`${API_BASE}/quotations`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(toQuotationPayload(quotationData)),
     });
@@ -83,7 +107,7 @@ export const quotationService = {
   async update(id: string, updateData: Partial<BackendQuotationData>): Promise<QuotationResponse> {
     const res = await fetch(`${API_BASE}/quotations/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(toQuotationPayload(updateData)),
     });
@@ -98,7 +122,7 @@ export const quotationService = {
   async updateStatus(id: string, status: QuotationStatusType): Promise<QuotationResponse> {
     const res = await fetch(`${API_BASE}/quotations/${id}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ status }),
     });
@@ -113,6 +137,7 @@ export const quotationService = {
   async delete(id: string): Promise<DeleteQuotationResponse> {
     const res = await fetch(`${API_BASE}/quotations/${id}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
     if (!res.ok) {
@@ -124,7 +149,10 @@ export const quotationService = {
 
   // Get inventory items for dropdown
   async getInventoryItems(): Promise<InventoryItem[]> {
-    const res = await fetch(`${API_BASE}/inventory-items`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/inventory-items`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error(`Failed to fetch inventory items`);
     return ((await res.json()) as unknown[]).map(mapInventoryItem);
   },
@@ -133,7 +161,7 @@ export const quotationService = {
   async createCustomer(customerData: Omit<QuotationCustomer, 'id' | 'customerCode'>) {
     const res = await fetch(`${API_BASE}/customers`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(customerData),
     });
@@ -145,7 +173,7 @@ export const quotationService = {
   async updateCustomer(customerId: string, customerData: Omit<QuotationCustomer, 'id' | 'customerCode'>) {
     const res = await fetch(`${API_BASE}/customers/${customerId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(customerData),
     });
