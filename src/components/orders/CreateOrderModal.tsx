@@ -15,6 +15,12 @@ import CreatePOModal from './CreatePOModal';
 import ConnectedOrderEditModal, { type ConnectedDocsInfo } from './ConnectedOrderEditModal';
 import { orderService } from '../../services/OrderService';
 
+import {
+  validateLineDiscount,
+  validateOverallDiscount,
+  resolveMinPrice,
+} from '../../utils/discountValidator';
+
 interface CreateOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -32,6 +38,9 @@ interface DraftProduct {
   discount: number;
   discountType: 'percentage' | 'amount';
   discountScope?: 'per_unit' | 'total';
+  minPrice?: number;
+  costPrice?: number;
+  actualSoldPrice?: number;
 }
 
 const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit, onOrderSaved, initialOrder }) => {
@@ -70,6 +79,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const [pendingOrderToSave, setPendingOrderToSave] = useState<Order | null>(null);
   const [isProcessingConnected, setIsProcessingConnected] = useState(false);
 
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
+  const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
+
   useEffect(() => {
     if (!isOpen) {
       setCreatedOrder(null);
@@ -83,22 +96,28 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       setTotalDiscountType(initialOrder.totalDiscountType || 'percentage');
       setTotalDiscountValue(initialOrder.totalDiscountValue !== undefined ? Number(initialOrder.totalDiscountValue) : 0);
       
-      const mappedProducts: DraftProduct[] = (initialOrder.items || []).map((it) => ({
-        id: it.inventoryItemId || it.id,
-        productName: it.productName,
-        quantity: it.quantity,
-        unit: 'PCS',
-        unitPrice: it.unitPrice,
-        discount: it.discountValue !== undefined ? Number(it.discountValue) : (Number(it.discount) || 0),
-        discountType: (it.discountType as 'percentage' | 'amount') || 'percentage',
-        discountScope: (it.discountScope === 'total' || it.discountScope === 'total_qty') ? 'total' : 'per_unit',
-      }));
+      const mappedProducts: DraftProduct[] = (initialOrder.items || []).map((it) => {
+        const inv = allInventoryItems.find(i => i.id === it.inventoryItemId || i.id === it.id || i.productCode === it.sku);
+        return {
+          id: it.inventoryItemId || it.id,
+          productName: it.productName,
+          quantity: it.quantity,
+          unit: 'PCS',
+          unitPrice: it.unitPrice,
+          discount: it.discountValue !== undefined ? Number(it.discountValue) : (Number(it.discount) || 0),
+          discountType: (it.discountType as 'percentage' | 'amount') || 'percentage',
+          discountScope: (it.discountScope === 'total' || it.discountScope === 'total_qty') ? 'total' : 'per_unit',
+          minPrice: inv ? resolveMinPrice(inv) : 0,
+          costPrice: inv?.purchasePrice,
+          actualSoldPrice: inv?.actualSoldPrice,
+        };
+      });
       setProducts(mappedProducts);
       setCreatedOrder(null);
     } else if (isOpen && !initialOrder) {
       handleReset();
     }
-  }, [isOpen, initialOrder]);
+  }, [isOpen, initialOrder, allInventoryItems]);
 
   const customerRef = useRef<HTMLDivElement>(null);
   const salesmanRef = useRef<HTMLDivElement>(null);
@@ -118,13 +137,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     discount: 0,
     discountType: 'percentage',
     discountScope: 'per_unit',
+    minPrice: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const [allCustomers, setAllCustomers] = useState<any[]>([]);
-  const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
-  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -169,22 +185,20 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     });
   }, [allSalesmen, salesmanSearch]);
 
-  // Filter products (Prefix / first letter match prioritized, then alphabetical)
+  // Filter products by name only (Prefix / first letter match prioritized, then alphabetical)
   const filteredProducts = useMemo(() => {
+    const activeProducts = allInventoryItems.filter(p => p.status !== 'out_of_stock' && p.status !== 'discontinued');
     const q = productSearch.trim().toLowerCase();
     if (!q) {
-      return [...allInventoryItems].sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
+      return [...activeProducts].sort((a, b) => a.productName.localeCompare(b.productName));
     }
-    const matching = allInventoryItems.filter(item =>
-      (item.productName || '').toLowerCase().includes(q) ||
-      (item.productCode || '').toLowerCase().includes(q)
-    );
+    const matching = activeProducts.filter(p => p.productName.toLowerCase().includes(q));
     return matching.sort((a, b) => {
-      const aStarts = (a.productName || '').toLowerCase().startsWith(q) || (a.productCode || '').toLowerCase().startsWith(q);
-      const bStarts = (b.productName || '').toLowerCase().startsWith(q) || (b.productCode || '').toLowerCase().startsWith(q);
+      const aStarts = a.productName.toLowerCase().startsWith(q);
+      const bStarts = b.productName.toLowerCase().startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return (a.productName || '').localeCompare(b.productName || '');
+      return a.productName.localeCompare(b.productName);
     });
   }, [allInventoryItems, productSearch]);
 
@@ -263,6 +277,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       unitPrice: item.sellPrice || 0,
       quantity: 0,
       unit: 'PCS',
+      minPrice: resolveMinPrice(item),
+      costPrice: item.purchasePrice,
+      actualSoldPrice: item.actualSoldPrice,
     }));
     setProductSearch(item.productName);
     setShowProductDropdown(false);
@@ -316,6 +333,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (!newProduct.productName.trim()) errs.productName = 'Product name required';
     if (newProduct.quantity <= 0) errs.quantity = 'Qty must be > 0';
     if (newProduct.unitPrice <= 0) errs.unitPrice = 'Selling price required';
+
+    const discCheck = validateLineDiscount(newProduct);
+    if (!discCheck.isValid) {
+      errs.discount = discCheck.error || 'Discount reduces price below allowed minimum';
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setProducts(prev => [...prev, { ...newProduct, id: newProduct.id || Date.now().toString() }]);
@@ -328,6 +351,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       discount: 0,
       discountType: 'percentage',
       discountScope: 'per_unit',
+      minPrice: 0,
     });
     setProductSearch('');
     setErrors({});
@@ -349,6 +373,31 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     const errs: Record<string, string> = {};
     if (!selectedCustomerId) errs.customer = 'Please select a customer';
     if (products.length === 0) errs.products = 'Add at least one product';
+
+    // Validate every product line discount against minimum price
+    for (const p of products) {
+      const lineRes = validateLineDiscount(p);
+      if (!lineRes.isValid) {
+        errs.products = lineRes.error || 'One or more items have discounts exceeding the allowed minimum price';
+        toast.error('Invalid Discount', lineRes.error || 'Discount exceeds minimum price floor');
+        setErrors(errs);
+        return;
+      }
+    }
+
+    // Validate overall document discount
+    const overallRes = validateOverallDiscount({
+      items: products,
+      totalDiscountType,
+      totalDiscountValue,
+    });
+    if (!overallRes.isValid) {
+      errs.totalDiscount = overallRes.error || 'Overall discount is too high';
+      toast.error('Invalid Overall Discount', overallRes.error || 'Overall discount reduces price below allowed minimum');
+      setErrors(errs);
+      return;
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     const orderProducts: OrderProduct[] = products.map(p => {
@@ -1023,6 +1072,20 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                   </div>
                 </div>
 
+                {/* Real-time discount validation alert for new product */}
+                {(() => {
+                  const check = validateLineDiscount(newProduct);
+                  if (!check.isValid) {
+                    return (
+                      <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-2.5 flex items-start gap-2 text-xs text-red-400">
+                        <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                        <span>{check.error}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Live calculated line total preview */}
                 {newProduct.quantity > 0 && newProduct.unitPrice > 0 && (
                   <div className="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1070,124 +1133,146 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       <tbody className="divide-y divide-[#334155]/60 text-xs">
                         {products.map((p, idx) => {
                           const { discAmt, total } = calcProductLine(p);
+                          const lineValidation = validateLineDiscount(p);
+                          const isInvalid = !lineValidation.isValid;
+
                           return (
-                            <tr
-                              key={p.id}
-                              className={`hover:bg-[#1e293b]/40 transition-colors ${idx % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#111b2d]'}`}
-                            >
-                              <td className="py-2.5 px-3 text-center text-gray-500 font-mono">{idx + 1}</td>
-                              <td className="py-2.5 px-3">
-                                <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <div className="inline-flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    placeholder="0"
-                                    value={p.quantity > 0 ? p.quantity : ''}
-                                    onChange={(e) => {
-                                      const val = parseInt(e.target.value) || 0;
-                                      handleUpdateProduct(p.id, { quantity: val });
-                                    }}
-                                    className="w-16 bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-center text-xs font-mono font-semibold text-white focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  />
-                                  <span className="text-[10px] text-gray-400 font-medium">PCS</span>
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
-                              <td className="py-2.5 px-3">
-                                <div className="flex items-center gap-1 justify-center">
-                                  <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155] shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateProduct(p.id, { discountType: 'percentage' })}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
-                                        p.discountType === 'percentage'
-                                          ? 'bg-blue-600 text-white shadow-sm'
-                                          : 'text-gray-400 hover:text-white'
-                                      }`}
-                                    >
-                                      %
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateProduct(p.id, { discountType: 'amount' })}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
-                                        p.discountType === 'amount'
-                                          ? 'bg-blue-600 text-white shadow-sm'
-                                          : 'text-gray-400 hover:text-white'
-                                      }`}
-                                    >
-                                      Rs.
-                                    </button>
-                                  </div>
-                                  <div className="relative w-20">
+                            <React.Fragment key={p.id}>
+                              <tr
+                                className={`hover:bg-[#1e293b]/40 transition-colors ${
+                                  isInvalid
+                                    ? 'bg-red-950/20 border-l-2 border-l-red-500'
+                                    : idx % 2 === 0
+                                    ? 'bg-[#0f172a]'
+                                    : 'bg-[#111b2d]'
+                                }`}
+                              >
+                                <td className="py-2.5 px-3 text-center text-gray-500 font-mono">{idx + 1}</td>
+                                <td className="py-2.5 px-3">
+                                  <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <div className="inline-flex items-center gap-1">
                                     <input
                                       type="number"
                                       min="0"
-                                      max={p.discountType === 'percentage' ? 100 : undefined}
-                                      value={p.discount !== undefined && p.discount > 0 ? p.discount : ''}
                                       placeholder="0"
+                                      value={p.quantity > 0 ? p.quantity : ''}
                                       onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        handleUpdateProduct(p.id, { discount: val });
+                                        const val = parseInt(e.target.value) || 0;
+                                        handleUpdateProduct(p.id, { quantity: val });
                                       }}
-                                      className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-6 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      className="w-16 bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-center text-xs font-mono font-semibold text-white focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
-                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold pointer-events-none">
-                                      {p.discountType === 'percentage' ? '%' : 'Rs'}
-                                    </span>
+                                    <span className="text-[10px] text-gray-400 font-medium">PCS</span>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <div className="flex justify-center">
-                                  <div className="inline-flex bg-[#1e293b] p-0.5 border border-[#334155] rounded-lg items-center gap-0.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateProduct(p.id, { discountScope: 'per_unit' })}
-                                      className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
-                                        (p.discountScope || 'per_unit') === 'per_unit'
-                                          ? 'bg-purple-600 text-white shadow'
-                                          : 'text-gray-400 hover:text-gray-200'
-                                      }`}
-                                    >
-                                      Unit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateProduct(p.id, { discountScope: 'total' })}
-                                      className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
-                                        p.discountScope === 'total'
-                                          ? 'bg-purple-600 text-white shadow'
-                                          : 'text-gray-400 hover:text-gray-200'
-                                      }`}
-                                    >
-                                      Total
-                                    </button>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155] shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountType: 'percentage' })}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                          p.discountType === 'percentage'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-gray-400 hover:text-white'
+                                        }`}
+                                      >
+                                        %
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountType: 'amount' })}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                          p.discountType === 'amount'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-gray-400 hover:text-white'
+                                        }`}
+                                      >
+                                        Rs.
+                                      </button>
+                                    </div>
+                                    <div className="relative w-20">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max={p.discountType === 'percentage' ? 100 : undefined}
+                                        value={p.discount !== undefined && p.discount > 0 ? p.discount : ''}
+                                        placeholder="0"
+                                        onChange={(e) => {
+                                          const val = parseFloat(e.target.value) || 0;
+                                          handleUpdateProduct(p.id, { discount: val });
+                                        }}
+                                        className={`w-full bg-[#1e293b] border rounded-lg px-2 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-6 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                          isInvalid ? 'border-red-500' : 'border-[#334155]'
+                                        }`}
+                                      />
+                                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold pointer-events-none">
+                                        {p.discountType === 'percentage' ? '%' : 'Rs'}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-bold text-white font-mono whitespace-nowrap">
-                                <div className="flex flex-col items-end">
-                                  <span className="text-emerald-400">{formatCurrency(total)}</span>
-                                  {discAmt > 0 && (
-                                    <span className="text-[10px] text-amber-400/80 font-normal">-{formatCurrency(discAmt)}</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveProduct(p.id)}
-                                  className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-[#1e293b] transition-colors"
-                                  title="Remove product"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </td>
-                            </tr>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex justify-center">
+                                    <div className="inline-flex bg-[#1e293b] p-0.5 border border-[#334155] rounded-lg items-center gap-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountScope: 'per_unit' })}
+                                        className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
+                                          (p.discountScope || 'per_unit') === 'per_unit'
+                                            ? 'bg-purple-600 text-white shadow'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                      >
+                                        Unit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProduct(p.id, { discountScope: 'total' })}
+                                        className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
+                                          p.discountScope === 'total'
+                                            ? 'bg-purple-600 text-white shadow'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                      >
+                                        Total
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-bold text-white font-mono whitespace-nowrap">
+                                  <div className="flex flex-col items-end">
+                                    <span className={isInvalid ? 'text-red-400' : 'text-emerald-400'}>{formatCurrency(total)}</span>
+                                    {discAmt > 0 && (
+                                      <span className="text-[10px] text-amber-400/80 font-normal">-{formatCurrency(discAmt)}</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveProduct(p.id)}
+                                    className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-[#1e293b] transition-colors"
+                                    title="Remove product"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                              {isInvalid && (
+                                <tr className="bg-red-950/20 border-b border-red-500/20">
+                                  <td colSpan={8} className="py-1 px-4 text-[11px] text-red-400">
+                                    <div className="flex items-center gap-1.5">
+                                      <AlertCircle size={12} className="shrink-0" />
+                                      <span>{lineValidation.error}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
@@ -1248,7 +1333,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                             const val = Math.max(0, parseFloat(e.target.value) || 0);
                             setTotalDiscountValue(val);
                           }}
-                          className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7"
+                          className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2.5 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
                           {totalDiscountType === 'amount' ? 'Rs' : '%'}
@@ -1261,6 +1346,24 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       )}
                     </div>
                   </div>
+
+                  {/* Overall Discount Validation Error */}
+                  {(() => {
+                    const check = validateOverallDiscount({
+                      items: products,
+                      totalDiscountType,
+                      totalDiscountValue,
+                    });
+                    if (!check.isValid) {
+                      return (
+                        <div className="mt-2 text-[11px] text-red-400 flex items-center gap-1.5 pt-1 border-t border-red-500/20">
+                          <AlertCircle size={12} className="shrink-0" />
+                          <span>{check.error}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="flex justify-between text-sm font-bold text-white border-t border-[#334155] pt-2.5 mt-1">

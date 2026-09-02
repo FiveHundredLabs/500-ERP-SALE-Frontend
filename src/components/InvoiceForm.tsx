@@ -202,6 +202,37 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
   }, [invoiceData.issueDate, onFieldChange]);
 
+  // Sync creditPeriod state when invoiceData is loaded or updated
+  useEffect(() => {
+    if (invoiceData.creditPeriod !== undefined && invoiceData.creditPeriod !== null) {
+      setCreditPeriod(String(invoiceData.creditPeriod));
+    } else if (invoiceData.dueDate && invoiceData.issueDate) {
+      const issueTime = new Date(invoiceData.issueDate).getTime();
+      const dueTime = new Date(invoiceData.dueDate).getTime();
+      if (!isNaN(issueTime) && !isNaN(dueTime) && dueTime > issueTime) {
+        const diff = Math.round((dueTime - issueTime) / 86400000);
+        setCreditPeriod(String(diff));
+      }
+    }
+  }, [invoiceData.creditPeriod, invoiceData.dueDate, invoiceData.issueDate]);
+
+  // Auto-correct: If invoice is Credit and dueDate is missing or identical to issueDate, auto-set to credit period (default 30d)
+  useEffect(() => {
+    if (
+      (invoiceData.paymentMethod === PaymentMethod.CREDIT || invoiceData.paymentMethod === 'credit') &&
+      invoiceData.issueDate &&
+      (!invoiceData.dueDate || invoiceData.dueDate === invoiceData.issueDate)
+    ) {
+      const days = parseInt(creditPeriod === 'custom' ? '30' : creditPeriod, 10) || 30;
+      const baseDate = new Date(invoiceData.issueDate);
+      if (!isNaN(baseDate.getTime())) {
+        const newDueDate = new Date(baseDate.getTime() + days * 86400000).toISOString().split('T')[0];
+        onFieldChange('dueDate', newDueDate);
+        onFieldChange('creditPeriod', days);
+      }
+    }
+  }, [invoiceData.paymentMethod, invoiceData.issueDate, invoiceData.dueDate, creditPeriod, onFieldChange]);
+
   const handleBillingDateChange = (newDate: string) => {
     onFieldChange('issueDate', newDate);
     if (creditPeriod !== 'custom') {
@@ -649,6 +680,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             taxAmount={taxAmount}
             totalAmount={totalAmount}
             applyVat={invoiceData.applyVat}
+            items={invoiceData.items}
+            inventoryItems={inventoryItems}
             onTotalDiscountChange={onTotalDiscountChange}
           />
         </div>

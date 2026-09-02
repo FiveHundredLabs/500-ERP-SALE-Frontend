@@ -1,8 +1,9 @@
 import React, { useRef, useMemo } from 'react';
-import { Search, Plus, X } from 'lucide-react';
+import { Search, Plus, X, AlertCircle } from 'lucide-react';
 import type { InventoryItem } from '../../types/inventory';
 import type { QuotationItem } from '../../types/quotation';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { validateLineDiscount, resolveMinPrice } from '../../utils/discountValidator';
 
 interface ItemSearchAndAddProps {
   searchTerm: string;
@@ -80,28 +81,27 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   const costPrice = newItem.costPrice || 0;
   const discVal = parseFloat(discountValue) || 0;
 
+  const selectedInvItem = filteredItems.find(it => it.id === newItem.inventoryItemId);
+  const minPrice = resolveMinPrice(selectedInvItem || { costPrice: newItem.costPrice });
+
+  const lineDiscountValidation = useMemo(() => {
+    if (!newItem.inventoryItemId) {
+      return { isValid: true, error: undefined, discountAmount: 0, effectiveUnitPrice: unitPrice, minPrice, maxAllowedDiscount: 0, maxAllowedPercentage: 0 };
+    }
+    return validateLineDiscount({
+      productName: newItem.itemName,
+      unitPrice,
+      quantity: qty,
+      discountType,
+      discountScope,
+      discountValue: discVal,
+      minPrice,
+    });
+  }, [newItem.inventoryItemId, newItem.itemName, unitPrice, qty, discountType, discountScope, discVal, minPrice]);
+
   // Subtotal & Profit
   const baseSubtotal = qty * unitPrice;
-
-  const calculatedDiscountAmount = useMemo(() => {
-    if (discVal <= 0 || unitPrice <= 0) return 0;
-
-    if (discountType === 'percentage') {
-      const pct = Math.min(100, Math.max(0, discVal));
-      if (discountScope === 'per_unit') {
-        return unitPrice * (pct / 100) * qty;
-      } else {
-        return baseSubtotal * (pct / 100);
-      }
-    } else {
-      if (discountScope === 'per_unit') {
-        return Math.min(unitPrice, discVal) * qty;
-      } else {
-        return Math.min(baseSubtotal, discVal);
-      }
-    }
-  }, [discVal, unitPrice, qty, discountType, discountScope, baseSubtotal]);
-
+  const calculatedDiscountAmount = lineDiscountValidation.discountAmount;
   const finalLineTotal = Math.max(0, baseSubtotal - calculatedDiscountAmount);
 
   // Single unit profit & margin
@@ -111,6 +111,11 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   const handleAddClick = () => {
     if (!newItem.inventoryItemId || qty <= 0 || unitPrice <= 0) {
       alert("Please select a product from search.");
+      return;
+    }
+
+    if (!lineDiscountValidation.isValid) {
+      alert(lineDiscountValidation.error || "Discount reduces selling price below allowed minimum price.");
       return;
     }
 
@@ -301,11 +306,13 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
             <input
               type="number"
               min="0"
-              value={discountValue}
+              value={discountValue === '0' ? '' : discountValue}
               onChange={(e) => onDiscountChange({ discountType, discountScope, discountValue: e.target.value })}
               disabled={!newItem.inventoryItemId}
               placeholder="0"
-              className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7 text-right"
+              className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                !lineDiscountValidation.isValid ? 'border-red-500' : 'border-[#334155]'
+              }`}
             />
             <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
               {discountType === 'percentage' ? '%' : 'Rs'}
@@ -344,6 +351,14 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Discount Validation Warning */}
+      {!lineDiscountValidation.isValid && (
+        <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-2.5 flex items-start gap-2 text-xs text-red-400">
+          <AlertCircle size={15} className="shrink-0 mt-0.5" />
+          <span>{lineDiscountValidation.error}</span>
+        </div>
+      )}
 
       {/* Selected Product Pill & Margin */}
       {newItem.inventoryItemId && (

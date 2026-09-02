@@ -479,6 +479,9 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         {invoice.calculatedStatus === 'due_soon' && (
                           <div className="text-[10px] text-amber-400 font-bold">in {invoice.diffDays}d</div>
                         )}
+                        {invoice.calculatedStatus === 'outstanding' && invoice.diffDays > 0 && (
+                          <div className="text-[10px] text-cyan-400/80 font-medium">in {invoice.diffDays}d</div>
+                        )}
                       </td>
 
                       {/* Three-Dot Menu (⋮) */}

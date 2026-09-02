@@ -11,6 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { getInvoiceCalculatedStatus } from "../types/invoice";
 import {
   DollarSign,
   ShoppingBag,
@@ -24,8 +25,11 @@ import {
   TrendingUp,
   ArrowRight,
   PackageCheck,
+  Package,
   AlertCircle,
   Layers,
+  RefreshCw,
+  BarChart2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { KpiCard, StatusBadge } from "./erp";
@@ -36,13 +40,32 @@ import { inventoryService } from "../services/InventoryService";
 import { supplierService } from "../services/SupplierService";
 import { salesOfficerService } from "../services/SalesOfficerService";
 import { financeService } from "../services/FinanceService";
+import { invoiceReturnService } from "../services/InvoiceReturnService";
 import type { InvoiceResponse } from "../types/invoice";
 import type { Order } from "../types/orders";
 import type { PurchaseOrder } from "../types/purchaseOrders";
 import type { InventoryItem } from "../types/inventory";
 import type { Supplier } from "../types/suppliers";
 import type { SalesOfficer } from "../types/salesOfficer";
+import type { InvoiceReturn } from "../types/invoice-return";
 
+// ─── Skeleton Components ──────────────────────────────────────────────────────
+const SkeletonBox = ({ className = "" }: { className?: string }) => (
+  <div className={`animate-pulse bg-[#334155]/40 rounded-lg ${className}`} />
+);
+
+const KpiSkeleton = () => (
+  <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 space-y-3">
+    <div className="flex items-center justify-between">
+      <SkeletonBox className="h-4 w-28" />
+      <SkeletonBox className="h-9 w-9 rounded-lg" />
+    </div>
+    <SkeletonBox className="h-7 w-40" />
+    <SkeletonBox className="h-3 w-24" />
+  </div>
+);
+
+// ─── Dashboard Overview Component ─────────────────────────────────────────────
 const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
 
@@ -54,293 +77,499 @@ const DashboardOverview: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [salesOfficers, setSalesOfficers] = useState<SalesOfficer[]>([]);
   const [cheques, setCheques] = useState<any[]>([]);
+  const [invoiceReturns, setInvoiceReturns] = useState<InvoiceReturn[]>([]);
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setErrors([]);
+
+    const errs: string[] = [];
+    const safe = async <T,>(promise: Promise<T>, fallback: T, label: string): Promise<T> => {
       try {
-        const [
-          invs,
-          ords,
-          pos,
-          invItems,
-          custs,
-          sups,
-          officers,
-          finTransactions
-        ] = await Promise.all([
-          invoiceService.getAll().catch(() => []),
-          orderService.getAll().catch(() => []),
-          purchaseOrderService.getAll().catch(() => []),
-          inventoryService.getAll().catch(() => []),
-          invoiceService.getAllCustomers().catch(() => []),
-          supplierService.getAll().catch(() => []),
-          salesOfficerService.getAll().catch(() => []),
-          financeService.getAll().catch(() => []),
-        ]);
-
-        setInvoices(invs || []);
-        setOrders(ords || []);
-        setPurchaseOrders(pos || []);
-        setInventoryItems(invItems || []);
-        setCustomers(custs || []);
-        setSuppliers(sups || []);
-        setSalesOfficers(officers || []);
-
-        const chqs = (finTransactions || []).filter((t: any) => t.paymentMethod === 'Cheque' || t.type === 'Cheque');
-        setCheques(chqs);
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
+        return await promise;
+      } catch (e: any) {
+        errs.push(`${label}: ${e?.message || "Failed"}`);
+        return fallback;
       }
     };
 
+    const [invs, ords, pos, invItems, custs, sups, officers, finTransactions, returnsList] = await Promise.all([
+      safe(invoiceService.getAll(), [], "Invoices"),
+      safe(orderService.getAll(), [], "Orders"),
+      safe(purchaseOrderService.getAll(), [], "Purchase Orders"),
+      safe(inventoryService.getAll(), [], "Inventory"),
+      safe(invoiceService.getAllCustomers(), [], "Customers"),
+      safe(supplierService.getAll(), [], "Suppliers"),
+      safe(salesOfficerService.getAll(), [], "Sales Officers"),
+      safe(financeService.getAll(), [], "Finance"),
+      safe(invoiceReturnService.getAll(), [], "Returns"),
+    ]);
+
+    setInvoices(invs);
+    setOrders(ords);
+    setPurchaseOrders(pos);
+    setInventoryItems(invItems);
+    setCustomers(custs);
+    setSuppliers(sups);
+    setSalesOfficers(officers);
+    setInvoiceReturns(returnsList);
+
+    const chqs = finTransactions.filter(
+      (t: any) => t.paymentMethod === "cheque" || t.paymentMethod === "Cheque"
+    );
+    setCheques(chqs);
+
+    if (errs.length > 0) setErrors(errs);
+    setLastUpdated(new Date());
+    setLoading(false);
+  };
+
+  useEffect(() => {
     loadDashboardData();
   }, []);
 
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat("en-LK", {
       style: "currency",
       currency: "LKR",
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
 
-  // Computations
-  const totalRevenue = useMemo(() => {
-    return invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-  }, [invoices]);
+  const formatCompact = (amount: number) => {
+    if (amount >= 1_000_000) return `LKR ${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `LKR ${(amount / 1_000).toFixed(0)}K`;
+    return formatCurrency(amount);
+  };
 
-  const outstandingReceivables = useMemo(() => {
-    return invoices
-      .filter((inv) => inv.paymentStatus !== "paid" && inv.paymentStatus !== "completed")
-      .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-  }, [invoices]);
+  // ── KPI Computations — use remainingAmount as source of truth for collection status ──
+  // This correctly handles credit invoices where DB paymentStatus may be 'pending'
+  // but the real collection state is determined by paidAmount vs totalAmount.
+  const invoiceStatuses = useMemo(
+    () =>
+      invoices.map((inv) => ({
+        inv,
+        calc: getInvoiceCalculatedStatus(inv),
+      })),
+    [invoices]
+  );
 
-  const pendingOrdersCount = useMemo(() => {
-    return orders.filter((o) => o.status === "pending" || o.status === "reviewing").length;
-  }, [orders]);
+  const totalRevenue = useMemo(
+    () => invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
+    [invoices]
+  );
 
-  const pendingPOCount = useMemo(() => {
-    return purchaseOrders.filter((p) => p.status === "pending_approval" || p.status === "draft").length;
-  }, [purchaseOrders]);
+  // Collected = invoices where remainingAmount <= 0 (fully paid)
+  const collectedRevenue = useMemo(
+    () =>
+      invoiceStatuses
+        .filter(({ calc }) => calc.remainingAmount <= 0)
+        .reduce((sum, { inv }) => sum + (inv.totalAmount || 0), 0),
+    [invoiceStatuses]
+  );
 
-  // Operational status breakdown for pie chart
+  // Outstanding = sum of remainingAmount for all invoices not fully paid
+  const outstandingReceivables = useMemo(
+    () =>
+      invoiceStatuses
+        .filter(({ calc }) => calc.remainingAmount > 0)
+        .reduce((sum, { calc }) => sum + calc.remainingAmount, 0),
+    [invoiceStatuses]
+  );
+
+  const paidInvoiceCount = useMemo(
+    () => invoiceStatuses.filter(({ calc }) => calc.remainingAmount <= 0).length,
+    [invoiceStatuses]
+  );
+
+  const unpaidInvoiceCount = useMemo(
+    () => invoiceStatuses.filter(({ calc }) => calc.remainingAmount > 0).length,
+    [invoiceStatuses]
+  );
+
+  const overdueInvoiceCount = useMemo(
+    () => invoiceStatuses.filter(({ calc }) => calc.status === "overdue").length,
+    [invoiceStatuses]
+  );
+
+  const pendingOrdersCount = useMemo(
+    () => orders.filter((o) => o.status === "pending" || o.status === "reviewing").length,
+    [orders]
+  );
+
+  const pendingPOCount = useMemo(
+    () =>
+      purchaseOrders.filter(
+        (p) => p.status === "pending_approval" || p.status === "draft" || p.status === "pending"
+      ).length,
+    [purchaseOrders]
+  );
+
+  const totalProductsCount = useMemo(
+    () => inventoryItems.length,
+    [inventoryItems]
+  );
+
+  const inventoryValue = useMemo(
+    () =>
+      inventoryItems.reduce(
+        (sum, i) => sum + (i.quantity || 0) * (i.purchasePrice || i.sellPrice || 0),
+        0
+      ),
+    [inventoryItems]
+  );
+
+  // ── Operational Status Breakdown (Categories: Order Stage, PO Stage, Pending (Invoice), Overdue, Completed, Return) ──
   const operationalStatusBreakdown = useMemo(() => {
-    const total = orders.length + invoices.length + purchaseOrders.length || 1;
-    const completed = orders.filter(o => o.status === 'completed').length + invoices.filter(i => i.paymentStatus === 'paid' || i.paymentStatus === 'completed').length;
-    const processing = orders.filter(o => o.status === 'approved' || o.status === 'reviewing').length + purchaseOrders.filter(p => p.status === 'processing').length;
-    const pending = pendingOrdersCount + pendingPOCount + invoices.filter(i => i.paymentStatus === 'pending').length;
-    const draft = purchaseOrders.filter(p => p.status === 'draft').length;
+    // 1. Order Stage: Orders active in the workflow (not yet completed, cancelled, or rejected)
+    const orderStage = orders.filter(
+      (o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "rejected"
+    ).length;
+
+    // 2. PO Stage: Purchase Orders in progress (not completed or cancelled)
+    const poStage = purchaseOrders.filter(
+      (p) => p.status !== "completed" && p.status !== "cancelled"
+    ).length;
+
+    // 3. Pending (Invoice): Invoices that are outstanding and NOT yet overdue
+    const pendingInvoice = invoiceStatuses.filter(
+      ({ calc }) => calc.remainingAmount > 0 && calc.status !== "overdue"
+    ).length;
+
+    // 4. Overdue: Invoices that have exceeded their credit period / due date
+    const overdue = invoiceStatuses.filter(
+      ({ calc }) => calc.remainingAmount > 0 && calc.status === "overdue"
+    ).length;
+
+    // 5. Completed: Finished orders, completed POs, and fully settled invoices
+    const completedOrders = orders.filter((o) => o.status === "completed").length;
+    const completedPOs = purchaseOrders.filter((p) => p.status === "completed").length;
+    const completedInvoices = invoiceStatuses.filter(
+      ({ calc }) => calc.remainingAmount <= 0
+    ).length;
+    const completed = completedOrders + completedPOs + completedInvoices;
+
+    // 6. Return: Active invoice returns
+    const returnsCount = invoiceReturns.filter(
+      (r) => r.status !== "cancelled"
+    ).length;
+
+    const total =
+      orderStage + poStage + pendingInvoice + overdue + completed + returnsCount || 1;
 
     return [
-      { name: "completed", value: completed || 12, color: "#10b981", percentage: Math.round(((completed || 12) / total) * 100) },
-      { name: "processing", value: processing || 8, color: "#3b82f6", percentage: Math.round(((processing || 8) / total) * 100) },
-      { name: "pending", value: pending || 5, color: "#f59e0b", percentage: Math.round(((pending || 5) / total) * 100) },
-      { name: "draft", value: draft || 3, color: "#94a3b8", percentage: Math.round(((draft || 3) / total) * 100) },
+      {
+        name: "Order Stage",
+        value: orderStage,
+        color: "#3b82f6", // Blue
+        link: "/orders",
+        percentage: Math.round((orderStage / total) * 100),
+      },
+      {
+        name: "PO Stage",
+        value: poStage,
+        color: "#8b5cf6", // Purple
+        link: "/purchase-orders",
+        percentage: Math.round((poStage / total) * 100),
+      },
+      {
+        name: "Pending (Invoice)",
+        value: pendingInvoice,
+        color: "#f59e0b", // Amber
+        link: "/invoice",
+        percentage: Math.round((pendingInvoice / total) * 100),
+      },
+      {
+        name: "Overdue",
+        value: overdue,
+        color: "#ef4444", // Red
+        link: "/finance",
+        percentage: Math.round((overdue / total) * 100),
+      },
+      {
+        name: "Completed",
+        value: completed,
+        color: "#10b981", // Emerald
+        link: "/orders",
+        percentage: Math.round((completed / total) * 100),
+      },
+      {
+        name: "Return",
+        value: returnsCount,
+        color: "#f43f5e", // Rose
+        link: "/invoice-returns",
+        percentage: Math.round((returnsCount / total) * 100),
+      },
     ];
-  }, [orders, invoices, purchaseOrders, pendingOrdersCount, pendingPOCount]);
+  }, [orders, purchaseOrders, invoiceStatuses, invoiceReturns]);
 
-  // Monthly Sales trend chart data
+  // ── Monthly Revenue Chart (real invoice dates, use remainingAmount for collected) ──
   const monthlySalesData = useMemo(() => {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const currentYear = new Date().getFullYear();
     const currentMonthIdx = new Date().getMonth();
     const result = [];
 
     for (let i = 5; i >= 0; i--) {
-      const mIdx = (currentMonthIdx - i + 12) % 12;
+      const targetDate = new Date(currentYear, currentMonthIdx - i, 1);
+      const mIdx = targetDate.getMonth();
+      const mYear = targetDate.getFullYear();
       const mName = months[mIdx];
-      const monthInvoices = invoices.filter(inv => {
-        const d = new Date(inv.issueDate || inv.createdAt || '');
-        return d.getMonth() === mIdx;
+
+      const monthEntries = invoiceStatuses.filter(({ inv }) => {
+        const d = new Date(inv.issueDate || inv.createdAt || "");
+        return !isNaN(d.getTime()) && d.getMonth() === mIdx && d.getFullYear() === mYear;
       });
-      const rev = monthInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+
+      const rev = monthEntries.reduce((sum, { inv }) => sum + (inv.totalAmount || 0), 0);
+      // Collected = paidAmount per invoice (partial collections count too)
+      const collected = monthEntries.reduce((sum, { calc }) => sum + calc.paidAmount, 0);
+
       result.push({
         name: mName,
-        revenue: rev > 0 ? rev : (i === 0 ? totalRevenue || 500000 : 350000 + i * 50000),
-        orders: monthInvoices.length > 0 ? monthInvoices.length : Math.max(1, 10 - i * 2),
+        revenue: rev,
+        collected,
+        orders: monthEntries.length,
       });
     }
     return result;
-  }, [invoices, totalRevenue]);
+  }, [invoiceStatuses]);
 
-  // Top products
+  // ── Top Products by soldCount (real) ─────────────────────────────────────
   const topProducts = useMemo(() => {
-    if (inventoryItems.length === 0) return [];
     return [...inventoryItems]
+      .filter((i) => (i.soldCount || 0) > 0 || (i.quantity || 0) > 0)
       .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
       .slice(0, 5)
-      .map(item => ({
+      .map((item) => ({
         name: item.productName,
         code: item.productCode,
-        sales: item.soldCount || 10,
-        revenue: (item.soldCount || 10) * (item.sellPrice || 1000),
+        sales: item.soldCount || 0,
+        revenue: (item.soldCount || 0) * (item.sellPrice || 0),
         stock: item.quantity,
-        growth: "+12%",
       }));
   }, [inventoryItems]);
 
-  // Salesmen Performance
+  // ── Sales Officer Performance (real invoice totals matched by name) ───────
   const salesmenPerformance = useMemo(() => {
-    return salesOfficers.slice(0, 5).map(so => {
-      const soInvoices = invoices.filter(inv => {
-        const sm = inv.salesman;
-        return sm?.fullName === so.fullName || inv.salesmanName === so.fullName;
-      });
-      const soTotal = soInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-      const target = so.monthlyTarget || 1000000;
-      return {
-        name: so.fullName,
-        area: so.assignedArea || 'Region',
-        totalSales: soTotal > 0 ? soTotal : 850000,
-        target: target,
-        progress: Math.min(100, Math.round(((soTotal > 0 ? soTotal : 850000) / target) * 100)),
-        ordersCount: soInvoices.length || 6,
-      };
-    });
-  }, [salesOfficers, invoices]);
+    return salesOfficers
+      .map((so) => {
+        const soOrders = orders.filter((ord) => {
+          const sm = ord.salesman;
+          return (
+            sm?.fullName === so.fullName ||
+            ord.salesmanName === so.fullName
+          );
+        });
+        const soTotal = soOrders.reduce((sum, ord) => sum + (ord.grandTotal || 0), 0);
+        const target = so.monthlyTarget || 0;
+        return {
+          name: so.fullName,
+          area: so.assignedArea || so.assignedTerritory || "—",
+          totalSales: soTotal,
+          target,
+          progress: target > 0 ? Math.min(100, Math.round((soTotal / target) * 100)) : 0,
+          ordersCount: soOrders.length,
+        };
+      })
+      .filter((so) => so.ordersCount > 0 || so.totalSales > 0)
+      .sort((a, b) => b.totalSales - a.totalSales)
+      .slice(0, 5);
+  }, [salesOfficers, orders]);
+
+  // ── Recent Orders (last 5 sorted by date) ────────────────────────────────
+  const recentOrders = useMemo(() => {
+    return [...orders]
+      .sort((a, b) => {
+        const da = new Date(a.createdAt || a.orderDate || "").getTime();
+        const db = new Date(b.createdAt || b.orderDate || "").getTime();
+        return db - da;
+      })
+      .slice(0, 5);
+  }, [orders]);
+
+  // ── Overdue Cheques (due date <= today) ───────────────────────────────────
+  const overdueCheques = useMemo(() => {
+    const today = new Date();
+    return cheques
+      .filter((chq) => {
+        const due = new Date(chq.date || chq.dueDate || "");
+        return !isNaN(due.getTime()) && due <= today && chq.status !== "cleared";
+      })
+      .sort((a, b) => new Date(a.date || a.dueDate || "").getTime() - new Date(b.date || b.dueDate || "").getTime())
+      .slice(0, 6);
+  }, [cheques]);
+
+  const pendingCheques = useMemo(() => {
+    const today = new Date();
+    return cheques
+      .filter((chq) => {
+        const due = new Date(chq.date || chq.dueDate || "");
+        return !isNaN(due.getTime()) && due > today && chq.status !== "cleared";
+      })
+      .sort((a, b) => new Date(a.date || a.dueDate || "").getTime() - new Date(b.date || b.dueDate || "").getTime())
+      .slice(0, 6);
+  }, [cheques]);
+
+  const displayCheques = overdueCheques.length > 0 ? overdueCheques : pendingCheques;
+  const hasOverdueCheques = overdueCheques.length > 0;
+
+  // ─── Loading State ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="w-full space-y-6 pb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <KpiSkeleton key={i} />)}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          {[...Array(6)].map((_, i) => (
+            <SkeletonBox key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <SkeletonBox className="lg:col-span-2 h-80 rounded-xl" />
+          <SkeletonBox className="h-80 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SkeletonBox className="h-64 rounded-xl" />
+          <SkeletonBox className="h-64 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-6 pb-10 animate-fadeIn">
-      {/* ================= 1. PRIMARY METRICS ROW ================= */}
+      {/* ── Error Banner ─────────────────────────────────────────────────── */}
+      {errors.length > 0 && (
+        <div className="bg-red-950/40 border border-red-500/30 rounded-xl p-3 flex items-start gap-3 text-xs text-red-400">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold mb-1">Some data failed to load:</p>
+            <ul className="space-y-0.5 opacity-80">
+              {errors.map((e, i) => <li key={i}>• {e}</li>)}
+            </ul>
+          </div>
+          <button
+            onClick={loadDashboardData}
+            className="ml-auto shrink-0 flex items-center gap-1 text-red-300 hover:text-red-200 font-semibold"
+          >
+            <RefreshCw size={13} /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* ── Last Updated ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div />
+        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          {lastUpdated && (
+            <span>Updated {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            onClick={loadDashboardData}
+            className="flex items-center gap-1 text-slate-400 hover:text-slate-200 transition-colors"
+            title="Refresh dashboard"
+          >
+            <RefreshCw size={13} />
+          </button>
+        </div>
+      </div>
+
+      {/* ══════════════ 1. PRIMARY KPI CARDS ══════════════ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Today's Orders */}
         <KpiCard
           title="Total Orders"
-          value={`${orders.length} Orders`}
-          subtitle="Enterprise volume"
+          value={`${orders.length}`}
+          subtitle={`${pendingOrdersCount} pending · ${orders.filter(o => o.status === 'completed').length} completed`}
           icon={<ShoppingBag size={20} className="text-emerald-400" />}
           iconBg="bg-emerald-500/20 border border-emerald-500/30"
-          trend={{ value: 14.2, positive: true }}
           onClick={() => navigate("/orders")}
         />
-
-        {/* Total Invoices Volume */}
         <KpiCard
-          title="Invoices Generated"
-          value={`${invoices.length} Invoices`}
-          subtitle="Issued billing volume"
+          title="Total Invoices"
+          value={`${invoices.length}`}
+          subtitle={`${unpaidInvoiceCount} outstanding · ${paidInvoiceCount} fully collected`}
           icon={<PackageCheck size={20} className="text-blue-400" />}
           iconBg="bg-blue-500/20 border border-blue-500/30"
-          trend={{ value: 11.8, positive: true }}
           onClick={() => navigate("/invoice")}
         />
-
-        {/* Monthly Revenue */}
         <KpiCard
           title="Total Revenue"
-          value={formatCurrency(totalRevenue)}
-          subtitle="Cumulative invoiced total"
+          value={formatCompact(totalRevenue)}
+          subtitle={`${formatCompact(collectedRevenue)} collected · ${formatCompact(outstandingReceivables)} pending`}
           icon={<DollarSign size={20} className="text-purple-400" />}
           iconBg="bg-purple-500/20 border border-purple-500/30"
-          trend={{ value: 17.2, positive: true }}
           onClick={() => navigate("/invoice")}
         />
-
-        {/* Outstanding Receivables */}
         <KpiCard
-          title="Outstanding Receivables"
-          value={formatCurrency(outstandingReceivables)}
-          subtitle="Pending customer payments"
+          title="Receivables Outstanding"
+          value={formatCompact(outstandingReceivables)}
+          subtitle={`${unpaidInvoiceCount} invoices · ${overdueInvoiceCount > 0 ? `⚠ ${overdueInvoiceCount} overdue` : 'none overdue'}`}
           icon={<CreditCard size={20} className="text-amber-400" />}
-          iconBg="bg-amber-500/20 border border-amber-500/30"
-          trend={{ value: 3.5, positive: false }}
+          iconBg={overdueInvoiceCount > 0 ? "bg-red-500/20 border border-red-500/30" : "bg-amber-500/20 border border-amber-500/30"}
           onClick={() => navigate("/finance")}
         />
       </div>
 
-      {/* ================= 2. SECOND ROW OPERATIONAL METRICS ================= */}
+      {/* ══════════════ 2. OPERATIONAL COUNTERS STRIP ══════════════ */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {/* Total Invoices */}
-        <div
-          onClick={() => navigate("/invoice")}
-          className="bg-[#1e293b]/80 border border-[#334155] hover:border-teal-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm"
-        >
-          <div className="p-2 rounded-lg bg-teal-500/15 text-teal-400 mb-2 group-hover:scale-110 transition-transform">
-            <Receipt size={18} />
+        {[
+          { label: "Customers", value: customers.length, color: "blue", icon: <Users size={18} />, link: "/users?tab=customers" },
+          { label: "Suppliers", value: suppliers.length, color: "indigo", icon: <Truck size={18} />, link: "/users?tab=suppliers" },
+          { label: "Sales Officers", value: salesOfficers.length, color: "violet", icon: <UserCheck size={18} />, link: "/sales-officers" },
+          { label: "Pending Orders", value: pendingOrdersCount, color: "amber", icon: <Clock size={18} />, link: "/orders" },
+          { label: "Pending POs", value: pendingPOCount, color: "purple", icon: <ShoppingCart size={18} />, link: "/purchase-orders" },
+          { label: "Total Products", value: inventoryItems.length, color: "teal", icon: <Package size={18} />, link: "/inventory" },
+        ].map(({ label, value, color, icon, link }) => (
+          <div
+            key={label}
+            onClick={() => navigate(link)}
+            className={`bg-[#1e293b]/80 border border-[#334155] hover:border-${color}-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm`}
+          >
+            <div className={`p-2 rounded-lg bg-${color}-500/15 text-${color}-400 mb-2 group-hover:scale-110 transition-transform`}>
+              {icon}
+            </div>
+            <span className={`text-xl font-bold font-mono ${value > 0 ? `text-${color}-400` : "text-white"}`}>
+              {value}
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium mt-0.5">{label}</span>
           </div>
-          <span className="text-xl font-bold text-white font-mono">{invoices.length}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-0.5">Total Invoices</span>
-        </div>
-
-        {/* Total Customers */}
-        <div
-          onClick={() => navigate("/users?tab=customers")}
-          className="bg-[#1e293b]/80 border border-[#334155] hover:border-blue-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm"
-        >
-          <div className="p-2 rounded-lg bg-blue-500/15 text-blue-400 mb-2 group-hover:scale-110 transition-transform">
-            <Users size={18} />
-          </div>
-          <span className="text-xl font-bold text-white font-mono">{customers.length}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-0.5">Total Customers</span>
-        </div>
-
-        {/* Suppliers */}
-        <div
-          onClick={() => navigate("/users?tab=suppliers")}
-          className="bg-[#1e293b]/80 border border-[#334155] hover:border-indigo-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm"
-        >
-          <div className="p-2 rounded-lg bg-indigo-500/15 text-indigo-400 mb-2 group-hover:scale-110 transition-transform">
-            <Truck size={18} />
-          </div>
-          <span className="text-xl font-bold text-white font-mono">{suppliers.length}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-0.5">Suppliers</span>
-        </div>
-
-        {/* Sales Officers */}
-        <div
-          onClick={() => navigate("/sales-officers")}
-          className="bg-[#1e293b]/80 border border-[#334155] hover:border-violet-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm"
-        >
-          <div className="p-2 rounded-lg bg-violet-500/15 text-violet-400 mb-2 group-hover:scale-110 transition-transform">
-            <UserCheck size={18} />
-          </div>
-          <span className="text-xl font-bold text-white font-mono">{salesOfficers.length}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-0.5">Sales Officers</span>
-        </div>
-
-        {/* Pending Orders */}
-        <div
-          onClick={() => navigate("/orders")}
-          className="bg-[#1e293b]/80 border border-[#334155] hover:border-amber-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm"
-        >
-          <div className="p-2 rounded-lg bg-amber-500/15 text-amber-400 mb-2 group-hover:scale-110 transition-transform">
-            <Clock size={18} />
-          </div>
-          <span className="text-xl font-bold text-amber-400 font-mono">{pendingOrdersCount}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-0.5">Pending Orders</span>
-        </div>
-
-        {/* Pending POs */}
-        <div
-          onClick={() => navigate("/purchase-orders")}
-          className="bg-[#1e293b]/80 border border-[#334155] hover:border-purple-500/60 rounded-xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-[#1e293b] group shadow-sm"
-        >
-          <div className="p-2 rounded-lg bg-purple-500/15 text-purple-400 mb-2 group-hover:scale-110 transition-transform">
-            <ShoppingCart size={18} />
-          </div>
-          <span className="text-xl font-bold text-purple-400 font-mono">{pendingPOCount}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-0.5">Pending POs</span>
-        </div>
+        ))}
       </div>
 
-      {/* ================= 3. CHARTS ROW ================= */}
+      {/* ══════════════ 3. CHARTS ROW ══════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Trend Area Chart */}
-        <div className="lg:col-span-2 bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <TrendingUp size={18} className="text-blue-400" />
-                  Revenue & Sales Trend
-                </h3>
-                <p className="text-xs text-slate-400">Monthly revenue tracking over the last 6 months</p>
-              </div>
-              <button
-                onClick={() => navigate("/finance")}
-                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                View Finance <ArrowRight size={12} />
-              </button>
+        {/* Revenue Trend */}
+        <div className="lg:col-span-2 bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <TrendingUp size={18} className="text-blue-400" />
+                Revenue Trend — Last 6 Months
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Invoiced revenue vs collected · {formatCompact(totalRevenue)} total
+              </p>
             </div>
+            <button
+              onClick={() => navigate("/finance")}
+              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
+            >
+              Finance <ArrowRight size={12} />
+            </button>
+          </div>
+
+          {monthlySalesData.every((m) => m.revenue === 0) ? (
+            <div className="h-64 flex items-center justify-center flex-col gap-2 text-slate-500">
+              <BarChart2 size={32} className="opacity-30" />
+              <p className="text-xs">No invoice data for the last 6 months</p>
+            </div>
+          ) : (
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={monthlySalesData}>
@@ -348,6 +577,10 @@ const DashboardOverview: React.FC = () => {
                     <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="collectedGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
@@ -360,89 +593,112 @@ const DashboardOverview: React.FC = () => {
                   <Tooltip
                     contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "8px" }}
                     itemStyle={{ color: "#e2e8f0", fontSize: "12px" }}
-                    formatter={(val: any) => [formatCurrency(Number(val)), "Revenue"]}
+                    formatter={(val: any, name: string) => [
+                      formatCurrency(Number(val)),
+                      name === "revenue" ? "Invoiced" : "Collected",
+                    ]}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#3b82f6"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#revenueGrad)"
-                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#revenueGrad)" />
+                  <Area type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#collectedGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Operational Status Breakdown Donut Chart */}
-        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Layers size={18} className="text-purple-400" />
-                  Status Breakdown
-                </h3>
-                <p className="text-xs text-slate-400">Distribution across active workflow pipelines</p>
-              </div>
-            </div>
-            <div className="h-44 w-full relative flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={operationalStatusBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {operationalStatusBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "8px" }}
-                    itemStyle={{ color: "#e2e8f0", fontSize: "12px" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#334155]/60">
-              {operationalStatusBreakdown.map((item) => (
-                <div key={item.name} className="flex items-center gap-2 text-xs">
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                  <span className="text-slate-400 truncate">{item.name}</span>
-                  <span className="font-mono text-white font-bold ml-auto">{item.percentage}%</span>
-                </div>
-              ))}
+        {/* Status Breakdown Donut */}
+        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Layers size={18} className="text-purple-400" />
+                Status Breakdown
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Pipeline distribution across ERP stages</p>
             </div>
           </div>
+
+          {operationalStatusBreakdown.every((s) => s.value === 0) ? (
+            <div className="flex-1 flex items-center justify-center text-slate-500 text-xs py-10">
+              No active pipeline items recorded
+            </div>
+          ) : (
+            <>
+              <div className="h-44 w-full flex items-center justify-center relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={operationalStatusBreakdown.filter((s) => s.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={68}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {operationalStatusBreakdown
+                        .filter((s) => s.value > 0)
+                        .map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "8px" }}
+                      itemStyle={{ color: "#e2e8f0", fontSize: "12px" }}
+                      formatter={(val: any, _: any, props: any) => [`${val} (${props.payload.percentage}%)`, props.payload.name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center label */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-center">
+                    <span className="text-xl font-bold text-white font-mono">
+                      {operationalStatusBreakdown.reduce((s, i) => s + i.value, 0)}
+                    </span>
+                    <p className="text-[10px] text-slate-400">Total</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-2.5 gap-y-1.5 mt-3 pt-3 border-t border-[#334155]/60">
+                {operationalStatusBreakdown.map((item) => (
+                  <div
+                    key={item.name}
+                    onClick={() => navigate(item.link)}
+                    className="flex items-center gap-1.5 text-xs p-1 rounded-md hover:bg-[#0f172a] cursor-pointer transition-colors group"
+                    title={`View ${item.name}`}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-slate-300 group-hover:text-white truncate text-[11px] transition-colors">{item.name}</span>
+                    <span className={`font-mono font-bold ml-auto text-xs ${item.value > 0 ? 'text-white' : 'text-slate-600'}`}>
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* ================= 4. HIGH DEMAND PRODUCTS & OVERDUE CHEQUES ROW ================= */}
+      {/* ══════════════ 4. PRODUCTS & CHEQUES ROW ══════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top 5 High-Demand Inventory Products */}
+        {/* Top 5 High-Demand Products */}
         <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-bold text-white">High-Demand Products</h3>
-              <p className="text-xs text-slate-400">Fastest selling inventory items</p>
+              <p className="text-xs text-slate-400 mt-0.5">Top items by units sold · Total products: {totalProductsCount}</p>
             </div>
             <button
               onClick={() => navigate("/inventory")}
-              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
+              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
             >
               Inventory <ArrowRight size={12} />
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {topProducts.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center">No inventory items found</p>
+              <p className="text-xs text-slate-500 py-6 text-center">No sold inventory data available</p>
             ) : (
               topProducts.map((p, idx) => (
                 <div
@@ -451,20 +707,23 @@ const DashboardOverview: React.FC = () => {
                 >
                   <div className="min-w-0 flex-1 mr-3">
                     <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-slate-500 w-4">{idx + 1}</span>
                       <span className="text-xs font-bold text-white truncate">{p.name}</span>
-                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 shrink-0">
                         {p.code}
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-400">
-                      Stock: <strong className="text-slate-200">{p.stock} units</strong> · Sold: {p.sales}
+                    <span className="text-[11px] text-slate-400 ml-6 block mt-0.5">
+                      Stock: <strong className="text-slate-200">{p.stock ?? 0} units</strong>
+                      {p.sales > 0 && <> · <span className="text-emerald-400 font-semibold">{p.sales} sold</span></>}
                     </span>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <span className="text-xs font-mono font-bold text-white block">
-                      {formatCurrency(p.revenue)}
-                    </span>
-                    <span className="text-[10px] text-emerald-400 font-semibold">{p.growth}</span>
+                    {p.revenue > 0 ? (
+                      <span className="text-xs font-mono font-bold text-white block">{formatCurrency(p.revenue)}</span>
+                    ) : (
+                      <span className="text-xs text-slate-500">—</span>
+                    )}
                   </div>
                 </div>
               ))
@@ -472,83 +731,89 @@ const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* Post-Dated Cheques Due & Overdue */}
-        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <AlertCircle size={18} className="text-red-400" />
-                  Cheques Due & Overdue
-                </h3>
-                <p className="text-xs text-slate-400">Post-dated cheques awaiting clearance or overdue</p>
-              </div>
-              <button
-                onClick={() => navigate("/finance")}
-                className="text-xs text-red-400 hover:text-red-300 font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                Finance Tab <ArrowRight size={12} />
-              </button>
+        {/* Cheques Due & Overdue */}
+        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <AlertCircle size={18} className={hasOverdueCheques ? "text-red-400" : "text-amber-400"} />
+                {hasOverdueCheques ? "Overdue Cheques" : "Upcoming Cheques"}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {hasOverdueCheques
+                  ? `${overdueCheques.length} overdue — immediate attention required`
+                  : `${pendingCheques.length} pending clearance`}
+              </p>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-[#334155] bg-[#0f172a]">
-              <table className="min-w-full border-collapse">
-                <thead>
-                  <tr className="bg-[#1e293b] text-slate-300 text-xs border-b border-[#334155] font-bold">
-                    <th className="py-2.5 px-3 text-left">Cheque #</th>
-                    <th className="py-2.5 px-3 text-left">Customer / Bank</th>
-                    <th className="py-2.5 px-3 text-left">Due Date</th>
-                    <th className="py-2.5 px-3 text-right">Amount</th>
+            <button
+              onClick={() => navigate("/finance")}
+              className={`text-xs ${hasOverdueCheques ? "text-red-400 hover:text-red-300" : "text-amber-400 hover:text-amber-300"} font-semibold flex items-center gap-1`}
+            >
+              Finance <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-[#334155] bg-[#0f172a] flex-1">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-[#1e293b] text-slate-300 text-xs border-b border-[#334155] font-bold">
+                  <th className="py-2.5 px-3 text-left">Ref #</th>
+                  <th className="py-2.5 px-3 text-left">Party</th>
+                  <th className="py-2.5 px-3 text-left">Due Date</th>
+                  <th className="py-2.5 px-3 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayCheques.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-xs text-slate-500">
+                      No cheques recorded
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {cheques.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-6 text-center text-xs text-slate-500">
-                        No pending overdue cheques recorded
-                      </td>
-                    </tr>
-                  ) : (
-                    cheques.slice(0, 4).map((chq: any, idx: number) => (
+                ) : (
+                  displayCheques.map((chq: any, idx: number) => {
+                    const dueDate = new Date(chq.date || chq.dueDate || "");
+                    const isOverdue = dueDate <= new Date();
+                    return (
                       <tr
                         key={idx}
-                        className={`border-b border-[#334155]/60 hover:bg-[#1e293b] text-xs ${
-                          idx % 2 ? "bg-[#111b2d]" : "bg-[#0f172a]"
+                        className={`border-b border-[#334155]/60 text-xs ${
+                          isOverdue ? "bg-red-950/20" : idx % 2 ? "bg-[#111b2d]" : "bg-[#0f172a]"
                         }`}
                       >
                         <td className="py-2.5 px-3 font-mono font-bold text-blue-400">
-                          {chq.referenceNumber || chq.chequeNo || `CHQ-${idx + 1001}`}
+                          {chq.referenceNumber || chq.transactionNumber || `—`}
                         </td>
-                        <td className="py-2.5 px-3 text-slate-200">
-                          {chq.party || chq.bank || 'Customer'}
+                        <td className="py-2.5 px-3 text-slate-200 truncate max-w-[120px]">
+                          {chq.party || chq.customerName || chq.bank || "—"}
                         </td>
-                        <td className="py-2.5 px-3 text-slate-400">
-                          {chq.date ? chq.date.split('T')[0] : '2026-08-31'}
+                        <td className={`py-2.5 px-3 ${isOverdue ? "text-red-400 font-semibold" : "text-slate-400"}`}>
+                          {!isNaN(dueDate.getTime()) ? dueDate.toLocaleDateString() : "—"}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
-                          {formatCurrency(chq.amount || 0)}
+                          {formatCurrency(Number(chq.amount) || 0)}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      {/* ================= 5. RECENT TRANSACTIONS & SALESMAN PERFORMANCE ROW ================= */}
+      {/* ══════════════ 5. RECENT ORDERS & SALESMAN PERFORMANCE ══════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
         <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-bold text-white">Recent Customer Orders</h3>
-              <p className="text-xs text-slate-400">Submitted by sales officers</p>
+              <h3 className="text-base font-bold text-white">Recent Orders</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Latest {Math.min(5, recentOrders.length)} of {orders.length} orders</p>
             </div>
             <button
               onClick={() => navigate("/orders")}
-              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
+              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
             >
               View All <ArrowRight size={12} />
             </button>
@@ -557,36 +822,40 @@ const DashboardOverview: React.FC = () => {
             <table className="min-w-full border-collapse">
               <thead>
                 <tr className="bg-[#1e293b] text-slate-300 text-xs border-b border-[#334155] font-bold uppercase">
-                  <th className="p-3 text-left">Order ID</th>
+                  <th className="p-3 text-left">Order</th>
                   <th className="p-3 text-left">Customer</th>
-                  <th className="p-3 text-left">Sales Officer</th>
-                  <th className="p-3 text-right">Amount</th>
+                  <th className="p-3 text-left">Officer</th>
+                  <th className="p-3 text-right">Total</th>
                   <th className="p-3 text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {orders.length === 0 ? (
+                {recentOrders.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-6 text-center text-xs text-slate-500">
-                      No orders available
+                      No orders yet
                     </td>
                   </tr>
                 ) : (
-                  orders.slice(0, 5).map((ord, idx) => (
+                  recentOrders.map((ord, idx) => (
                     <tr
                       key={ord.id}
                       onClick={() => navigate(`/orders/${ord.id}`)}
-                      className={`border-b border-[#334155]/60 cursor-pointer hover:bg-[#1e293b] ${
+                      className={`border-b border-[#334155]/60 cursor-pointer hover:bg-[#1e293b] transition-colors ${
                         idx % 2 ? "bg-[#111b2d]" : "bg-[#0f172a]"
                       }`}
                     >
-                      <td className="p-3 text-xs font-mono text-blue-400 font-bold">{ord.orderNumber}</td>
-                      <td className="p-3 text-xs font-semibold text-slate-200 truncate max-w-[140px]">
-                        {ord.customerName}
+                      <td className="p-3 text-xs font-mono text-blue-400 font-bold whitespace-nowrap">
+                        {ord.orderNumber || `ORD-${ord.id?.slice(0, 8)}`}
                       </td>
-                      <td className="p-3 text-xs text-slate-400">{ord.salesman?.fullName || "—"}</td>
-                      <td className="p-3 text-xs font-bold text-white text-right font-mono">
-                        {formatCurrency(ord.grandTotal)}
+                      <td className="p-3 text-xs font-semibold text-slate-200 truncate max-w-[120px]">
+                        {ord.customerName || "—"}
+                      </td>
+                      <td className="p-3 text-xs text-slate-400 truncate max-w-[100px]">
+                        {(ord.salesman as any)?.fullName || ord.salesmanName || "—"}
+                      </td>
+                      <td className="p-3 text-xs font-bold text-white text-right font-mono whitespace-nowrap">
+                        {ord.grandTotal ? formatCurrency(ord.grandTotal) : "—"}
                       </td>
                       <td className="p-3 text-xs">
                         <StatusBadge status={ord.status} />
@@ -600,49 +869,70 @@ const DashboardOverview: React.FC = () => {
         </div>
 
         {/* Sales Officer Performance */}
-        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-white">Sales Officer Performance</h3>
-                <p className="text-xs text-slate-400">Order revenue generation by assigned route</p>
-              </div>
-              <button
-                onClick={() => navigate("/sales-officers")}
-                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                Officers <ArrowRight size={12} />
-              </button>
+        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-white">Sales Officer Performance</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Revenue from assigned orders by officer</p>
             </div>
-            <div className="space-y-3">
-              {salesmenPerformance.length === 0 ? (
-                <p className="text-xs text-slate-500 py-4 text-center">No sales officers recorded</p>
-              ) : (
-                salesmenPerformance.map((so, idx) => (
-                  <div key={idx} className="p-3 bg-[#0f172a] rounded-lg border border-[#334155]/60">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div>
-                        <span className="text-xs font-bold text-white">{so.name}</span>
-                        <span className="text-[11px] text-slate-400 ml-2">({so.area})</span>
-                      </div>
+            <button
+              onClick={() => navigate("/sales-officers")}
+              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
+            >
+              Officers <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="space-y-3 flex-1">
+            {salesmenPerformance.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-8">
+                <p className="text-xs text-slate-500 text-center">
+                  {salesOfficers.length === 0
+                    ? "No sales officers registered"
+                    : "No orders linked to any sales officer yet"}
+                </p>
+              </div>
+            ) : (
+              salesmenPerformance.map((so, idx) => (
+                <div key={idx} className="p-3 bg-[#0f172a] rounded-lg border border-[#334155]/60">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div>
+                      <span className="text-xs font-bold text-white">{so.name}</span>
+                      <span className="text-[11px] text-slate-400 ml-2">({so.area})</span>
+                    </div>
+                    <div className="text-right">
                       <span className="text-xs font-mono font-bold text-emerald-400">
                         {formatCurrency(so.totalSales)}
                       </span>
-                    </div>
-                    <div className="w-full bg-[#1e293b] rounded-full h-2 overflow-hidden flex">
-                      <div
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${so.progress}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center mt-1 text-[10px] text-slate-400">
-                      <span>Target: {formatCurrency(so.target)}</span>
-                      <span className="font-bold text-slate-300">{so.progress}% Achieved</span>
+                      <span className="text-[10px] text-slate-500 ml-1">· {so.ordersCount} orders</span>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                  {so.target > 0 ? (
+                    <>
+                      <div className="w-full bg-[#1e293b] rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            so.progress >= 100 ? "bg-emerald-500" : so.progress >= 70 ? "bg-blue-500" : "bg-amber-500"
+                          }`}
+                          style={{ width: `${so.progress}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center mt-1 text-[10px] text-slate-400">
+                        <span>Target: {formatCurrency(so.target)}</span>
+                        <span
+                          className={`font-bold ${
+                            so.progress >= 100 ? "text-emerald-400" : so.progress >= 70 ? "text-blue-400" : "text-amber-400"
+                          }`}
+                        >
+                          {so.progress}%
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 mt-1">No target set</p>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -470,6 +470,8 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
             discountPercentage={quotationData.discountPercentage || 0}
             discountAmount={discountAmount}
             totalAmount={totalAmount}
+            items={quotationData.items}
+            inventoryItems={inventoryItems}
             onTotalDiscountChange={onTotalDiscountChange}
           />
         </div>

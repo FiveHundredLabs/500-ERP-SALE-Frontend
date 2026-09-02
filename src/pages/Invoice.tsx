@@ -39,6 +39,11 @@ import type {
 } from "../types/invoice";
 import type { InventoryItem as InvoiceInventoryItem } from "../types/inventory";
 import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus } from "../types/invoice";
+import {
+  validateLineDiscount,
+  validateOverallDiscount,
+  resolveMinPrice,
+} from "../utils/discountValidator";
 import { invoiceService } from "../services/InvoiceService";
 import { financeService } from "../services/FinanceService";
 import type { FinancePaymentData } from "../types/finance";
@@ -124,27 +129,32 @@ const Invoice: React.FC = () => {
     return ps !== 'paid' && ps !== 'completed' && s !== 'rejected' && s !== 'returned' && s !== 'return_completed';
   };
 
-  const getInitialInvoiceData = (): InvoiceData => ({
-    invoiceNumber: "",
-    customer: "",
-    customerDetails: undefined,
-    items: [],
-    subTotal: 0,
-    discount: 0,
-    discountPercentage: 0,
-    totalDiscountType: 'percentage',
-    totalDiscountValue: 0,
-    totalAmount: 0,
-    paymentStatus: PaymentStatus.COMPLETED,
-    paymentMethod: PaymentMethod.CASH,
-    issueDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date().toISOString().split('T')[0],
-    vehicleNumber: "",
-    notes: "",
-    applyVat: false,
-    vatAmount: 0,
-    taxRate: 0,
-  });
+  const getInitialInvoiceData = (): InvoiceData => {
+    const today = new Date().toISOString().split('T')[0];
+    const defaultDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return {
+      invoiceNumber: "",
+      customer: "",
+      customerDetails: undefined,
+      items: [],
+      subTotal: 0,
+      discount: 0,
+      discountPercentage: 0,
+      totalDiscountType: 'percentage',
+      totalDiscountValue: 0,
+      totalAmount: 0,
+      paymentStatus: PaymentStatus.PENDING,
+      paymentMethod: PaymentMethod.CREDIT,
+      creditPeriod: 30,
+      issueDate: today,
+      dueDate: defaultDueDate,
+      vehicleNumber: "",
+      notes: "",
+      applyVat: false,
+      vatAmount: 0,
+      taxRate: 0,
+    };
+  };
 
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(getInitialInvoiceData());
 
@@ -318,6 +328,8 @@ const Invoice: React.FC = () => {
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
+      const creditDays = (typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer as any).creditPeriod : null) || 30;
+      const calcDueDate = new Date(Date.now() + creditDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const initialInvoiceData: InvoiceData = {
         ...getInitialInvoiceData(),
@@ -331,6 +343,10 @@ const Invoice: React.FC = () => {
         totalDiscountValue: convertFromOrder?.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0,
         discountPercentage: convertFromOrder?.totalDiscountType === 'percentage' ? (convertFromOrder.totalDiscountValue || 0) : 0,
         totalAmount: initialTotalAmount || subTotal,
+        paymentStatus: PaymentStatus.PENDING,
+        paymentMethod: PaymentMethod.CREDIT,
+        creditPeriod: creditDays,
+        dueDate: calcDueDate,
         notes: initialNotes,
         salesman: initialSalesman,
         sourceOrderId: initialSourceOrderId,
@@ -626,7 +642,18 @@ const Invoice: React.FC = () => {
       paymentStatus: data.paymentStatus,
       paymentMethod: data.paymentMethod,
       issueDate: formatDateToISO(data.issueDate),
-      dueDate: formatDateToISO(data.dueDate),
+      dueDate: (() => {
+        let d = data.dueDate;
+        if (data.paymentMethod === PaymentMethod.CREDIT || data.paymentMethod === 'credit') {
+          const issueTime = data.issueDate ? new Date(data.issueDate).getTime() : Date.now();
+          const dueTime = d ? new Date(d).getTime() : 0;
+          if (!d || dueTime <= issueTime) {
+            const days = Number(data.creditPeriod) || 30;
+            d = new Date(issueTime + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          }
+        }
+        return formatDateToISO(d);
+      })(),
       vehicleNumber: data.vehicleNumber,
       applyVat: data.applyVat,
       vatAmount: data.vatAmount,
@@ -814,6 +841,51 @@ const Invoice: React.FC = () => {
       setAlert({
         type: 'error',
         message: 'Please add at least one item before saving'
+      });
+      return false;
+    }
+
+    // Validate each line item discount against minimum price
+    for (const item of invoiceData.items) {
+      const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
+      const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
+      const lineCheck = validateLineDiscount({
+        productName: item.itemName,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        discountType: item.discountType || 'percentage',
+        discountScope: item.discountScope || 'per_unit',
+        discountValue: item.discountValue,
+        minPrice,
+      });
+      if (!lineCheck.isValid) {
+        setAlert({
+          type: 'error',
+          message: lineCheck.error || `Discount for item "${item.itemName}" exceeds allowed minimum price floor.`
+        });
+        return false;
+      }
+    }
+
+    // Validate overall document discount
+    const overallCheck = validateOverallDiscount({
+      items: invoiceData.items.map(it => {
+        const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
+        return {
+          productName: it.itemName,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          discountAmount: it.discountAmount,
+          minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
+        };
+      }),
+      totalDiscountType: invoiceData.totalDiscountType,
+      totalDiscountValue: invoiceData.totalDiscountValue,
+    });
+    if (!overallCheck.isValid) {
+      setAlert({
+        type: 'error',
+        message: overallCheck.error || 'Overall discount reduces invoice total below allowed minimum price floor.'
       });
       return false;
     }

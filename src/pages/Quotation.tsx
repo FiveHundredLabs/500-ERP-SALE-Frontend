@@ -38,6 +38,11 @@ import type {
 import type { InventoryItem as QuotationInventoryItem } from "../types/inventory";
 import { PaymentMethod } from "../types/invoice";
 import { QuotationStatus } from "../types/quotation";
+import {
+  validateLineDiscount,
+  validateOverallDiscount,
+  resolveMinPrice,
+} from "../utils/discountValidator";
 import { quotationService } from "../services/QuotationService";
 import { inventoryService } from "../services/InventoryService";
 import CustomAlert from "../components/CustomAlert";
@@ -507,6 +512,51 @@ const Quotation: React.FC = () => {
       setAlert({
         type: 'error',
         message: 'Please add customer and at least one item before saving'
+      });
+      return false;
+    }
+
+    // Validate each line item discount against minimum price
+    for (const item of quotationData.items) {
+      const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
+      const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
+      const lineCheck = validateLineDiscount({
+        productName: item.itemName,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        discountType: item.discountType || 'percentage',
+        discountScope: item.discountScope || 'per_unit',
+        discountValue: item.discountValue,
+        minPrice,
+      });
+      if (!lineCheck.isValid) {
+        setAlert({
+          type: 'error',
+          message: lineCheck.error || `Discount for item "${item.itemName}" exceeds allowed minimum price floor.`
+        });
+        return false;
+      }
+    }
+
+    // Validate overall document discount
+    const overallCheck = validateOverallDiscount({
+      items: quotationData.items.map(it => {
+        const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
+        return {
+          productName: it.itemName,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          discountAmount: it.discountAmount,
+          minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
+        };
+      }),
+      totalDiscountType: quotationData.totalDiscountType,
+      totalDiscountValue: quotationData.totalDiscountValue,
+    });
+    if (!overallCheck.isValid) {
+      setAlert({
+        type: 'error',
+        message: overallCheck.error || 'Overall discount reduces total below allowed minimum price floor.'
       });
       return false;
     }
