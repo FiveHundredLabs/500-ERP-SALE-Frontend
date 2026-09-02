@@ -105,6 +105,7 @@ export const mapInvoiceReturn = (value: any): InvoiceReturn => ({
 
 export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
   ...value,
+  transactionType: (value.transactionType === 'refund' ? 'refund' : 'payment') as 'payment' | 'refund',
   paymentMethod: ({
     Cash: 'cash', Credit: 'credit', Card: 'card', 'Bank Deposit': 'bank_deposit',
     'Bank Transfer': 'bank_transfer', Cheque: 'cheque',

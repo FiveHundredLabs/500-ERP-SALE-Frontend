@@ -11,7 +11,8 @@ import {
   ShieldAlert, 
   UserCheck, 
   DollarSign, 
-  Receipt 
+  Receipt,
+  RotateCcw
 } from "lucide-react";
 import { Button } from "./common";
 import { ActionMenu } from "./erp";
@@ -27,6 +28,13 @@ interface FinanceTableProps {
   onDownloadInvoice: (invoice: InvoiceResponse) => void;
   onMarkAsPaid: (invoice: InvoiceResponse) => void;
   financeTransactions: FinanceTransaction[];
+  invoiceReturns?: Array<{
+    id: string;
+    invoiceId: string;
+    returnNumber: string;
+    returnTotal: number;
+    status: string;
+  }>;
   pageSize?: number;
 }
 
@@ -65,7 +73,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
             </div>
             <div className="min-w-0">
               <h3 className="text-base sm:text-lg font-semibold text-gray-200 truncate">
-                Payment Details
+                {transaction?.transactionType === 'refund' ? 'Refund Details' : 'Payment Details'}
               </h3>
               {transaction && (
                 <p className="text-xs sm:text-sm text-gray-400 truncate">
@@ -111,9 +119,26 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
                     <span className="text-gray-200">{transaction.bankName}</span>
                   </div>
                 )}
+                {/* Type Badge */}
+                <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
+                  <span className="text-gray-400">Type:</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    transaction.transactionType === 'refund'
+                      ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  }`}>
+                    {transaction.transactionType === 'refund' ? '↩ Refund' : '✓ Payment'}
+                  </span>
+                </div>
                 <div className="flex justify-between items-center pt-1">
-                  <span className="text-gray-300 font-semibold">Amount Paid:</span>
-                  <span className="text-sm font-bold font-mono text-emerald-400">{transaction.amount}</span>
+                  <span className="text-gray-300 font-semibold">
+                    {transaction.transactionType === 'refund' ? 'Amount Refunded:' : 'Amount Paid:'}
+                  </span>
+                  <span className={`text-sm font-bold font-mono ${
+                    transaction.transactionType === 'refund' ? 'text-red-400' : 'text-emerald-400'
+                  }`}>
+                    {transaction.transactionType === 'refund' ? '-' : '+'}LKR {Math.abs(Math.round(transaction.amount)).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
@@ -132,6 +157,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   onDownloadInvoice,
   onMarkAsPaid,
   financeTransactions = [],
+  invoiceReturns = [],
   pageSize = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,15 +180,26 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   const trackedInvoices = useMemo(() => {
     return invoices.map(inv => {
       const calc = getInvoiceCalculatedStatus(inv);
+      const completedReturnTotal = invoiceReturns
+        .filter(r => r.invoiceId === inv.id && r.status === 'completed')
+        .reduce((sum, r) => sum + (Number(r.returnTotal) || 0), 0);
+
+      const adjustedRemaining = Math.max(0, calc.remainingAmount - completedReturnTotal);
+      const isFullyReturned = completedReturnTotal >= inv.totalAmount && inv.totalAmount > 0;
+      const effectiveStatus = isFullyReturned ? 'returned' : calc.status;
+
       return {
         ...inv,
-        calculatedStatus: calc.status,
+        calculatedStatus: effectiveStatus,
         effectivePaidAmount: calc.paidAmount,
-        effectiveRemainingAmount: calc.remainingAmount,
+        effectiveRemainingAmount: adjustedRemaining,
         diffDays: calc.diffDays,
+        completedReturnTotal,
+        isFullyReturned,
+        isPartiallyReturned: completedReturnTotal > 0 && !isFullyReturned,
       };
     });
-  }, [invoices]);
+  }, [invoices, invoiceReturns]);
 
   const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'overdue'), [trackedInvoices]);
   const nearDueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'due_soon'), [trackedInvoices]);
@@ -186,6 +223,18 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
     return financeTransactions.find(transaction => 
       transaction?.invoice?.invoiceNumber === invoiceNumber || transaction?.invoice?.invoiceNumber?.includes(invoiceNumber)
     ) || null;
+  };
+
+  // Get returns for a specific invoice by id
+  const getReturnsForInvoice = (invoiceId: string) => {
+    return invoiceReturns.filter(r => r.invoiceId === invoiceId);
+  };
+
+  // Compute completed return total for an invoice (for partial return adjustment)
+  const getCompletedReturnTotal = (invoiceId: string) => {
+    return invoiceReturns
+      .filter(r => r.invoiceId === invoiceId && r.status === 'completed')
+      .reduce((sum, r) => sum + (Number(r.returnTotal) || 0), 0);
   };
 
   // Handle Paid button click
@@ -378,14 +427,32 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                 {paginatedInvoices.map((invoice, idx) => {
                   const transaction = getTransactionForInvoice(invoice.invoiceNumber);
                   const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
-
                   const sName = invoice.salesman?.fullName || invoice.salesmanName || '';
+
+                  // Return awareness
+                  const invoiceReturnsForThis = getReturnsForInvoice(invoice.id);
+                  const hasAnyReturn = invoiceReturnsForThis.length > 0;
+                  const pendingReturnCount = invoiceReturnsForThis.filter(r => r.status === 'pending' || r.status === 'approved').length;
+                  const completedReturnTotal = getCompletedReturnTotal(invoice.id);
+
+                  // For partial returns: effective outstanding = original remaining + refunded amount
+                  // (because backend hasn't deducted the return from paidAmount yet on the invoice)
+                  // We show: what the customer STILL owes = remaining - completedReturnTotal
+                  const adjustedRemaining = Math.max(0, invoice.effectiveRemainingAmount - completedReturnTotal);
+                  const isPartiallyReturned = completedReturnTotal > 0 && completedReturnTotal < invoice.totalAmount;
+                  const isFullyReturned = completedReturnTotal >= invoice.totalAmount;
 
                   return (
                     <tr
                       key={invoice.id}
                       className={`transition-colors hover:bg-[#1e293b] ${
-                        invoice.calculatedStatus === 'overdue' ? "bg-red-950/15" : (idx % 2 === 0 ? "bg-[#1e293b]/30" : "bg-[#1e293b]/10")
+                        isFullyReturned
+                          ? 'bg-red-950/15'
+                          : invoice.calculatedStatus === 'overdue'
+                          ? 'bg-red-950/15'
+                          : idx % 2 === 0
+                          ? 'bg-[#1e293b]/30'
+                          : 'bg-[#1e293b]/10'
                       }`}
                     >
                       <td className="py-3 px-3 font-mono font-bold text-blue-400">
@@ -427,48 +494,77 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         <PaymentBreakdownTooltip
                           totalAmount={invoice.totalAmount || 0}
                           paidAmount={invoice.effectivePaidAmount}
-                          remainingAmount={invoice.effectiveRemainingAmount}
-                          statusText={invoice.calculatedStatus}
+                          remainingAmount={adjustedRemaining}
+                          statusText={isFullyReturned ? 'returned' : isPartiallyReturned ? 'partial_return' : invoice.calculatedStatus}
                         >
-                          <span className={`font-mono font-bold text-xs cursor-help ${invoice.effectiveRemainingAmount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
-                            {formatCurrency(invoice.effectiveRemainingAmount)}
+                          <span className={`font-mono font-bold text-xs cursor-help ${
+                            isFullyReturned
+                              ? 'text-gray-500 line-through'
+                              : adjustedRemaining > 0
+                              ? 'text-amber-400'
+                              : 'text-gray-400'
+                          }`}>
+                            {formatCurrency(adjustedRemaining)}
+                            {isPartiallyReturned && (
+                              <span className="block text-[9px] text-red-400 font-normal no-underline" style={{ textDecoration: 'none' }}>
+                                -{formatCurrency(completedReturnTotal)} returned
+                              </span>
+                            )}
                           </span>
                         </PaymentBreakdownTooltip>
                       </td>
 
                       <td className="py-3 px-2.5 text-center">
-                        <PaymentBreakdownTooltip
-                          totalAmount={invoice.totalAmount || 0}
-                          paidAmount={invoice.effectivePaidAmount}
-                          remainingAmount={invoice.effectiveRemainingAmount}
-                          statusText={invoice.calculatedStatus}
-                        >
-                          {invoice.calculatedStatus === 'paid' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                              <CheckCircle className="w-3 h-3" /> Paid
+                        <div className="flex flex-col items-center gap-1">
+                          <PaymentBreakdownTooltip
+                            totalAmount={invoice.totalAmount || 0}
+                            paidAmount={invoice.effectivePaidAmount}
+                            remainingAmount={adjustedRemaining}
+                            statusText={invoice.calculatedStatus}
+                          >
+                            {isFullyReturned ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                <RotateCcw className="w-3 h-3" /> Returned
+                              </span>
+                            ) : invoice.calculatedStatus === 'paid' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                                <CheckCircle className="w-3 h-3" /> Paid
+                              </span>
+                            ) : invoice.calculatedStatus === 'partially_paid' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                <Clock className="w-3 h-3" /> Partially Paid
+                              </span>
+                            ) : invoice.calculatedStatus === 'overdue' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                <ShieldAlert className="w-3 h-3" /> Overdue
+                              </span>
+                            ) : invoice.calculatedStatus === 'due_soon' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                <Clock className="w-3 h-3" /> Due Soon
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700">
+                                Outstanding
+                              </span>
+                            )}
+                          </PaymentBreakdownTooltip>
+
+                          {/* Return Indicator Badge */}
+                          {hasAnyReturn && !isFullyReturned && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${
+                              pendingReturnCount > 0
+                                ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+                                : isPartiallyReturned
+                                ? 'bg-red-500/15 text-red-300 border-red-500/25'
+                                : 'bg-gray-700 text-gray-400 border-gray-600'
+                            }`}>
+                              <RotateCcw size={8} />
+                              {pendingReturnCount > 0
+                                ? `${pendingReturnCount} return pending`
+                                : `partial return`}
                             </span>
                           )}
-                          {invoice.calculatedStatus === 'partially_paid' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                              <Clock className="w-3 h-3" /> Partially Paid
-                            </span>
-                          )}
-                          {invoice.calculatedStatus === 'overdue' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                              <ShieldAlert className="w-3 h-3" /> Overdue
-                            </span>
-                          )}
-                          {invoice.calculatedStatus === 'due_soon' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                              <Clock className="w-3 h-3" /> Due Soon
-                            </span>
-                          )}
-                          {invoice.calculatedStatus === 'outstanding' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700">
-                              Outstanding
-                            </span>
-                          )}
-                        </PaymentBreakdownTooltip>
+                        </div>
                       </td>
 
                       <td className="py-3 px-2.5 text-gray-300 font-mono text-xs whitespace-nowrap">
