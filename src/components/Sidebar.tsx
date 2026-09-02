@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import Logo from "../assets/logo_without_bg.png";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -151,14 +152,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             <div
               className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1"
               onClick={() => handleNavClick('/dashboard')}
-              title="500Core Dashboard"
+              title="S & K Enterprises Dashboard"
             >
-              <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
-                <ShieldCheck size={19} />
+              <div className="w-9 h-9 rounded-lg bg-[#0f172a] border border-[#334155] flex items-center justify-center p-1 shrink-0 shadow-sm">
+                <img src={Logo} alt="S & K Enterprises" className="w-full h-full object-contain" />
               </div>
               <div className="overflow-hidden">
-                <h1 className="text-[0.95rem] font-bold text-white tracking-tight truncate">SNK Enterprise</h1>
-                <p className="text-[0.68rem] font-semibold tracking-wider text-slate-400 uppercase">Business Suite</p>
+                <h1 className="text-[0.92rem] font-bold text-white tracking-tight truncate">S &amp; K Enterprises</h1>
+                <p className="text-[0.65rem] font-semibold tracking-wider text-slate-400 uppercase">ERP Business Suite</p>
               </div>
             </div>
 
@@ -180,11 +181,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
           <button
             type="button"
             onClick={() => (setIsOpen as (val: boolean) => void)(true)}
-            className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 hover:text-white transition-colors flex-shrink-0 flex items-center justify-center"
+            className="w-10 h-10 rounded-lg bg-[#0f172a] border border-[#334155] hover:border-blue-500/50 transition-colors flex-shrink-0 flex items-center justify-center p-1.5 shadow-sm"
             title="Expand sidebar"
             aria-label="Expand sidebar"
           >
-            <PanelLeftOpen size={18} />
+            <img src={Logo} alt="S & K Enterprises" className="w-full h-full object-contain" />
           </button>
         )}
       </div>
