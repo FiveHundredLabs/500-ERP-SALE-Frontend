@@ -72,21 +72,42 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
   };
 
   const getDiscountDisplay = (item: any) => {
-    // If it's provided directly
-    if (item.discountType === 'percentage' && item.discountValue) return `${Math.round(item.discountValue)}%`;
-    if (item.discountType === 'amount' && item.discountValue && item.unitPrice && item.quantity) {
-       const percent = (item.discountValue / (item.unitPrice * item.quantity)) * 100;
-       return `${Math.round(percent)}%`;
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.unitPrice) || 0;
+    const expectedTotal = qty * price;
+    const total = item.total !== undefined ? Number(item.total) : expectedTotal;
+    const discountAmount = item.discountAmount !== undefined
+      ? Number(item.discountAmount)
+      : item.discount !== undefined
+        ? Number(item.discount)
+        : Math.max(0, expectedTotal - total);
+
+    if (discountAmount <= 0) return '0%';
+
+    // Explicit percentage discount
+    if (item.discountType === 'percentage') {
+      const val = item.discountValue !== undefined ? Number(item.discountValue) : (expectedTotal > 0 ? (discountAmount / expectedTotal) * 100 : 0);
+      return `${Math.round(val)}%`;
     }
-    // Fallback: mathematically calculate it from unitPrice, quantity, and total
-    if (item.unitPrice && item.quantity && item.total) {
-      const expectedTotal = item.unitPrice * item.quantity;
-      if (expectedTotal > item.total) {
-        const discountAmount = expectedTotal - item.total;
-        const percent = (discountAmount / expectedTotal) * 100;
+
+    // Explicit amount discount
+    if (item.discountType === 'amount') {
+      const val = item.discountValue !== undefined ? Number(item.discountValue) : discountAmount;
+      if (item.discountScope === 'per_unit') {
+        return `Rs. ${Math.round(val).toLocaleString()}/u`;
+      }
+      return `Rs. ${Math.round(val).toLocaleString()}`;
+    }
+
+    // Fallback: if discount exists but discountType not specified
+    if (expectedTotal > 0 && discountAmount > 0) {
+      const percent = (discountAmount / expectedTotal) * 100;
+      if (Math.abs(percent - Math.round(percent)) < 0.05 && percent >= 0.5) {
         return `${Math.round(percent)}%`;
       }
+      return `Rs. ${Math.round(discountAmount).toLocaleString()}`;
     }
+
     return '0%';
   };
 
@@ -287,19 +308,65 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                 </div>
 
                 {/* Right Side: Total Calculation */}
-                <div style={{ width: '280px', backgroundColor: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginLeft: 'auto' }}>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                    <span>Sub Total:</span>
-                    <span style={{ color: '#0f172a' }}>Rs. {Math.round(subTotal).toLocaleString()}</span>
-                  </div>
+                {(() => {
+                  const grossItemsTotal = (invoiceData.items || []).reduce((sum, it) => {
+                    if ((it as any).isPlaceholder) return sum;
+                    return sum + ((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0));
+                  }, 0);
 
-                  {(invoiceData.discount > 0 || (invoiceData.discountPercentage ?? 0) > 0) && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
-                      <span>Total Discount:</span>
-                      <span style={{ color: '#dc2626', fontWeight: '600' }}>- Rs. {Math.round(invoiceData.discount).toLocaleString()}</span>
-                    </div>
-                  )}
+                  const totalProductDiscount = (invoiceData.items || []).reduce((sum, it) => {
+                    if ((it as any).isPlaceholder) return sum;
+                    const q = Number(it.quantity) || 0;
+                    const p = Number(it.unitPrice) || 0;
+                    const exp = q * p;
+                    const t = it.total !== undefined ? Number(it.total) : exp;
+                    const d = it.discountAmount !== undefined
+                      ? Number(it.discountAmount)
+                      : it.discount !== undefined
+                        ? Number(it.discount)
+                        : Math.max(0, exp - t);
+                    return sum + Math.max(0, d);
+                  }, 0);
+
+                  const totalBillDiscount = Number(invoiceData.discount) || 0;
+
+                  return (
+                    <div style={{ width: '280px', backgroundColor: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginLeft: 'auto' }}>
+                      
+                      {/* Sub Total (Gross if product discount exists, else standard subtotal) */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                        <span>Sub Total:</span>
+                        <span style={{ color: '#0f172a' }}>
+                          Rs. {Math.round(totalProductDiscount > 0 ? grossItemsTotal : subTotal).toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Product Wise Discount (if user gave discount on items) */}
+                      {totalProductDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
+                          <span>Product Discount:</span>
+                          <span style={{ color: '#dc2626', fontWeight: '600' }}>
+                            - Rs. {Math.round(totalProductDiscount).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Discount for Total (if user set total discount, as like 4th image) */}
+                      {totalBillDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
+                          <span>
+                            Total Discount
+                            {invoiceData.totalDiscountType === 'percentage' && (invoiceData.totalDiscountValue || invoiceData.discountPercentage)
+                              ? ` (${invoiceData.totalDiscountValue || invoiceData.discountPercentage}%)`
+                              : invoiceData.discountPercentage
+                              ? ` (${Math.round(invoiceData.discountPercentage)}%)`
+                              : ''}:
+                          </span>
+                          <span style={{ color: '#dc2626', fontWeight: '600' }}>
+                            - Rs. {Math.round(totalBillDiscount).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
                     <span>Amount Paid:</span>
@@ -315,13 +382,15 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626' }}>BALANCE DUE:</span>
-                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
-                      Rs. {Math.round(balanceAmount).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626' }}>BALANCE DUE:</span>
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
+                          Rs. {Math.round(balanceAmount).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

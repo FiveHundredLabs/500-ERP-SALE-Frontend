@@ -162,11 +162,17 @@ export interface BackendInvoiceData {
     quantity: number;
     unitPrice?: number;
     discount?: number;
+    discountType?: 'percentage' | 'amount';
+    discountScope?: 'per_unit' | 'total_qty' | 'total';
+    discountValue?: number;
+    discountAmount?: number;
     total?: number;
   }>;
   payments?: InvoicePaymentRecord[];
   subTotal?: number;
   discount?: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
   totalAmount?: number;
   paidAmount?: number;
   remainingAmount?: number;

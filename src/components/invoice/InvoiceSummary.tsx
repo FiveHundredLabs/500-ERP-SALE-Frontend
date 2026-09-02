@@ -48,8 +48,41 @@ export const InvoiceSummary: React.FC<InvoiceSummaryProps> = ({
     });
   }, [items, inventoryItems, totalDiscountType, totalDiscountValue]);
 
+  const productDiscountTotal = useMemo(() => {
+    return items.reduce((sum, it) => {
+      const q = Number(it.quantity) || 0;
+      const p = Number(it.unitPrice) || 0;
+      const exp = q * p;
+      const t = it.total !== undefined ? Number(it.total) : exp;
+      const d = it.discountAmount !== undefined
+        ? Number(it.discountAmount)
+        : it.discount !== undefined
+          ? Number(it.discount)
+          : Math.max(0, exp - t);
+      return sum + Math.max(0, d);
+    }, 0);
+  }, [items]);
+
+  const grossItemsTotal = useMemo(() => {
+    return items.reduce((sum, it) => sum + ((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0)), 0);
+  }, [items]);
+
   return (
     <div className="mt-6 pt-4 border-t border-[#334155] space-y-3">
+      {/* Product-wise Discount Breakdown */}
+      {productDiscountTotal > 0 && (
+        <div className="space-y-1.5 pb-2 border-b border-[#334155]/40">
+          <div className="flex justify-between items-center text-xs text-gray-400">
+            <span>Gross Total:</span>
+            <span className="font-mono">LKR {Math.round(grossItemsTotal).toLocaleString()}/=</span>
+          </div>
+          <div className="flex justify-between items-center text-xs text-red-400">
+            <span>Product-wise Discount:</span>
+            <span className="font-mono">- LKR {Math.round(productDiscountTotal).toLocaleString()}/=</span>
+          </div>
+        </div>
+      )}
+
       {/* Subtotal */}
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-300">Subtotal:</span>

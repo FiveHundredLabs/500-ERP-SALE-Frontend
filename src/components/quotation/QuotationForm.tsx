@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { QuotationData, QuotationItem } from "../../types/quotation";
 import type { InventoryItem } from "../../types/inventory";
 import { PaymentMethod } from "../../types/invoice";
