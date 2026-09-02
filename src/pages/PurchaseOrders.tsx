@@ -5,6 +5,7 @@ import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import { Eye, Download, ShoppingCart, Plus, Edit, FileText, MessageCircle } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
+import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
@@ -301,8 +302,22 @@ const PurchaseOrders: React.FC = () => {
               <Edit size={14} />
             </button>
             <button
-              onClick={() => {
-                navigate('/invoice', { state: { convertFromPO: row, salesman: getSalesmanFromPO(row) } });
+              onClick={async () => {
+                let sourceOrder = null;
+                if (row.sourceOrderId) {
+                  try {
+                    sourceOrder = await orderService.getById(row.sourceOrderId);
+                  } catch {
+                    // fall back
+                  }
+                }
+                navigate('/invoice', {
+                  state: {
+                    convertFromPO: row,
+                    convertFromOrder: sourceOrder,
+                    salesman: getSalesmanFromPO(row),
+                  },
+                });
               }}
               disabled={!isEligibleForInvoice}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition whitespace-nowrap ${

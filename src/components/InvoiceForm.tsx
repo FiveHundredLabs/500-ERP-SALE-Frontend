@@ -44,6 +44,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   isProcessingPayment = false,
 }) => {
   const {
+    allCustomers,
     filteredCustomers,
     searchTerm: customerSearchTerm,
     setSearchTerm: setCustomerSearchTerm,
@@ -112,6 +113,31 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
+
+  // Sync customer from invoiceData prop (e.g. when converted from Order or loaded from PO)
+  useEffect(() => {
+    if (invoiceData.customerDetails) {
+      const cust = invoiceData.customerDetails as unknown as Customer;
+      setSelectedCustomer(cust);
+      const name = cust.fullName || cust.shopName || '';
+      const phone = cust.phone ? ` (${cust.phone})` : '';
+      setCustomerSearchTerm(`${name}${phone}`);
+    } else if (typeof invoiceData.customer === 'object' && invoiceData.customer !== null) {
+      const cust = invoiceData.customer as unknown as Customer;
+      setSelectedCustomer(cust);
+      const name = cust.fullName || cust.shopName || '';
+      const phone = cust.phone ? ` (${cust.phone})` : '';
+      setCustomerSearchTerm(`${name}${phone}`);
+    } else if (typeof invoiceData.customer === 'string' && invoiceData.customer && allCustomers.length > 0) {
+      const matched = allCustomers.find(c => c.id === invoiceData.customer);
+      if (matched) {
+        setSelectedCustomer(matched);
+        const name = matched.fullName || matched.shopName || '';
+        const phone = matched.phone ? ` (${matched.phone})` : '';
+        setCustomerSearchTerm(`${name}${phone}`);
+      }
+    }
+  }, [invoiceData.customer, invoiceData.customerDetails, allCustomers, setCustomerSearchTerm]);
 
   // Payment modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);

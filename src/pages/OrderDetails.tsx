@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, StatusBadge, useToast } from '../components/erp';
-import type { Order, OrderStatusType } from '../types/orders';
+import type { Order } from '../types/orders';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { orderService } from '../services/OrderService';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
@@ -25,7 +25,7 @@ import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp'
 const OrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { success, info } = useToast();
+  const { success } = useToast();
 
   const [order, setOrder] = useState<Order | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -105,16 +105,6 @@ const OrderDetails: React.FC = () => {
     success('Converted to PO Successfully!', `Created Purchase Order ${createdPO.poNumber} from Order ${order.orderNumber}.`);
   };
 
-  const handleUpdateStatus = async (newStatus: OrderStatusType) => {
-    if (!order || !id) return;
-    try {
-      await orderService.updateStatus(order.id || id, newStatus);
-      setOrder(prev => prev ? { ...prev, status: newStatus } : undefined);
-    } catch {
-      setOrder(prev => prev ? { ...prev, status: newStatus } : undefined);
-    }
-    info('Status Updated', `Order ${order.orderNumber} status changed to ${newStatus}.`);
-  };
 
   return (
     <AppLayout
