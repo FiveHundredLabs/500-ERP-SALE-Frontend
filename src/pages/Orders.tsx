@@ -468,6 +468,9 @@ const Orders: React.FC = () => {
           setEditingOrder(null);
         }}
         onSubmit={handleSaveOrder}
+        onOrderSaved={(savedOrder) => {
+          setOrders((prev) => prev.map((o) => (o.id === savedOrder.id ? savedOrder : o)));
+        }}
         initialOrder={editingOrder}
       />
       {/* Custom Confirm Modal for Delete */}

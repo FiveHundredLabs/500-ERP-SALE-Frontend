@@ -19,6 +19,7 @@ interface CreateOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (order: Order) => Promise<Order | void> | void;
+  onOrderSaved?: (order: Order) => void;
   initialOrder?: Order | null;
 }
 
@@ -33,7 +34,7 @@ interface DraftProduct {
   discountScope?: 'per_unit' | 'total';
 }
 
-const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit, initialOrder }) => {
+const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit, onOrderSaved, initialOrder }) => {
   const navigate = useNavigate();
   const toast = useToast();
   const today = new Date().toISOString().split('T')[0];
@@ -334,6 +335,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
   const handleRemoveProduct = (id: string) => setProducts(prev => prev.filter(p => p.id !== id));
 
+  const handleUpdateProduct = (id: string, updates: Partial<DraftProduct>) => {
+    setProducts(prev =>
+      prev.map(p => {
+        if (p.id !== id) return p;
+        return { ...p, ...updates };
+      })
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
@@ -454,30 +464,16 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       const res = await orderService.disconnect(initialOrder.id, pendingOrderToSave);
       setShowConnectedModal(false);
       setCreatedOrder(res);
-      await onSubmit(res);
+      if (onOrderSaved) {
+        onOrderSaved(res);
+      } else {
+        await onSubmit(res);
+      }
       toast.success('Order Disconnected', `Order ${res.orderNumber} disconnected from related PO/Invoice and returned to Pending.`);
       handleReset();
       onClose();
     } catch (err: any) {
       toast.error('Error', err?.message || 'Failed to disconnect order');
-    } finally {
-      setIsProcessingConnected(false);
-    }
-  };
-
-  const handleSyncAndSave = async () => {
-    if (!initialOrder || !pendingOrderToSave) return;
-    try {
-      setIsProcessingConnected(true);
-      const res = await orderService.syncConnected(initialOrder.id, pendingOrderToSave);
-      setShowConnectedModal(false);
-      setCreatedOrder(res);
-      await onSubmit(res);
-      toast.success('Order & Connected Docs Updated', `Order ${res.orderNumber} and connected documents synchronized successfully.`);
-      handleReset();
-      onClose();
-    } catch (err: any) {
-      toast.error('Error', err?.message || 'Failed to sync connected documents');
     } finally {
       setIsProcessingConnected(false);
     }
@@ -933,9 +929,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       <input
                         type="number"
                         min="0"
-                        className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-3 pr-8 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
+                        className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-3 pr-8 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
                         placeholder="0"
-                        value={newProduct.quantity === 0 && !errors.quantity ? '0' : newProduct.quantity || ''}
+                        value={newProduct.quantity > 0 ? newProduct.quantity : ''}
                         onChange={e => setNewProduct(p => ({ ...p, quantity: parseInt(e.target.value) || 0 }))}
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-500 pointer-events-none">
@@ -982,9 +978,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         min="0"
                         max={newProduct.discountType === 'percentage' ? 100 : undefined}
                         step={newProduct.discountType === 'percentage' ? '0.1' : '1'}
-                        className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+                        className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         placeholder="0"
-                        value={newProduct.discount || ''}
+                        value={newProduct.discount && newProduct.discount > 0 ? newProduct.discount : ''}
                         onChange={e => setNewProduct(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
@@ -1063,11 +1059,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         <tr className="bg-[#1e293b] text-gray-300 text-xs border-b border-[#334155]">
                           <th className="py-2.5 px-3 w-8 text-center">#</th>
                           <th className="py-2.5 px-3 min-w-[140px]">Product</th>
-                          <th className="py-2.5 px-3 w-20 text-center">Qty</th>
-                          <th className="py-2.5 px-3 w-28 text-right">Selling Price</th>
-                          <th className="py-2.5 px-3 w-24 text-center">Discount</th>
-                          <th className="py-2.5 px-3 w-24 text-center">Apply Discount</th>
-                          <th className="py-2.5 px-3 w-32 text-right">Line Total</th>
+                          <th className="py-2.5 px-3 w-24 text-center">Qty</th>
+                          <th className="py-2.5 px-3 w-24 text-right">Selling Price</th>
+                          <th className="py-2.5 px-3 w-36 text-center">Discount</th>
+                          <th className="py-2.5 px-3 w-28 text-center">Apply Discount</th>
+                          <th className="py-2.5 px-3 w-28 text-right">Line Total</th>
                           <th className="py-2.5 px-2 w-10 text-center"></th>
                         </tr>
                       </thead>
@@ -1083,21 +1079,95 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                               <td className="py-2.5 px-3">
                                 <p className="font-semibold text-gray-200 text-xs">{p.productName}</p>
                               </td>
-                              <td className="py-2.5 px-3 text-center text-gray-300 font-mono whitespace-nowrap">{p.quantity} PCS</td>
-                              <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
-                              <td className="py-2.5 px-3 text-center font-mono">
-                                {discAmt > 0 ? (
-                                  <span className="text-amber-400">
-                                    {p.discountType === 'percentage' ? `${p.discount}%` : `Rs. ${p.discount}`}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">—</span>
-                                )}
-                              </td>
                               <td className="py-2.5 px-3 text-center">
-                                <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                  {p.discountScope === 'total' ? 'Total' : 'Unit'}
-                                </span>
+                                <div className="inline-flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    value={p.quantity > 0 ? p.quantity : ''}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 0;
+                                      handleUpdateProduct(p.id, { quantity: val });
+                                    }}
+                                    className="w-16 bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-center text-xs font-mono font-semibold text-white focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <span className="text-[10px] text-gray-400 font-medium">PCS</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-gray-300 font-mono whitespace-nowrap">{formatCurrency(p.unitPrice)}</td>
+                              <td className="py-2.5 px-3">
+                                <div className="flex items-center gap-1 justify-center">
+                                  <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155] shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateProduct(p.id, { discountType: 'percentage' })}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                        p.discountType === 'percentage'
+                                          ? 'bg-blue-600 text-white shadow-sm'
+                                          : 'text-gray-400 hover:text-white'
+                                      }`}
+                                    >
+                                      %
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateProduct(p.id, { discountType: 'amount' })}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                        p.discountType === 'amount'
+                                          ? 'bg-blue-600 text-white shadow-sm'
+                                          : 'text-gray-400 hover:text-white'
+                                      }`}
+                                    >
+                                      Rs.
+                                    </button>
+                                  </div>
+                                  <div className="relative w-20">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={p.discountType === 'percentage' ? 100 : undefined}
+                                      value={p.discount !== undefined && p.discount > 0 ? p.discount : ''}
+                                      placeholder="0"
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        handleUpdateProduct(p.id, { discount: val });
+                                      }}
+                                      className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-6 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold pointer-events-none">
+                                      {p.discountType === 'percentage' ? '%' : 'Rs'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="flex justify-center">
+                                  <div className="inline-flex bg-[#1e293b] p-0.5 border border-[#334155] rounded-lg items-center gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateProduct(p.id, { discountScope: 'per_unit' })}
+                                      className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
+                                        (p.discountScope || 'per_unit') === 'per_unit'
+                                          ? 'bg-purple-600 text-white shadow'
+                                          : 'text-gray-400 hover:text-gray-200'
+                                      }`}
+                                    >
+                                      Unit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateProduct(p.id, { discountScope: 'total' })}
+                                      className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
+                                        p.discountScope === 'total'
+                                          ? 'bg-purple-600 text-white shadow'
+                                          : 'text-gray-400 hover:text-gray-200'
+                                      }`}
+                                    >
+                                      Total
+                                    </button>
+                                  </div>
+                                </div>
                               </td>
                               <td className="py-2.5 px-3 text-right font-bold text-white font-mono whitespace-nowrap">
                                 <div className="flex flex-col items-end">
@@ -1464,7 +1534,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
           orderNumber={pendingOrderToSave.orderNumber}
           connectedDocs={connectedDocs}
           onDisconnect={handleDisconnectAndSave}
-          onSync={handleSyncAndSave}
           onCancel={() => {
             setShowConnectedModal(false);
             setPendingOrderToSave(null);

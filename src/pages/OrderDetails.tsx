@@ -543,6 +543,10 @@ const OrderDetails: React.FC = () => {
           isOpen={showEditOrderModal}
           onClose={() => setShowEditOrderModal(false)}
           onSubmit={handleUpdateOrder}
+          onOrderSaved={(savedOrder) => {
+            setOrder(savedOrder);
+            setShowEditOrderModal(false);
+          }}
           initialOrder={order}
         />
       )}
