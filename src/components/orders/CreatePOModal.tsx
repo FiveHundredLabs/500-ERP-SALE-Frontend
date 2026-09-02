@@ -157,12 +157,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
           quantity: 0,
           soldCount: 0,
           status: 'in_stock' as const,
-          brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: 2026,
           purchasePrice: item.unitPrice,
           sellPrice: item.unitPrice * 1.3,
           discountRate: 0,
           actualSoldPrice: item.unitPrice,
-          shipmentCode: 'DIRECT',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -220,12 +218,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
           quantity: 0,
           soldCount: 0,
           status: 'in_stock' as const,
-          brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: 2026,
           purchasePrice: costPrice,
           sellPrice: it.sellingPrice || costPrice * 1.3,
           discountRate: 0,
           actualSoldPrice: it.sellingPrice || costPrice * 1.3,
-          shipmentCode: 'DIRECT',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -363,12 +359,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       quantity: 0,
       soldCount: 0,
       status: 'in_stock',
-      brand: 'Universal', model: 'All Models', chassisNo: 'N/A', year: new Date().getFullYear(),
       purchasePrice: cost,
       sellPrice: sellPrice,
       discountRate: 0,
       actualSoldPrice: sellPrice,
-      shipmentCode: 'DIRECT',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -745,7 +739,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
               </div>
 
               <div className="bg-[#0b1120] p-4 rounded-xl border border-[#1e293b] space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
                   <div ref={itemRef} className="md:col-span-6 space-y-1.5 relative">
                     <label className="text-[11px] font-semibold text-slate-400">Search Product</label>
                     <div className="relative">

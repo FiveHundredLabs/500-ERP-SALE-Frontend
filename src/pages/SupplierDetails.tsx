@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { StatusBadge, useToast } from '../components/erp';
+import { StatusBadge, ActionMenu, useToast } from '../components/erp';
 import { supplierService } from '../services/SupplierService';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { financeService } from '../services/FinanceService';
@@ -20,12 +20,11 @@ import {
   FileText,
   User,
   ShoppingBag,
-  MoreVertical,
   Eye,
-  X,
   History
 } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../utils/whatsapp';
+import RecordPaymentModal, { type RecordPaymentResult } from '../components/RecordPaymentModal';
 
 interface SupplierPaymentRecord {
   id: string;
@@ -48,94 +47,89 @@ const SupplierDetails: React.FC = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'payments'>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [selectedPoForSettlement, setSelectedPoForSettlement] = useState<PurchaseOrder | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  // Settlement Form
-  const [settlementForm, setSettlementForm] = useState({
-    amount: '',
-    paymentMethod: 'Bank Transfer',
-    reference: '',
-    bankName: 'Commercial Bank',
-    date: new Date().toISOString().split('T')[0],
-    notes: '',
-  });
+  const [paymentHistory, setPaymentHistory] = useState<SupplierPaymentRecord[]>([]);
 
-  const [paymentHistory, setPaymentHistory] = useState<SupplierPaymentRecord[]>([
-    {
-      id: 'SPAY-001',
-      date: '2026-08-10',
-      poNumber: 'PO-2026-001',
-      amount: 450000,
-      paymentMethod: 'Bank Transfer',
-      reference: 'TXN-BNK-9892',
-      bankName: 'Commercial Bank',
-      notes: 'Initial deposit for engine filters batch',
-    },
-    {
-      id: 'SPAY-002',
-      date: '2026-07-28',
-      poNumber: 'PO-2026-002',
-      amount: 600000,
-      paymentMethod: 'Cheque',
-      reference: 'CHQ-554109',
-      bankName: 'HNB',
-      notes: 'Full settlement on delivery',
-    },
-  ]);
+  const loadData = useCallback(async () => {
+    try {
+      const found = await supplierService.getById(id || '');
+      setSupplier(found);
 
-  const menuRef = useRef<HTMLDivElement>(null);
+      const [allPOs, allTxs] = await Promise.all([
+        purchaseOrderService.getAll(),
+        financeService.getAll().catch(() => []),
+      ]);
+      const matchingPOs = (allPOs || []).filter(
+        (p) => p.supplierId === found?.id || p.supplierName === found?.companyName
+      );
+      setPurchaseOrders(matchingPOs);
 
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+      // Load real payment history from Finance transactions
+      const poNumbers = new Set(matchingPOs.map(p => p.poNumber.toLowerCase()));
+      const supCode = (found?.supplierCode || '').toLowerCase();
+      const supName = (found?.companyName || '').toLowerCase();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const found = await supplierService.getById(id || '');
-        setSupplier(found);
-
-        const allPOs = await purchaseOrderService.getAll();
-        const matchingPOs = (allPOs || []).filter(
-          (p) => p.supplierId === found?.id || p.supplierName === found?.companyName
+      const matchingTxs = (allTxs || []).filter(t => {
+        const invNum = (t.invoiceNumber || '').toLowerCase();
+        const ref = (t.transactionRef || '').toLowerCase();
+        return (
+          poNumbers.has(invNum) ||
+          (supCode && invNum.includes(supCode)) ||
+          invNum.includes('sup-settle') ||
+          (supName && ref.includes(supName))
         );
-        setPurchaseOrders(matchingPOs);
-      } catch (err) {
-        console.error('Failed to load supplier details:', err);
-      }
-    };
-    loadData();
+      });
+
+      const records: SupplierPaymentRecord[] = matchingTxs.map((t, idx) => ({
+        id: t.transactionNumber || `SPAY-${idx}`,
+        date: t.transactionDate,
+        poNumber: t.invoiceNumber || 'SUP-SETTLEMENT',
+        amount: Math.abs(t.amount),
+        paymentMethod: (t.paymentMethod || 'Bank Transfer').replace('_', ' '),
+        reference: t.transactionRef,
+        bankName: t.bankName,
+      }));
+      setPaymentHistory(records);
+    } catch (err) {
+      console.error('Failed to load supplier details:', err);
+    }
   }, [id]);
 
-  // Calculate financials
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Calculate financials based on real POs and actual payments recorded
   const totalPurchases = useMemo(() => {
-    return purchaseOrders.reduce((sum, po) => sum + po.totalAmount, 0) || (supplier?.totalSpent || 0);
+    return purchaseOrders.reduce((sum, po) => sum + (po.totalAmount || 0), 0) || (supplier?.totalSpent || 0);
   }, [purchaseOrders, supplier]);
 
-  const totalOutstanding = useMemo(() => {
-    return supplier?.balanceDue || 0;
-  }, [supplier]);
-
+  // Actual amount paid to supplier from ledger and settled POs
   const totalPaid = useMemo(() => {
-    return Math.max(0, totalPurchases - totalOutstanding);
-  }, [totalPurchases, totalOutstanding]);
+    const paidFromLedger = paymentHistory.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const paidFromPOs = purchaseOrders
+      .filter((po) => po.paymentStatus === 'paid')
+      .reduce((sum, po) => sum + (po.totalAmount || 0), 0);
+    const paid = Math.max(paidFromLedger, paidFromPOs);
+    return Math.min(totalPurchases, paid);
+  }, [totalPurchases, paymentHistory, purchaseOrders]);
+
+  const totalOutstanding = useMemo(() => {
+    return Math.max(0, totalPurchases - totalPaid);
+  }, [totalPurchases, totalPaid]);
 
   // Filtered PO lists
   const unpaidPOs = useMemo(() => {
+    if (totalOutstanding <= 0) return [];
     return purchaseOrders.filter((po) => po.paymentStatus === 'unpaid' || po.paymentStatus === 'partial');
-  }, [purchaseOrders]);
+  }, [purchaseOrders, totalOutstanding]);
 
   const paidPOs = useMemo(() => {
+    if (totalOutstanding <= 0) return purchaseOrders;
     return purchaseOrders.filter((po) => po.paymentStatus === 'paid');
-  }, [purchaseOrders]);
+  }, [purchaseOrders, totalOutstanding]);
 
   const filteredPOs = useMemo(() => {
     if (activeTab === 'unpaid') return unpaidPOs;
@@ -153,84 +147,79 @@ const SupplierDetails: React.FC = () => {
     }
   };
 
-  const enteredAmount = Math.max(0, parseFloat(settlementForm.amount) || 0);
-
-  // Auto-allocation calculation
-  const poAllocations = useMemo(() => {
-    if (enteredAmount <= 0) return [];
-
-    let remainingPayment = enteredAmount;
-    return unpaidPOs.map((po) => {
-      const needed = po.totalAmount;
-      let allocated = 0;
-      if (remainingPayment >= needed) {
-        allocated = needed;
-        remainingPayment -= needed;
-      } else if (remainingPayment > 0) {
-        allocated = remainingPayment;
-        remainingPayment = 0;
-      }
-
-      return {
-        po,
-        allocated,
-        newRemaining: Math.max(0, po.totalAmount - allocated),
-        newStatus: allocated >= po.totalAmount ? 'paid' : allocated > 0 ? 'partial' : po.paymentStatus,
-      };
-    });
-  }, [unpaidPOs, enteredAmount]);
-
-  const handleConfirmSettlement = async () => {
-    if (enteredAmount <= 0) {
-      toastError('Invalid Amount', 'Please enter a valid settlement payment amount.');
-      return;
-    }
-
+  const handleConfirmSettlement = async (result: RecordPaymentResult) => {
     setIsProcessingPayment(true);
     try {
-      // 1. Record transaction in Finance
-      await financeService.create({
-        transactionNumber: `TXN-${Date.now()}`,
-        transactionDate: settlementForm.date,
-        paymentMethod: settlementForm.paymentMethod === 'Cheque' ? 'cheque' : 'bank_transfer',
-        bankName: settlementForm.bankName || undefined,
-        transactionRef: settlementForm.reference || undefined,
-        amount: enteredAmount,
-        invoiceNumber: `SUP-SETTLE-${supplier?.supplierCode || '001'}`,
-      });
+      const transactionId = await financeService.getNextId();
 
-      // 2. Add to payment ledger
-      const newRecord: SupplierPaymentRecord = {
-        id: `SPAY-${Date.now().toString().slice(-4)}`,
-        date: settlementForm.date,
-        poNumber: poAllocations[0]?.po.poNumber || 'BULK-SETTLEMENT',
-        amount: enteredAmount,
-        paymentMethod: settlementForm.paymentMethod,
-        reference: settlementForm.reference,
-        bankName: settlementForm.bankName,
-        notes: settlementForm.notes || `Settlement payment to ${supplier?.companyName}`,
-      };
-      setPaymentHistory((prev) => [newRecord, ...prev]);
+      if (selectedPoForSettlement) {
+        // Specific PO settlement
+        await financeService.create({
+          transactionNumber: transactionId,
+          transactionDate: new Date(result.transactionDate).toISOString(),
+          transactionType: 'payment',
+          paymentMethod: result.method,
+          bankName: result.bankName || undefined,
+          transactionRef: result.transactionRef,
+          amount: result.amount,
+          invoiceNumber: selectedPoForSettlement.poNumber,
+        });
 
-      // 3. Update supplier outstanding payments
-      const newOutstanding = Math.max(0, totalOutstanding - enteredAmount);
-      const updatedSupplier = {
-        ...supplier!,
-        balanceDue: newOutstanding,
-      };
-      setSupplier(updatedSupplier);
+        // Update PO payment status
+        const isFull = result.amount >= selectedPoForSettlement.totalAmount - 0.01;
+        const newStatus = isFull ? 'paid' : 'partial';
+        await purchaseOrderService.update(selectedPoForSettlement.id, {
+          paymentStatus: newStatus,
+        });
+      } else {
+        // General Supplier settlement across unpaid POs (FIFO)
+        await financeService.create({
+          transactionNumber: transactionId,
+          transactionDate: new Date(result.transactionDate).toISOString(),
+          transactionType: 'payment',
+          paymentMethod: result.method,
+          bankName: result.bankName || undefined,
+          transactionRef: result.transactionRef,
+          amount: result.amount,
+          invoiceNumber: `SUP-SETTLE-${supplier?.supplierCode || supplier?.companyName || '001'}`,
+        });
+
+        // Cumulative FIFO allocation across all POs chronologically (oldest first)
+        const newCumulativePaid = totalPaid + result.amount;
+        const sortedPOs = [...purchaseOrders].sort(
+          (a, b) => new Date(a.poDate || a.createdAt).getTime() - new Date(b.poDate || b.createdAt).getTime()
+        );
+
+        let remainingMoney = newCumulativePaid;
+        for (const po of sortedPOs) {
+          if (remainingMoney >= po.totalAmount) {
+            if (po.paymentStatus !== 'paid') {
+              await purchaseOrderService.update(po.id, { paymentStatus: 'paid' });
+            }
+            remainingMoney -= po.totalAmount;
+          } else if (remainingMoney > 0) {
+            if (po.paymentStatus !== 'partial') {
+              await purchaseOrderService.update(po.id, { paymentStatus: 'partial' });
+            }
+            remainingMoney = 0;
+          } else {
+            if (po.paymentStatus !== 'unpaid') {
+              await purchaseOrderService.update(po.id, { paymentStatus: 'unpaid' });
+            }
+          }
+        }
+      }
+
+      // Update supplier balance
+      const newOutstanding = Math.max(0, totalOutstanding - result.amount);
       await supplierService.update(supplier!.id, { balanceDue: newOutstanding });
 
-      success('Payment Recorded', `Successfully settled ${formatCurrency(enteredAmount)} to ${supplier?.companyName}.`);
+      success('Payment Recorded', `Successfully settled ${formatCurrency(result.amount)} to ${supplier?.companyName}.`);
       setShowPaymentModal(false);
-      setSettlementForm({
-        amount: '',
-        paymentMethod: 'Bank Transfer',
-        reference: '',
-        bankName: 'Commercial Bank',
-        date: new Date().toISOString().split('T')[0],
-        notes: '',
-      });
+      setSelectedPoForSettlement(null);
+
+      // Reload all data
+      await loadData();
     } catch (err: any) {
       toastError('Payment Failed', err?.message || 'Failed to record supplier settlement.');
     } finally {
@@ -265,6 +254,14 @@ const SupplierDetails: React.FC = () => {
       headerIcon={<Truck size={20} className="text-purple-400" />}
       headerTitle="Supplier Details"
       headerSubtitle={supplier.supplierCode}
+      headerRight={
+        <button
+          onClick={() => navigate('/suppliers')}
+          className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={13} /> Back to Suppliers
+        </button>
+      }
     >
       <div className="space-y-5">
         {/* ── Breadcrumb Navigation ── */}
@@ -363,16 +360,24 @@ const SupplierDetails: React.FC = () => {
             <div className="flex items-center gap-2.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[#334155]">
               <button
                 onClick={() => navigate('/suppliers')}
-                className="px-3.5 py-2 border border-[#334155] bg-[#0f172a] hover:bg-[#1e293b] text-gray-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                className="px-3.5 py-2 border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0f172a] hover:bg-slate-100 dark:hover:bg-[#1e293b] text-slate-700 dark:text-gray-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
               >
                 <ArrowLeft size={14} /> Back
               </button>
 
               <button
-                onClick={() => setShowPaymentModal(true)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-md shadow-emerald-600/20"
+                onClick={() => {
+                  setSelectedPoForSettlement(null);
+                  setShowPaymentModal(true);
+                }}
+                disabled={totalOutstanding <= 0}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-md ${
+                  totalOutstanding > 0
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                    : 'bg-slate-100 dark:bg-[#1e293b] text-slate-400 dark:text-gray-500 border border-slate-300 dark:border-[#334155] cursor-not-allowed shadow-none'
+                }`}
               >
-                <DollarSign size={14} /> Settle Payment
+                <DollarSign size={14} /> {totalOutstanding > 0 ? 'Settle Payment' : 'All Settled'}
               </button>
             </div>
           </div>
@@ -381,73 +386,73 @@ const SupplierDetails: React.FC = () => {
         {/* ── 4 Minimal KPI Cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Total Purchased */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Total Purchases</p>
-              <p className="text-lg font-bold font-mono text-white mt-0.5 tracking-tight truncate">
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Total Purchases</p>
+              <p className="text-lg font-bold font-mono text-slate-900 dark:text-white mt-0.5 tracking-tight truncate">
                 {formatCurrency(totalPurchases)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{purchaseOrders.length} POs processed</p>
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{purchaseOrders.length} POs processed</p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-blue-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-blue-500 dark:text-blue-400 shrink-0">
               <FileText size={18} />
             </div>
           </div>
 
           {/* Total Settled / Paid */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Total Paid / Settled</p>
-              <p className="text-lg font-bold font-mono text-emerald-400 mt-0.5 tracking-tight truncate">
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Total Paid / Settled</p>
+              <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
                 {formatCurrency(totalPaid)}
               </p>
-              <p className="text-[11px] text-emerald-500/80 mt-0.5">{paidPOs.length} POs fully paid</p>
+              <p className="text-[11px] text-emerald-600/80 dark:text-emerald-500/80 mt-0.5">{paidPOs.length} POs fully paid</p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-emerald-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-emerald-500 dark:text-emerald-400 shrink-0">
               <CheckCircle size={18} />
             </div>
           </div>
 
           {/* Outstanding Pay */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Outstanding Due</p>
-              <p className={`text-lg font-bold font-mono mt-0.5 tracking-tight truncate ${totalOutstanding > 0 ? 'text-amber-400' : 'text-gray-200'}`}>
+              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Outstanding Due</p>
+              <p className={`text-lg font-bold font-mono mt-0.5 tracking-tight truncate ${totalOutstanding > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-gray-200'}`}>
                 {formatCurrency(totalOutstanding)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                {totalOutstanding > 0 ? 'Pending supplier settlement' : 'All purchases settled'}
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">
+                {totalOutstanding > 0 ? `${unpaidPOs.length} PO(s) pending settlement` : 'All purchases settled'}
               </p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-amber-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-amber-500 dark:text-amber-400 shrink-0">
               <AlertTriangle size={18} />
             </div>
           </div>
 
           {/* Total POs */}
-          <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider">Purchase Orders</p>
-              <p className="text-lg font-bold font-mono text-purple-300 mt-0.5 tracking-tight truncate">
+              <p className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Purchase Orders</p>
+              <p className="text-lg font-bold font-mono text-purple-700 dark:text-purple-300 mt-0.5 tracking-tight truncate">
                 {purchaseOrders.length} Orders
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{paymentHistory.length} payments recorded</p>
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{paymentHistory.length} payments recorded</p>
             </div>
-            <div className="p-2.5 bg-[#0f172a] border border-[#334155] rounded-lg text-purple-400 shrink-0">
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#334155] rounded-lg text-purple-500 dark:text-purple-400 shrink-0">
               <ShoppingBag size={18} />
             </div>
           </div>
         </div>
 
         {/* ── Main Tabbed Content ── */}
-        <div className="bg-[#1e293b]/60 border border-[#334155] rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-[#334155] rounded-xl overflow-hidden shadow-sm">
           {/* Tab Filter Bar */}
-          <div className="p-3 border-b border-[#334155] flex flex-wrap items-center justify-between gap-2 bg-[#0f172a]">
+          <div className="p-3 border-b border-slate-200 dark:border-[#334155] flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-[#0f172a]">
             <div className="flex flex-wrap items-center gap-1">
               {[
                 { id: 'all', label: 'All Purchase Orders', count: purchaseOrders.length },
-                { id: 'unpaid', label: 'Unpaid / Partial', count: unpaidPOs.length, color: 'text-amber-400' },
-                { id: 'paid', label: 'completed', count: paidPOs.length, color: 'text-emerald-400' },
+                { id: 'unpaid', label: 'Unpaid / Partial', count: unpaidPOs.length, color: 'text-amber-500' },
+                { id: 'paid', label: 'completed', count: paidPOs.length, color: 'text-emerald-500' },
                 { id: 'payments', label: 'Payment Ledger', count: paymentHistory.length, icon: History },
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -459,7 +464,7 @@ const SupplierDetails: React.FC = () => {
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                       isActive
                         ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#1e293b]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/60 dark:hover:bg-[#1e293b]'
                     }`}
                   >
                     {Icon && <Icon size={12} />}
@@ -467,7 +472,7 @@ const SupplierDetails: React.FC = () => {
                     <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
                       isActive 
                         ? 'bg-blue-700 text-white' 
-                        : tab.color ? `${tab.color} bg-[#1e293b]` : 'text-gray-400 bg-[#1e293b]'
+                        : 'bg-slate-200 text-slate-700 dark:bg-[#1e293b] dark:text-gray-300'
                     }`}>
                       {tab.count}
                     </span>
@@ -475,13 +480,6 @@ const SupplierDetails: React.FC = () => {
                 );
               })}
             </div>
-
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition"
-            >
-              <DollarSign size={13} /> Settle Due Balance
-            </button>
           </div>
 
           {/* POs Table */}
@@ -489,7 +487,7 @@ const SupplierDetails: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="border-b border-[#334155] bg-[#0f172a]/60 text-gray-400 uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 dark:border-[#334155] bg-slate-50 dark:bg-[#0f172a]/60 text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                     <th className="p-3">PO Number</th>
                     <th className="p-3">Order Date</th>
                     <th className="p-3">Expected Date</th>
@@ -500,36 +498,35 @@ const SupplierDetails: React.FC = () => {
                     <th className="p-3 text-right"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#334155]/40">
+                <tbody className="divide-y divide-slate-200 dark:divide-[#334155]/40">
                   {filteredPOs.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-10 text-gray-500">
+                      <td colSpan={8} className="text-center py-10 text-slate-400 dark:text-gray-500">
                         <FileText size={22} className="mx-auto mb-2 opacity-40" />
                         No purchase orders found.
                       </td>
                     </tr>
                   ) : (
                     filteredPOs.map((po) => {
-                      const isMenuOpen = activeMenuId === po.id;
                       return (
                         <tr 
                           key={po.id}
-                          className="hover:bg-[#1e293b]/70 transition cursor-pointer"
+                          className="hover:bg-slate-50 dark:hover:bg-[#1e293b]/70 transition cursor-pointer"
                           onClick={() => navigate(`/purchase-orders/${po.id}`)}
                         >
-                          <td className="p-3 font-mono font-bold text-purple-400">
+                          <td className="p-3 font-mono font-bold text-purple-600 dark:text-purple-400">
                             {po.poNumber}
                           </td>
-                          <td className="p-3 text-gray-300 font-mono">
-                            {po.poDate}
+                          <td className="p-3 text-slate-700 dark:text-gray-300 font-mono">
+                            {formatDate(po.poDate)}
                           </td>
-                          <td className="p-3 text-gray-300 font-mono">
-                            {po.expectedDeliveryDate}
+                          <td className="p-3 text-slate-700 dark:text-gray-300 font-mono">
+                            {formatDate(po.expectedDeliveryDate)}
                           </td>
-                          <td className="p-3 text-right font-mono font-semibold text-gray-300">
+                          <td className="p-3 text-right font-mono font-semibold text-slate-700 dark:text-gray-300">
                             {po.totalItems}
                           </td>
-                          <td className="p-3 text-right font-mono font-bold text-gray-100">
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-gray-100">
                             {formatCurrency(po.totalAmount)}
                           </td>
                           <td className="p-3 text-center">
@@ -553,51 +550,31 @@ const SupplierDetails: React.FC = () => {
                             <StatusBadge status={po.status} />
                           </td>
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative flex justify-end">
-                              <button
-                                onClick={() => setActiveMenuId(isMenuOpen ? null : po.id)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#334155] transition"
-                              >
-                                <MoreVertical size={14} />
-                              </button>
-
-                              {isMenuOpen && (
-                                <div
-                                  ref={menuRef}
-                                  className="absolute right-0 top-7 z-50 w-40 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-gray-200 divide-y divide-[#334155] animate-in fade-in zoom-in-95 duration-100"
-                                >
-                                  <div className="p-1">
-                                    <button
-                                      onClick={() => {
-                                        setActiveMenuId(null);
-                                        navigate(`/purchase-orders/${po.id}`);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-purple-600/20 text-gray-200 hover:text-purple-300 transition text-left"
-                                    >
-                                      <Eye size={13} className="text-purple-400" />
-                                      <span>View PO Details</span>
-                                    </button>
-
-                                    {po.paymentStatus !== 'paid' && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveMenuId(null);
-                                          setSettlementForm(prev => ({
-                                            ...prev,
-                                            amount: po.totalAmount.toString(),
-                                            notes: `Payment settlement for ${po.poNumber}`,
-                                          }));
-                                          setShowPaymentModal(true);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left font-medium"
-                                      >
-                                        <DollarSign size={13} />
-                                        <span>Settle PO</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                            <div className="flex justify-end">
+                              <ActionMenu
+                                title="PO Actions"
+                                items={[
+                                  {
+                                    label: 'View PO Details',
+                                    icon: <Eye size={13} />,
+                                    variant: 'purple',
+                                    onClick: () => navigate(`/purchase-orders/${po.id}`),
+                                  },
+                                  ...(po.paymentStatus !== 'paid'
+                                    ? [
+                                        {
+                                          label: 'Record Settlement',
+                                          icon: <DollarSign size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => {
+                                            setSelectedPoForSettlement(po);
+                                            setShowPaymentModal(true);
+                                          },
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -663,173 +640,22 @@ const SupplierDetails: React.FC = () => {
       </div>
 
       {/* ── SETTLEMENT PAYMENT MODAL ── */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-[#0f172a] border border-[#334155] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-8">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/70">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <DollarSign size={20} />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <span>Settle Supplier Payment</span>
-                  </h2>
-                  <p className="text-xs text-gray-400">
-                    Recording payment to <strong className="text-white">{supplier.companyName}</strong> ({supplier.supplierCode})
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[#334155] transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Form */}
-            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-[#1e293b]/60 p-4 rounded-xl border border-[#334155]">
-                {/* Payment Amount */}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Settlement Amount (LKR) *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs text-emerald-400 font-bold">
-                      LKR
-                    </span>
-                    <input
-                      type="number"
-                      placeholder="e.g. 100000"
-                      value={settlementForm.amount}
-                      onChange={(e) => setSettlementForm({ ...settlementForm, amount: e.target.value })}
-                      className="w-full bg-[#0f172a] border border-[#334155] rounded-xl pl-12 pr-3 py-2 text-sm text-white font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      autoFocus
-                    />
-                  </div>
-                  {totalOutstanding > 0 && (
-                    <div className="flex justify-between items-center mt-1 text-[11px]">
-                      <span className="text-gray-400">Total Outstanding:</span>
-                      <button
-                        type="button"
-                        onClick={() => setSettlementForm({ ...settlementForm, amount: totalOutstanding.toString() })}
-                        className="text-emerald-400 hover:underline font-mono font-semibold"
-                      >
-                        {formatCurrency(totalOutstanding)} (Settle Full)
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Payment Method */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Payment Method *
-                  </label>
-                  <select
-                    value={settlementForm.paymentMethod}
-                    onChange={(e) => setSettlementForm({ ...settlementForm, paymentMethod: e.target.value })}
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  >
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Cheque">Cheque</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Card">Card</option>
-                  </select>
-                </div>
-
-                {/* Date */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Payment Date
-                  </label>
-                  <input
-                    type="date"
-                    value={settlementForm.date}
-                    onChange={(e) => setSettlementForm({ ...settlementForm, date: e.target.value })}
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
-                </div>
-
-                {/* Reference Number */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Cheque / Reference Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. TXN-88902 or Cheque No"
-                    value={settlementForm.reference}
-                    onChange={(e) => setSettlementForm({ ...settlementForm, reference: e.target.value })}
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
-                </div>
-
-                {/* Bank Name */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Bank Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Commercial Bank, HNB"
-                    value={settlementForm.bankName}
-                    onChange={(e) => setSettlementForm({ ...settlementForm, bankName: e.target.value })}
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
-                </div>
-
-                {/* Notes */}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Notes / Remarks
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Settlement for invoice INV-1002"
-                    value={settlementForm.notes}
-                    onChange={(e) => setSettlementForm({ ...settlementForm, notes: e.target.value })}
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#334155]">
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  disabled={isProcessingPayment}
-                  className="px-4 py-2 border border-[#334155] rounded-xl text-xs font-semibold text-gray-300 hover:bg-[#1e293b] transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmSettlement}
-                  disabled={isProcessingPayment || enteredAmount <= 0}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle size={15} />
-                      <span>Confirm Settlement ({formatCurrency(enteredAmount)})</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RecordPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          setShowPaymentModal(false);
+          setSelectedPoForSettlement(null);
+        }}
+        onConfirm={handleConfirmSettlement}
+        isProcessing={isProcessingPayment}
+        documentNumber={selectedPoForSettlement ? selectedPoForSettlement.poNumber : (supplier?.supplierCode || 'SUP-SETTLE')}
+        partyName={supplier?.companyName || 'Supplier'}
+        totalAmount={selectedPoForSettlement ? selectedPoForSettlement.totalAmount : totalPurchases}
+        paidAmount={selectedPoForSettlement ? (selectedPoForSettlement.paymentStatus === 'paid' ? selectedPoForSettlement.totalAmount : 0) : totalPaid}
+        remainingAmount={selectedPoForSettlement ? (selectedPoForSettlement.paymentStatus === 'paid' ? 0 : selectedPoForSettlement.totalAmount) : totalOutstanding}
+        mode="supplier"
+        title={selectedPoForSettlement ? `Settle PO ${selectedPoForSettlement.poNumber}` : 'Settle Supplier Balance'}
+      />
     </AppLayout>
   );
 };

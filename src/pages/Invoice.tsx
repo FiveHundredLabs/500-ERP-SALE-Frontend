@@ -22,11 +22,11 @@ import {
   Share2,
   MessageCircle,
   RotateCcw,
-  UserCheck,
-  MoreVertical
+  UserCheck
 } from "lucide-react";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
+import { ActionMenu } from "../components/erp";
 import { CreateReturnModal } from "../components/invoice/CreateReturnModal";
 import PaymentModal from "../components/PaymentModal";
 import PaymentBreakdownTooltip from "../components/invoice/PaymentBreakdownTooltip";
@@ -39,6 +39,11 @@ import type {
 } from "../types/invoice";
 import type { InventoryItem as InvoiceInventoryItem } from "../types/inventory";
 import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus } from "../types/invoice";
+import {
+  validateLineDiscount,
+  validateOverallDiscount,
+  resolveMinPrice,
+} from "../utils/discountValidator";
 import { invoiceService } from "../services/InvoiceService";
 import { financeService } from "../services/FinanceService";
 import type { FinancePaymentData } from "../types/finance";
@@ -102,18 +107,6 @@ const Invoice: React.FC = () => {
 
   // state for copy confirmation
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
-  const [activeInvoiceMenuId, setActiveInvoiceMenuId] = useState<string | null>(null);
-  const invoiceMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(e.target as Node)) {
-        setActiveInvoiceMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -130,27 +123,38 @@ const Invoice: React.FC = () => {
   });
 
 
-  const getInitialInvoiceData = (): InvoiceData => ({
-    invoiceNumber: "",
-    customer: "",
-    customerDetails: undefined,
-    items: [],
-    subTotal: 0,
-    discount: 0,
-    discountPercentage: 0,
-    totalDiscountType: 'percentage',
-    totalDiscountValue: 0,
-    totalAmount: 0,
-    paymentStatus: PaymentStatus.COMPLETED,
-    paymentMethod: PaymentMethod.CASH,
-    issueDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date().toISOString().split('T')[0],
-    vehicleNumber: "",
-    notes: "",
-    applyVat: false,
-    vatAmount: 0,
-    taxRate: 0,
-  });
+  const isInvoiceEditable = (paymentStatus?: string, status?: string) => {
+    const ps = (paymentStatus || '').toLowerCase();
+    const s = (status || '').toLowerCase();
+    return ps !== 'paid' && ps !== 'completed' && s !== 'rejected' && s !== 'returned' && s !== 'return_completed';
+  };
+
+  const getInitialInvoiceData = (): InvoiceData => {
+    const today = new Date().toISOString().split('T')[0];
+    const defaultDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return {
+      invoiceNumber: "",
+      customer: "",
+      customerDetails: undefined,
+      items: [],
+      subTotal: 0,
+      discount: 0,
+      discountPercentage: 0,
+      totalDiscountType: 'percentage',
+      totalDiscountValue: 0,
+      totalAmount: 0,
+      paymentStatus: PaymentStatus.PENDING,
+      paymentMethod: PaymentMethod.CREDIT,
+      creditPeriod: 30,
+      issueDate: today,
+      dueDate: defaultDueDate,
+      vehicleNumber: "",
+      notes: "",
+      applyVat: false,
+      vatAmount: 0,
+      taxRate: 0,
+    };
+  };
 
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(getInitialInvoiceData());
 
@@ -167,11 +171,120 @@ const Invoice: React.FC = () => {
       const convertFromPO = location.state?.convertFromPO as PurchaseOrder | undefined;
       // salesman can be explicitly passed in location.state, e.g. from an order conversion
       const convertFromSalesman = location.state?.salesman as { id: string; name: string } | undefined;
+      // convertFromOrder: direct Order → Invoice conversion
+      const convertFromOrder = location.state?.convertFromOrder as import('../types/orders').Order | undefined;
 
       let initialInvoiceItems: InvoiceItem[] = [];
       let initialNotes = "";
+      let initialCustomer: string | import('../types/invoice').InvoiceCustomer = "";
+      let initialSubTotal = 0;
+      let initialDiscount = 0;
+      let initialTotalAmount = 0;
+      let initialSalesman = convertFromSalesman || null;
+      let initialSourceOrderId: string | null = null;
+      let initialSourcePoId: string | null = null;
 
-      if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
+      if (convertFromOrder) {
+        initialSourceOrderId = convertFromOrder.id || null;
+      }
+      if (convertFromPO) {
+        initialSourcePoId = convertFromPO.id || null;
+        if (!initialSourceOrderId) {
+          initialSourceOrderId = convertFromOrder?.id || convertFromPO.sourceOrderId || null;
+        }
+      }
+
+      if (convertFromOrder && convertFromOrder.items && convertFromOrder.items.length > 0) {
+        // Build customer object from order fields
+        initialCustomer = {
+          id: convertFromOrder.customerId,
+          customerCode: convertFromOrder.customerId,
+          shopName: convertFromOrder.customerName,
+          fullName: convertFromOrder.customerName,
+          contactPerson: convertFromOrder.contactPerson,
+          phone: convertFromOrder.contactPhone,
+          address: convertFromOrder.customerAddress,
+          city: convertFromOrder.customerCity,
+        };
+
+        // Build items preserving exact discountType, discountScope, and discountValue
+        initialInvoiceItems = convertFromOrder.items.map((p, idx) => {
+          const qty = p.quantity || 0;
+          const unitPrice = p.unitPrice || 0;
+          const subtotalBeforeDiscount = qty * unitPrice;
+          const discType = p.discountType || 'percentage';
+          const discScope = p.discountScope || 'per_unit';
+          const discVal = p.discountValue !== undefined ? Number(p.discountValue) : (Number(p.discount) || 0);
+
+          let calculatedDiscountAmount = 0;
+          if (discVal > 0 && unitPrice > 0 && qty > 0) {
+            if (discType === 'percentage') {
+              const pct = Math.min(100, Math.max(0, discVal));
+              if (discScope === 'per_unit') {
+                calculatedDiscountAmount = unitPrice * (pct / 100) * qty;
+              } else {
+                calculatedDiscountAmount = subtotalBeforeDiscount * (pct / 100);
+              }
+            } else {
+              if (discScope === 'per_unit') {
+                calculatedDiscountAmount = Math.min(unitPrice, discVal) * qty;
+              } else {
+                calculatedDiscountAmount = Math.min(subtotalBeforeDiscount, discVal);
+              }
+            }
+          }
+
+          const lineTotal = p.total !== undefined ? p.total : Math.max(0, subtotalBeforeDiscount - calculatedDiscountAmount);
+
+          const normalizedScope = discScope === 'total' ? 'total_qty' : (discScope as 'per_unit' | 'total_qty');
+
+          return {
+            id: `inv-item-${Date.now()}-${idx}`,
+            inventoryItemId: p.inventoryItemId || p.id,
+            itemName: p.productName,
+            itemCode: p.sku,
+            productCode: p.sku,
+            quantity: qty,
+            unitPrice: unitPrice,
+            discountType: discType as 'percentage' | 'amount',
+            discountScope: normalizedScope,
+            discountValue: discVal,
+            discountAmount: calculatedDiscountAmount,
+            discount: calculatedDiscountAmount,
+            total: lineTotal,
+          };
+        });
+
+        const itemsSubtotal = initialInvoiceItems.reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        const lineDiscountTotal = initialInvoiceItems.reduce((s, i) => s + (i.discountAmount || 0), 0);
+        const subTotalAfterLineDiscounts = Math.max(0, itemsSubtotal - lineDiscountTotal);
+
+        const orderDiscountType = convertFromOrder.totalDiscountType || 'percentage';
+        const orderDiscountVal = convertFromOrder.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0;
+        let calculatedOrderDiscount = 0;
+
+        if (orderDiscountVal > 0) {
+          if (orderDiscountType === 'percentage') {
+            calculatedOrderDiscount = subTotalAfterLineDiscounts * (Math.min(100, orderDiscountVal) / 100);
+          } else {
+            calculatedOrderDiscount = Math.min(subTotalAfterLineDiscounts, orderDiscountVal);
+          }
+        }
+
+        initialSubTotal = subTotalAfterLineDiscounts;
+        initialDiscount = calculatedOrderDiscount;
+        initialTotalAmount = Math.max(0, subTotalAfterLineDiscounts - calculatedOrderDiscount);
+        initialNotes = `Converted from Order #${convertFromOrder.orderNumber}`;
+
+        // Use salesman from order if available
+        if (convertFromOrder.salesmanId || convertFromOrder.salesmanName) {
+          initialSalesman = {
+            id: convertFromOrder.salesmanId || '',
+            name: convertFromOrder.salesmanName || '',
+          };
+        }
+
+      } else if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
         initialInvoiceItems = convertFromPO.items.map((p, idx) => ({
           id: `inv-item-${Date.now()}-${idx}`,
           inventoryItemId: p.inventoryItemId || p.id,
@@ -180,25 +293,64 @@ const Invoice: React.FC = () => {
           quantity: p.quantityOrdered,
           unitPrice: p.unitPrice, // PO Cost Price automatically becomes Invoice Selling Price!
           costPrice: p.unitPrice,
-          discountType: 'percentage',
-          discountScope: 'per_unit',
+          discountType: 'percentage' as const,
+          discountScope: 'per_unit' as const,
           discountValue: 0,
           discountAmount: 0,
+          discount: 0,
           total: p.quantityOrdered * p.unitPrice,
         }));
         initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
+        initialSubTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
+        initialTotalAmount = initialSubTotal;
+      } else if (location.state?.convertFromQuotation) {
+        const quot = location.state.convertFromQuotation;
+        initialCustomer = typeof quot.customer === 'object' && quot.customer ? quot.customer : (quot.customerDetails || '');
+        initialInvoiceItems = (quot.items || []).map((it: any, idx: number) => ({
+          id: `inv-item-${Date.now()}-${idx}`,
+          inventoryItemId: it.inventoryItemId || it.id,
+          itemName: it.itemName || it.inventoryItem?.productName || 'Item',
+          itemCode: it.productCode || it.inventoryItem?.productCode || '',
+          productCode: it.productCode || it.inventoryItem?.productCode || '',
+          quantity: it.quantity || 1,
+          unitPrice: it.unitPrice || 0,
+          discountType: 'percentage' as const,
+          discountScope: 'per_unit' as const,
+          discountValue: 0,
+          discountAmount: it.discount || 0,
+          discount: it.discount || 0,
+          total: it.total || ((it.quantity || 1) * (it.unitPrice || 0) - (it.discount || 0)),
+        }));
+        initialSubTotal = quot.subTotal || initialInvoiceItems.reduce((s: number, i: any) => s + i.total, 0);
+        initialDiscount = quot.discount || 0;
+        initialTotalAmount = quot.totalAmount || Math.max(0, initialSubTotal - initialDiscount);
+        initialNotes = `Converted from Quotation #${quot.quotationNumber}`;
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
+      const creditDays = (typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer as any).creditPeriod : null) || 30;
+      const calcDueDate = new Date(Date.now() + creditDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const initialInvoiceData: InvoiceData = {
         ...getInitialInvoiceData(),
         invoiceNumber: nextId,
+        customer: initialCustomer,
+        customerDetails: typeof initialCustomer === 'object' && initialCustomer ? initialCustomer : undefined,
         items: initialInvoiceItems,
-        subTotal,
-        totalAmount: subTotal,
+        subTotal: initialSubTotal || subTotal,
+        discount: initialDiscount,
+        totalDiscountType: convertFromOrder?.totalDiscountType || 'percentage',
+        totalDiscountValue: convertFromOrder?.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0,
+        discountPercentage: convertFromOrder?.totalDiscountType === 'percentage' ? (convertFromOrder.totalDiscountValue || 0) : 0,
+        totalAmount: initialTotalAmount || subTotal,
+        paymentStatus: PaymentStatus.PENDING,
+        paymentMethod: PaymentMethod.CREDIT,
+        creditPeriod: creditDays,
+        dueDate: calcDueDate,
         notes: initialNotes,
-        salesman: convertFromSalesman || null,
+        salesman: initialSalesman,
+        sourceOrderId: initialSourceOrderId,
+        sourcePoId: initialSourcePoId,
       };
       setInvoiceData(initialInvoiceData);
       lastSavedRef.current = null;
@@ -213,11 +365,18 @@ const Invoice: React.FC = () => {
 
       if (initialInvoiceItems.length > 0) {
         setViewMode('edit');
-        const salesmanNote = convertFromSalesman ? ` Salesman: ${convertFromSalesman.name}.` : '';
-        setAlert({
-          type: 'info',
-          message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.${salesmanNote}`,
-        });
+        if (convertFromOrder) {
+          setAlert({
+            type: 'info',
+            message: `Converted from Order #${convertFromOrder.orderNumber}: ${initialInvoiceItems.length} products loaded. Customer, quantities and discounts pre-filled. Review and save the invoice.`,
+          });
+        } else if (convertFromPO) {
+          const salesmanNote = convertFromSalesman ? ` Salesman: ${convertFromSalesman.name}.` : '';
+          setAlert({
+            type: 'info',
+            message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.${salesmanNote}`,
+          });
+        }
       }
 
     } catch (error) {
@@ -261,6 +420,7 @@ const Invoice: React.FC = () => {
       const paymentData: FinancePaymentData = {
         transactionNumber: transactionId,
         transactionDate: new Date(paymentDetails.transactionDate).toISOString(),
+        transactionType: 'payment',
         paymentMethod,
         bankName: paymentDetails.bankName || undefined,
         accountNumber: paymentDetails.accountNumber || undefined,
@@ -468,21 +628,40 @@ const Invoice: React.FC = () => {
 
     const backendData: BackendInvoiceData = {
       invoiceNumber: data.invoiceNumber,
-      customerId: data.customer,
-      salesmanId: data.salesman?.id || null,
+      customerId: typeof data.customer === 'object' ? (data.customer as any)?.id || '' : data.customer,
+      salesmanId: data.salesman?._id || data.salesman?.id || (data.customerDetails as any)?.salesRepId || null,
+      salesmanName: data.salesman?.fullName || data.salesman?.name || (data.customerDetails as any)?.salesRepName || undefined,
       items: data.items.map(item => ({
         inventoryItemId: item.inventoryItemId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discount: item.discountAmount || item.discount || 0,
+        discountType: item.discountType,
+        discountScope: item.discountScope,
+        discountValue: item.discountValue,
+        discountAmount: item.discountAmount,
         total: item.total
       })),
+      totalDiscountType: data.totalDiscountType,
+      totalDiscountValue: data.totalDiscountValue,
       subTotal: data.subTotal,
       discount: data.discount,
       totalAmount: data.totalAmount,
       paymentStatus: data.paymentStatus,
       paymentMethod: data.paymentMethod,
       issueDate: formatDateToISO(data.issueDate),
-      dueDate: formatDateToISO(data.dueDate),
+      dueDate: (() => {
+        let d = data.dueDate;
+        if ((data.paymentMethod as any) === PaymentMethod.CREDIT || (data.paymentMethod as any) === 'credit') {
+          const issueTime = data.issueDate ? new Date(data.issueDate).getTime() : Date.now();
+          const dueTime = d ? new Date(d).getTime() : 0;
+          if (!d || dueTime <= issueTime) {
+            const days = Number(data.creditPeriod) || 30;
+            d = new Date(issueTime + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          }
+        }
+        return formatDateToISO(d);
+      })(),
       vehicleNumber: data.vehicleNumber,
       applyVat: data.applyVat,
       vatAmount: data.vatAmount,
@@ -492,6 +671,14 @@ const Invoice: React.FC = () => {
     // Add optional fields only if they exist
     if (data.notes && data.notes.trim()) {
       backendData.notes = data.notes;
+    }
+
+    if (data.sourceOrderId) {
+      backendData.sourceOrderId = data.sourceOrderId;
+    }
+
+    if (data.sourcePoId) {
+      backendData.sourcePoId = data.sourcePoId;
     }
 
     if (data.bankDepositDate && data.bankDepositDate.trim()) {
@@ -666,6 +853,51 @@ const Invoice: React.FC = () => {
       return false;
     }
 
+    // Validate each line item discount against minimum price
+    for (const item of invoiceData.items) {
+      const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
+      const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
+      const lineCheck = validateLineDiscount({
+        productName: item.itemName,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        discountType: item.discountType || 'percentage',
+        discountScope: item.discountScope || 'per_unit',
+        discountValue: item.discountValue,
+        minPrice,
+      });
+      if (!lineCheck.isValid) {
+        setAlert({
+          type: 'error',
+          message: lineCheck.error || `Discount for item "${item.itemName}" exceeds allowed minimum price floor.`
+        });
+        return false;
+      }
+    }
+
+    // Validate overall document discount
+    const overallCheck = validateOverallDiscount({
+      items: invoiceData.items.map(it => {
+        const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
+        return {
+          productName: it.itemName,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          discountAmount: it.discountAmount,
+          minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
+        };
+      }),
+      totalDiscountType: invoiceData.totalDiscountType,
+      totalDiscountValue: invoiceData.totalDiscountValue,
+    });
+    if (!overallCheck.isValid) {
+      setAlert({
+        type: 'error',
+        message: overallCheck.error || 'Overall discount reduces invoice total below allowed minimum price floor.'
+      });
+      return false;
+    }
+
     try {
       setIsSaving(true);
 
@@ -770,7 +1002,7 @@ const Invoice: React.FC = () => {
     return invoice.customer?.shopName || invoice.customer?.fullName || 'Unknown Customer';
   };
 
-  const handleLoadInvoice = async (invoiceData: InvoiceResponse) => {
+  const handleLoadInvoice = async (invoiceData: InvoiceResponse, switchToEdit: boolean = false) => {
     try {
       // Fetch full invoice details
       let fullInvoiceData = invoiceData;
@@ -792,6 +1024,10 @@ const Invoice: React.FC = () => {
           itemName: item.itemName || itemData?.productName || 'Unknown Item',
           itemCode: item.itemCode || itemData?.productCode || '',
           discount: item.discount || 0,
+          discountType: item.discountType,
+          discountScope: item.discountScope,
+          discountValue: item.discountValue !== undefined ? item.discountValue : item.discount,
+          discountAmount: item.discountAmount !== undefined ? item.discountAmount : item.discount,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           total: item.total
@@ -813,8 +1049,10 @@ const Invoice: React.FC = () => {
       const customerDetails = fullInvoiceData.customer ?? undefined;
 
       const loadedSalesman = fullInvoiceData.salesman
-        ? { id: fullInvoiceData.salesman.id, name: fullInvoiceData.salesman.fullName || '' }
-        : undefined;
+        ? { id: fullInvoiceData.salesman.id, fullName: fullInvoiceData.salesman.fullName, name: fullInvoiceData.salesman.fullName || '' }
+        : fullInvoiceData.salesmanName
+          ? { id: fullInvoiceData.salesmanId || '', fullName: fullInvoiceData.salesmanName, name: fullInvoiceData.salesmanName }
+          : undefined;
 
       const loadedData: InvoiceData = {
         id: fullInvoiceData.id,
@@ -826,6 +1064,8 @@ const Invoice: React.FC = () => {
         subTotal: fullInvoiceData.subTotal,
         discount: fullInvoiceData.discount,
         discountPercentage: discountPercentage,
+        totalDiscountType: (fullInvoiceData as any).totalDiscountType || 'percentage',
+        totalDiscountValue: (fullInvoiceData as any).totalDiscountValue !== undefined ? (fullInvoiceData as any).totalDiscountValue : (fullInvoiceData.discount || 0),
         totalAmount: fullInvoiceData.totalAmount,
         paymentMethod: fullInvoiceData.paymentMethod,
         paymentStatus: fullInvoiceData.paymentStatus,
@@ -834,6 +1074,8 @@ const Invoice: React.FC = () => {
         dueDate: formatDateForInput(fullInvoiceData.dueDate),
         vehicleNumber: fullInvoiceData.vehicleNumber || '',
         notes: fullInvoiceData.notes || '',
+        sourceOrderId: fullInvoiceData.sourceOrderId || null,
+        sourcePoId: fullInvoiceData.sourcePoId || null,
         applyVat: fullInvoiceData.applyVat ?? false,
         vatAmount: fullInvoiceData.vatAmount || 0,
         taxRate: fullInvoiceData.taxRate || 0,
@@ -843,16 +1085,17 @@ const Invoice: React.FC = () => {
 
       setInvoiceData(loadedData);
 
-      lastSavedRef.current = loadedData;
-      setIsDirty(false);
-      lastSavedAtRef.current = new Date().toISOString();
+      if (switchToEdit) {
+        lastSavedRef.current = loadedData;
+        setIsDirty(false);
+        lastSavedAtRef.current = new Date().toISOString();
+        setViewMode('edit');
 
-      setViewMode('edit');
-
-      setAlert({
-        type: 'success',
-        message: `Invoice ${fullInvoiceData.invoiceNumber} loaded successfully`
-      });
+        setAlert({
+          type: 'success',
+          message: `Invoice ${fullInvoiceData.invoiceNumber} loaded successfully`
+        });
+      }
     } catch (error) {
       setAlert({
         type: 'error',
@@ -864,9 +1107,10 @@ const Invoice: React.FC = () => {
   const handleDeleteInvoice = async (id: string, invoiceNumber: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: "Delete Invoice",
-      message: `Are you sure you want to delete invoice ${invoiceNumber}? This action cannot be undone.`,
-      confirmText: "Delete",
+      title: "Delete Invoice?",
+      message: `Are you sure you want to delete Invoice "${invoiceNumber}"? This will permanently remove the invoice and any associated payment records. This action cannot be undone.`,
+      confirmText: "Delete Invoice",
+      cancelText: "Cancel",
       type: "danger",
       onConfirm: async () => {
         try {
@@ -1087,6 +1331,15 @@ const Invoice: React.FC = () => {
                   <FileText className="w-4 h-4" />
                   <span>+ New Invoice</span>
                 </button>
+                <button
+                  onClick={() => {
+                    setShowReturnModal(true);
+                  }}
+                  className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span className="hidden sm:inline">Return Invoice</span>
+                </button>
               </>
             ) : (
               <>
@@ -1130,7 +1383,7 @@ const Invoice: React.FC = () => {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Save</span>
+                      <span>{invoiceData.id ? 'Update' : 'Save'}</span>
                     </>
                   )}
                 </button>
@@ -1197,7 +1450,6 @@ const Invoice: React.FC = () => {
                           <tbody className="divide-y divide-[#334155] text-sm">
                             {currentInvoices.map((inv) => {
                               const calc = getInvoiceCalculatedStatus(inv);
-                              const isMenuOpen = activeInvoiceMenuId === (inv.id || inv.invoiceNumber);
                               const salesmanName = getSalesmanDisplay(inv);
 
                               return (
@@ -1280,83 +1532,72 @@ const Invoice: React.FC = () => {
                                     {formatDate(inv.issueDate)}
                                   </td>
                                   <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                                    <div className="relative flex justify-end">
-                                      <button
-                                        onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : (inv.id || inv.invoiceNumber))}
-                                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                                        title="Actions"
-                                      >
-                                        <MoreVertical size={16} />
-                                      </button>
-
-                                      {isMenuOpen && (
-                                        <div 
-                                          ref={invoiceMenuRef}
-                                          className="absolute right-0 top-8 z-50 w-48 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
-                                        >
-                                          <div className="p-1">
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                                setShowPreviewModal(true);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
-                                            >
-                                              <Eye size={13} className="text-blue-400" />
-                                              <span>Preview & PDF</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-purple-600/20 text-slate-200 hover:text-purple-300 transition text-left"
-                                            >
-                                              <Edit size={13} className="text-purple-400" />
-                                              <span>Edit Invoice</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleLoadInvoice(inv);
-                                                setShowPreviewModal(true);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left"
-                                            >
-                                              <MessageCircle size={13} className="text-emerald-400" />
-                                              <span>Share on WhatsApp</span>
-                                            </button>
-                                          </div>
-
-                                          <div className="p-1">
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleCopyInvoiceLink(inv.id || '', inv.invoiceNumber);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-left"
-                                            >
-                                              {copiedInvoiceId === inv.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                                              <span>Copy Link</span>
-                                            </button>
-
-                                            <button
-                                              onClick={() => {
-                                                setActiveInvoiceMenuId(null);
-                                                handleDeleteInvoice(inv.id || '', inv.invoiceNumber);
-                                              }}
-                                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-red-600/20 text-red-400 hover:text-red-300 transition text-left"
-                                            >
-                                              <Trash2 size={13} className="text-red-400" />
-                                              <span>Delete Invoice</span>
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
+                                     <div className="flex justify-end">
+                                       <ActionMenu
+                                         title="Actions"
+                                         items={[
+                                           {
+                                             items: [
+                                               {
+                                                 label: 'Preview & PDF',
+                                                 icon: <Eye size={13} />,
+                                                 variant: 'blue',
+                                                 onClick: async () => {
+                                                   await handleLoadInvoice(inv, false);
+                                                   setShowPreviewModal(true);
+                                                 },
+                                               },
+                                               {
+                                                 label: isInvoiceEditable(inv.paymentStatus, (inv as any).status) ? 'Edit Invoice' : 'View Invoice',
+                                                 icon: <Edit size={13} />,
+                                                 variant: 'purple',
+                                                 onClick: () => {
+                                                   handleLoadInvoice(inv, true);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Share on WhatsApp',
+                                                 icon: <MessageCircle size={13} />,
+                                                 variant: 'emerald',
+                                                 onClick: async () => {
+                                                   await handleLoadInvoice(inv, false);
+                                                   setShowPreviewModal(true);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Return Invoice',
+                                                 icon: <RotateCcw size={13} />,
+                                                 variant: 'amber',
+                                                 onClick: async () => {
+                                                   await handleLoadInvoice(inv, false);
+                                                   setShowReturnModal(true);
+                                                 },
+                                               },
+                                             ],
+                                           },
+                                           {
+                                             items: [
+                                               {
+                                                 label: copiedInvoiceId === inv.id ? 'Copied!' : 'Copy Link',
+                                                 icon: copiedInvoiceId === inv.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />,
+                                                 variant: 'default',
+                                                 onClick: () => {
+                                                   handleCopyInvoiceLink(inv.id || '', inv.invoiceNumber);
+                                                 },
+                                               },
+                                               {
+                                                 label: 'Delete Invoice',
+                                                 icon: <Trash2 size={13} />,
+                                                 variant: 'danger',
+                                                 onClick: () => {
+                                                   handleDeleteInvoice(inv.id || '', inv.invoiceNumber);
+                                                 },
+                                               },
+                                             ],
+                                           },
+                                         ]}
+                                       />
+                                     </div>
                                   </td>
                                 </tr>
                               );
@@ -1507,7 +1748,7 @@ const Invoice: React.FC = () => {
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          <span>Save Invoice</span>
+                          <span>{invoiceData.id ? 'Update Invoice' : 'Save Invoice'}</span>
                         </>
                       )}
                     </button>
@@ -1533,7 +1774,7 @@ const Invoice: React.FC = () => {
         <CreateReturnModal
           isOpen={showReturnModal}
           onClose={() => setShowReturnModal(false)}
-          invoice={invoiceData as any}
+          invoice={invoiceData.id ? (invoiceData as any) : null}
           onSuccess={() => {
             setAlert({ type: 'success', message: 'Return processed successfully.' });
             fetchAllInvoices();

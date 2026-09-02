@@ -168,11 +168,20 @@ export const invoiceService = {
     if (!res.ok) return [];
     const items: InventoryItem[] = ((await res.json()) as unknown[]).map(mapInventoryItem);
     if (!query) return items;
-    const lower = query.toLowerCase();
-    return items.filter(i => 
+    const lower = query.toLowerCase().trim();
+    const filtered = items.filter(i => 
       i.productName?.toLowerCase().includes(lower) ||
       i.productCode?.toLowerCase().includes(lower)
     );
+    return filtered.sort((a, b) => {
+      const aName = (a.productName || '').toLowerCase();
+      const bName = (b.productName || '').toLowerCase();
+      const aStarts = aName.startsWith(lower);
+      const bStarts = bName.startsWith(lower);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return aName.localeCompare(bName);
+    });
   },
 
   // Customer Management CRUD
@@ -206,6 +215,68 @@ export const invoiceService = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error('Failed to delete customer');
+    return res.json();
+  },
+
+  // Parse Customer PDF for preview
+  async parseCustomerPdf(file: File): Promise<{
+    totalExtracted: number;
+    validCount: number;
+    duplicateCount: number;
+    reviewCount: number;
+    invalidCount: number;
+    customers: Array<{
+      tempId: string;
+      customerName: string;
+      address: string;
+      city?: string;
+      whatsapp: string | null;
+      phone2: string | null;
+      rawPhone: string;
+      status: 'VALID' | 'DUPLICATE' | 'MISSING_PHONE' | 'MISSING_ADDRESS' | 'UNCERTAIN' | 'INVALID';
+      statusMessage?: string;
+      isExistingCustomer?: boolean;
+      matchedExistingCode?: string;
+    }>;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${API_BASE}/customers/import-pdf/parse`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to parse customer PDF.');
+    }
+
+    return res.json();
+  },
+
+  // Confirm and batch import customer records
+  async confirmCustomerPdfImport(customers: any[]): Promise<{
+    totalRequested: number;
+    successfullyImported: number;
+    duplicatesSkipped: number;
+    failed: number;
+    importedCustomers: any[];
+  }> {
+    const res = await fetch(`${API_BASE}/customers/import-pdf/confirm`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify({ customers }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to import customer records.');
+    }
+
     return res.json();
   },
 };

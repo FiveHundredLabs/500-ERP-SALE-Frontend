@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { StatusBadge, useToast } from '../components/erp';
+import { StatusBadge, ActionMenu, useToast } from '../components/erp';
 import { invoiceService } from '../services/InvoiceService';
 import { financeService } from '../services/FinanceService';
 import { orderService } from '../services/OrderService';
@@ -11,6 +11,7 @@ import type { InvoiceResponse, InvoicePaymentRecord, PaymentMethodType } from '.
 import type { Order } from '../types/orders';
 import { getInvoiceCalculatedStatus, PaymentMethod } from '../types/invoice';
 import InvoiceViewModal from '../components/invoice/InvoiceViewModal';
+import RecordPaymentModal, { type RecordPaymentResult } from '../components/RecordPaymentModal';
 import {
   Building2,
   Phone,
@@ -24,7 +25,6 @@ import {
   FileText,
   UserCheck,
   MapPin,
-  MoreVertical,
   Eye,
   X,
   History,
@@ -45,7 +45,8 @@ const CustomerDetails: React.FC = () => {
   // Modal states
   const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
   const [selectedInvoiceForView, setSelectedInvoiceForView] = useState<InvoiceResponse | null>(null);
-  const [activeInvoiceMenuId, setActiveInvoiceMenuId] = useState<string | null>(null);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any | null>(null);
+  const [showIndividualPaymentModal, setShowIndividualPaymentModal] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Bulk Payment Form State
@@ -58,54 +59,41 @@ const CustomerDetails: React.FC = () => {
     notes: '',
   });
 
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveInvoiceMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   // Fetch customer and their invoices
-  useEffect(() => {
-    const loadCustomerData = async () => {
-      try {
-        const allCustomers = await invoiceService.getAllCustomers();
-        const foundCustomer = allCustomers.find((c: any) => c.id === id);
-        setCustomer(foundCustomer as any);
+  const loadCustomerData = useCallback(async () => {
+    try {
+      const allCustomers = await invoiceService.getAllCustomers();
+      const foundCustomer = allCustomers.find((c: any) => c.id === id);
+      setCustomer(foundCustomer as any);
 
-        const [allInvoices, allOrders] = await Promise.all([
-          invoiceService.getAll(),
-          orderService.getAll().catch(() => []),
-        ]);
-        setOrders(allOrders);
+      const [allInvoices, allOrders] = await Promise.all([
+        invoiceService.getAll(),
+        orderService.getAll().catch(() => []),
+      ]);
+      setOrders(allOrders);
 
-        const customerInvoices = allInvoices.filter((inv) => {
-          const invCustId = inv.customer?.id;
-          const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
-          const targetName = foundCustomer?.shopName || foundCustomer?.fullName;
-          const targetId = foundCustomer?.id || foundCustomer?.customerCode;
+      const customerInvoices = allInvoices.filter((inv) => {
+        const invCustId = (inv.customer as any)?.id || inv.customer;
+        const invCustName = (inv.customer as any)?.fullName || (inv.customer as any)?.shopName || inv.customer;
+        const targetName = foundCustomer?.shopName || foundCustomer?.fullName;
+        const targetId = foundCustomer?.id || foundCustomer?.customerCode;
 
-          return (
-            invCustId === targetId ||
-            invCustId === foundCustomer?.id ||
-            invCustName === targetName
-          );
-        });
+        return (
+          invCustId === targetId ||
+          invCustId === foundCustomer?.id ||
+          invCustName === targetName
+        );
+      });
 
-        setInvoices(customerInvoices);
-      } catch (err) {
-        console.error('Failed to load customer details:', err);
-      }
-    };
-
-    loadCustomerData();
+      setInvoices(customerInvoices);
+    } catch (err) {
+      console.error('Failed to load customer details:', err);
+    }
   }, [id]);
+
+  useEffect(() => {
+    loadCustomerData();
+  }, [loadCustomerData]);
 
   // Enrich invoices with calculated status & breakdown
   const trackedInvoices = useMemo(() => {
@@ -233,6 +221,51 @@ const CustomerDetails: React.FC = () => {
 
   const unallocatedSurplus = Math.max(0, enteredAmount - totalAllocated);
 
+  const handleIndividualPaymentSubmit = async (result: RecordPaymentResult) => {
+    if (!selectedInvoiceForPayment) return;
+    setIsProcessingPayment(true);
+    try {
+      const transactionId = await financeService.getNextId();
+      await financeService.create({
+        transactionNumber: transactionId,
+        transactionDate: new Date(result.transactionDate).toISOString(),
+        transactionType: 'payment',
+        paymentMethod: result.method,
+        bankName: result.bankName || undefined,
+        transactionRef: result.transactionRef,
+        amount: result.amount,
+        invoiceId: selectedInvoiceForPayment.id,
+        invoiceNumber: selectedInvoiceForPayment.invoiceNumber,
+      });
+
+      const isFull = Math.abs(result.amount - selectedInvoiceForPayment.effectiveRemainingAmount) < 0.01;
+      const newStatus = isFull ? 'completed' : 'partially_paid';
+      const newPaid = (selectedInvoiceForPayment.paidAmount || 0) + result.amount;
+      const newRemaining = Math.max(0, selectedInvoiceForPayment.totalAmount - newPaid);
+
+      await Promise.allSettled([
+        invoiceService.update(selectedInvoiceForPayment.id, {
+          paidAmount: newPaid,
+          remainingAmount: newRemaining,
+          paymentStatus: newStatus as any,
+        }),
+        invoiceService.updatePaymentStatus(selectedInvoiceForPayment.id, newStatus as any),
+      ]);
+
+      success(
+        'Payment Recorded',
+        `Successfully recorded payment of ${formatCurrency(result.amount)} for invoice ${selectedInvoiceForPayment.invoiceNumber}.`
+      );
+      setShowIndividualPaymentModal(false);
+      setSelectedInvoiceForPayment(null);
+      await loadCustomerData();
+    } catch (err: any) {
+      toastError('Payment Failed', err?.message || 'Failed to record payment.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handleConfirmBulkPayment = async () => {
     if (enteredAmount <= 0) {
       toastError('Invalid Amount', 'Please enter a valid payment amount.');
@@ -246,47 +279,43 @@ const CustomerDetails: React.FC = () => {
 
     setIsProcessingPayment(true);
     try {
-      const allocationList = bulkAllocations
-        .filter((a) => a.allocated > 0)
-        .map((a) => ({
-          invoiceNumber: a.invoice.id,
-          amount: a.allocated,
-        }));
+      const transactionId = await financeService.getNextId();
+      const allocatedItems = bulkAllocations.filter((a) => a.allocated > 0);
 
+      // 1. Record finance transaction
       await financeService.create({
-        transactionNumber: `TXN-${Date.now()}`,
-        transactionDate: bulkPaymentForm.date,
+        transactionNumber: transactionId,
+        transactionDate: new Date(bulkPaymentForm.date).toISOString(),
+        transactionType: 'payment',
         paymentMethod: bulkPaymentForm.paymentMethod === 'cheque' ? 'cheque' : 'bank_transfer',
         bankName: bulkPaymentForm.bankName || undefined,
         transactionRef: bulkPaymentForm.reference || undefined,
         amount: totalAllocated,
-        invoiceId: bulkAllocations.find(a => a.allocated > 0)?.invoice.id,
-        invoiceNumber: bulkAllocations.find(a => a.allocated > 0)?.invoice.invoiceNumber || 'BULK',
+        invoiceId: allocatedItems[0]?.invoice.id,
+        invoiceNumber: allocatedItems.length === 1
+          ? allocatedItems[0].invoice.invoiceNumber
+          : `BULK-${customer?.customerCode || 'PAY'}`,
       });
 
-      const updatedInvoicesList = await invoiceService.getAll();
-      const matching = updatedInvoicesList.filter((inv) => {
-        const invCustName = inv.customer?.fullName || (inv.customer as any)?.shopName;
-        const targetName = customer?.shopName;
-        return invCustName === targetName;
-      });
-      setInvoices(matching);
+      // 2. Persist updated payment status & amounts on each allocated invoice
+      for (const alloc of allocatedItems) {
+        const statusToSet = alloc.newStatus === 'paid' ? 'completed' : 'partially_paid';
+        await Promise.allSettled([
+          invoiceService.update(alloc.invoice.id, {
+            paidAmount: alloc.newPaid,
+            remainingAmount: alloc.newRemaining,
+            paymentStatus: statusToSet as any,
+          }),
+          invoiceService.updatePaymentStatus(alloc.invoice.id, statusToSet as any),
+        ]);
+      }
 
-      const newOutstanding = matching.reduce((sum, inv) => {
-        const c = getInvoiceCalculatedStatus(inv);
-        return sum + c.remainingAmount;
-      }, 0);
-
-      const updatedCustomer: Customer = {
-        ...customer!,
-        outstandingBalance: newOutstanding,
-        totalPaid: (customer!.totalPaid || 0) + totalAllocated,
-      };
-      setCustomer(updatedCustomer);
+      // 3. Reload complete customer profile & invoices
+      await loadCustomerData();
 
       success(
         'Payment Recorded Successfully',
-        `Allocated ${formatCurrency(totalAllocated)} across ${allocationList.length} invoices.`
+        `Allocated ${formatCurrency(totalAllocated)} across ${allocatedItems.length} invoice(s).`
       );
 
       setShowBulkPaymentModal(false);
@@ -347,6 +376,14 @@ const CustomerDetails: React.FC = () => {
       headerIcon={<Building2 size={20} className="text-blue-400" />}
       headerTitle="Customer Details"
       headerSubtitle={customer.customerCode}
+      headerRight={
+        <button
+          onClick={() => navigate('/customers')}
+          className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={13} /> Back to Customers
+        </button>
+      }
     >
       <div className="space-y-5">
         {/* ── Breadcrumb Navigation ── */}
@@ -616,8 +653,6 @@ const CustomerDetails: React.FC = () => {
                     </tr>
                   ) : (
                     filteredInvoices.map((inv) => {
-                      const isMenuOpen = activeInvoiceMenuId === inv.id;
-
                       return (
                         <tr 
                           key={inv.id}
@@ -682,52 +717,31 @@ const CustomerDetails: React.FC = () => {
                             )}
                           </td>
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative flex justify-end">
-                              <button
-                                onClick={() => setActiveInvoiceMenuId(isMenuOpen ? null : inv.id)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#334155] transition"
+                            <div className="flex justify-end">
+                              <ActionMenu
                                 title="Invoice actions"
-                              >
-                                <MoreVertical size={14} />
-                              </button>
-
-                              {isMenuOpen && (
-                                <div
-                                  ref={menuRef}
-                                  className="absolute right-0 top-7 z-50 w-40 bg-[#0f172a] border border-[#334155] rounded-xl shadow-2xl py-1 text-xs text-gray-200 divide-y divide-[#334155] animate-in fade-in zoom-in-95 duration-100"
-                                >
-                                  <div className="p-1">
-                                    <button
-                                      onClick={() => {
-                                        setActiveInvoiceMenuId(null);
-                                        setSelectedInvoiceForView(inv);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-blue-600/20 text-gray-200 hover:text-blue-300 transition text-left"
-                                    >
-                                      <Eye size={13} className="text-blue-400" />
-                                      <span>View Invoice PDF</span>
-                                    </button>
-
-                                    {inv.effectiveRemainingAmount > 0 && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveInvoiceMenuId(null);
-                                          setBulkPaymentForm(prev => ({
-                                            ...prev,
-                                            amount: inv.effectiveRemainingAmount.toString(),
-                                            notes: `Payment for ${inv.invoiceNumber}`,
-                                          }));
-                                          setShowBulkPaymentModal(true);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition text-left font-medium"
-                                      >
-                                        <DollarSign size={13} />
-                                        <span>Pay Remaining</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                                items={[
+                                  {
+                                    label: 'View Invoice PDF',
+                                    icon: <Eye size={13} />,
+                                    variant: 'blue',
+                                    onClick: () => setSelectedInvoiceForView(inv),
+                                  },
+                                  ...(inv.effectiveRemainingAmount > 0
+                                    ? [
+                                        {
+                                          label: 'Pay Remaining',
+                                          icon: <DollarSign size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => {
+                                            setSelectedInvoiceForPayment(inv);
+                                            setShowIndividualPaymentModal(true);
+                                          },
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -1122,7 +1136,7 @@ const CustomerDetails: React.FC = () => {
             customerDetails: selectedInvoiceForView.customer ?? undefined,
             items: selectedInvoiceForView.items.map(item => ({
               id: item.id || Math.random().toString(),
-              inventoryItemId: item.inventoryItemId,
+              inventoryItemId: item.inventoryItemId || item.itemCode || '',
               itemName: item.itemName || item.inventoryItem?.productName || 'Product',
               itemCode: item.itemCode || item.inventoryItem?.productCode || '',
               discount: item.discount || 0,
@@ -1139,6 +1153,23 @@ const CustomerDetails: React.FC = () => {
           }}
         />
       )}
+
+      {/* ── Individual Invoice Record Payment Modal ── */}
+      <RecordPaymentModal
+        isOpen={showIndividualPaymentModal}
+        onClose={() => {
+          setShowIndividualPaymentModal(false);
+          setSelectedInvoiceForPayment(null);
+        }}
+        onConfirm={handleIndividualPaymentSubmit}
+        isProcessing={isProcessingPayment}
+        documentNumber={selectedInvoiceForPayment?.invoiceNumber ?? ''}
+        partyName={customer?.shopName || customer?.fullName || ''}
+        totalAmount={selectedInvoiceForPayment?.totalAmount ?? 0}
+        paidAmount={selectedInvoiceForPayment?.effectivePaidAmount ?? 0}
+        remainingAmount={selectedInvoiceForPayment?.effectiveRemainingAmount ?? 0}
+        mode="invoice"
+      />
     </AppLayout>
   );
 };

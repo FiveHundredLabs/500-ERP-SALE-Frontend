@@ -2,23 +2,18 @@ export type InventoryStatus = 'in_stock' | 'out_of_stock' | 'discontinued';
 
 export interface InventoryItem {
   id: string;
-  inventoryCode: string;
+  inventoryCode?: string;
   productName: string;
   productCode: string;
   quantity: number;
   soldCount: number;
   status: InventoryStatus;
-  brand: string;
-  model: string;
-  chassisNo: string;
-  year: number;
   purchasePrice: number;
   sellPrice: number;
-  discountRate: number;
-  actualSoldPrice: number;
-  shipmentCode: string;
-  createdAt: string;
-  updatedAt: string;
+  discountRate?: number;
+  actualSoldPrice?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type CreateInventoryItemData = Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt' | 'soldCount' | 'actualSoldPrice'> & {
@@ -42,3 +37,24 @@ export interface NextInventoryIdRes {
 export interface DeleteInventoryRes {
   message: string;
 }
+
+export interface ExcelProductRow {
+  rowNumber: number;
+  productCode: string;
+  productName: string;
+  purchasePrice: number | string;
+  sellPrice: number | string;
+  isValid: boolean;
+  error?: string;
+  isDuplicateInFile?: boolean;
+  isDuplicateInDb?: boolean;
+}
+
+export interface BulkImportResponse {
+  total: number;
+  created: number;
+  failed: number;
+  duplicates: number;
+  errors: Array<{ row?: number; code?: string; message: string }>;
+}
+

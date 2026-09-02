@@ -117,7 +117,11 @@ const InvoiceReturns: React.FC = () => {
       if (!q) return matchesStatus;
 
       const retId = (r.returnNumber || '').toLowerCase();
-      const invId = (r.invoice?.invoiceNumber || '').toLowerCase();
+      const invId = (
+        typeof r.invoice === 'string'
+          ? r.invoice
+          : r.invoice?.invoiceNumber || r.invoice?.id || ''
+      ).toLowerCase();
       const cust = getCustomerInfo(r);
       const custName = (cust.name || '').toLowerCase();
       const custPhone = (cust.phone || '').toLowerCase();
@@ -356,23 +360,6 @@ const InvoiceReturns: React.FC = () => {
       headerTitle="Invoice Returns & Credits"
       headerSubtitle="Manage sales returns, restock inventory items, and issue refunds"
       headerIcon={<RotateCcw size={20} className="text-amber-400" />}
-      headerRight={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadReturns}
-            disabled={isLoading}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
-          >
-            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} /> Refresh
-          </button>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-amber-500/20"
-          >
-            <Plus size={15} /> Create Return
-          </button>
-        </div>
-      }
     >
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -464,6 +451,26 @@ const InvoiceReturns: React.FC = () => {
             setStatusFilter('');
             setCurrentPage(1);
           }}
+          rightContent={
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <button
+                onClick={loadReturns}
+                disabled={isLoading}
+                className="px-3.5 py-2 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                title="Refresh return notes"
+              >
+                <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+                <span>Refresh</span>
+              </button>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
+              >
+                <Plus size={15} />
+                <span>Create Return</span>
+              </button>
+            </div>
+          }
         />
 
         <div className="p-4">

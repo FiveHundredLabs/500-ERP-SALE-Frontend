@@ -80,7 +80,8 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
   // Load past returns when invoice is selected
   useEffect(() => {
     if (selectedInvoice) {
-      fetchPastReturns(selectedInvoice.id);
+      const invId = selectedInvoice.id || selectedInvoice.invoiceNumber;
+      fetchPastReturns(invId);
     } else {
       setPastReturns([]);
     }
@@ -146,13 +147,12 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
 
   // Calculate already returned qty for each item
   const getAlreadyReturned = (itemId: string) => {
-    return pastReturns.reduce(
-      (sum, previousReturn) =>
-        sum + previousReturn.items
-          .filter((item) => item.inventoryItemId === itemId)
-          .reduce((itemSum, item) => itemSum + item.quantity, 0),
-      0,
-    );
+    let sum = 0;
+    pastReturns.forEach((pr) => {
+      const match = pr.items.find((i) => i.inventoryItemId === itemId);
+      if (match) sum += match.quantity;
+    });
+    return sum;
   };
 
   const handleQuantityChange = (itemId: string, maxQty: number, val: number) => {
@@ -166,8 +166,8 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
   const handleReturnAll = () => {
     if (!selectedInvoice) return;
     const allQtys: Record<string, number> = {};
-    selectedInvoice.items.forEach((item) => {
-      const itemId = item.inventoryItemId;
+    selectedInvoice.items.forEach((item, idx) => {
+      const itemId = item.inventoryItemId || item.id || `item-${idx}`;
       const alreadyReturned = getAlreadyReturned(itemId);
       const returnable = Math.max(0, item.quantity - alreadyReturned);
       allQtys[itemId] = returnable;
@@ -195,8 +195,9 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     }> = [];
 
     selectedInvoice.items.forEach((item, idx) => {
-      const itemId = item.inventoryItemId;
-      const itemName = item.itemName || item.inventoryItem?.productName || 'Item ' + (idx + 1);
+      const itemId = item.inventoryItemId || item.id || `item-${idx}`;
+      const itemName =
+        item.itemName || item.inventoryItem?.productName || 'Item ' + (idx + 1);
       const qty = returnQuantities[itemId] || 0;
 
       if (qty > 0) {
@@ -260,7 +261,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
       };
 
       const result = await invoiceReturnService.create(payload);
-      toast.success(`Return note ${result.returnNumber} created successfully!`);
+      toast.success(`Return note ${result.returnNumber || ''} created successfully!`);
       onSuccess(result);
       onClose();
     } catch (err: any) {
@@ -497,10 +498,15 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                     </thead>
                     <tbody className="divide-y divide-[#1e293b]">
                       {selectedInvoice.items.map((item, idx) => {
-                        const itemId = item.inventoryItemId;
+                        const itemId = item.inventoryItemId || item.id || `item-${idx}`;
                         const itemName =
-                          item.itemName || item.inventoryItem?.productName || 'Item ' + (idx + 1);
-                        const itemCode = item.itemCode || item.inventoryItem?.productCode || '';
+                          item.itemName ||
+                          item.inventoryItem?.productName ||
+                          'Item ' + (idx + 1);
+                        const itemCode =
+                          item.itemCode ||
+                          item.inventoryItem?.productCode ||
+                          '';
                         const alreadyReturned = getAlreadyReturned(itemId);
                         const returnable = Math.max(0, item.quantity - alreadyReturned);
                         const currentQty = returnQuantities[itemId] || 0;

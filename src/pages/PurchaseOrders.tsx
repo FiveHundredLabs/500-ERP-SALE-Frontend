@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { Eye, Download, ShoppingCart, Plus, Edit, FileText, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
+import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
+import PurchaseOrderViewModal from '../components/orders/PurchaseOrderViewModal';
+import CustomConfirm from '../components/CustomConfirm';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
@@ -25,9 +28,29 @@ const PurchaseOrders: React.FC = () => {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPOToUpdate, setSelectedPOToUpdate] = useState<PurchaseOrder | null>(null);
+  const [selectedPOForPreview, setSelectedPOForPreview] = useState<PurchaseOrder | null>(null);
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const isPOEditable = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    return s !== 'completed' && s !== 'paid' && s !== 'cancelled';
+  };
 
   const fetchPOs = async () => {
     setLoading(true);
@@ -194,8 +217,18 @@ const PurchaseOrders: React.FC = () => {
     {
       key: 'referenceOrderNum',
       header: 'Ref Order',
-      minWidth: '100px',
-      render: (row) => <span className="font-mono text-xs text-[#CBD5E1]">{row.sourceOrderNumber || '—'}</span>,
+      minWidth: '110px',
+      render: (row) => {
+        const refNum = row.sourceOrderNumber || (row as any).sourceOrder?.orderNumber || (row as any).sourceOrderId || (row as any).refOrder;
+        return refNum ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-mono text-[11px] font-semibold">
+            <FileText size={11} className="text-blue-400 shrink-0" />
+            <span>{refNum}</span>
+          </span>
+        ) : (
+          <span className="text-slate-500 text-xs font-mono">—</span>
+        );
+      },
     },
     {
       key: 'supplierName',
@@ -219,7 +252,11 @@ const PurchaseOrders: React.FC = () => {
       header: 'Created Date',
       sortable: true,
       minWidth: '110px',
-      render: (row) => <span className="text-xs text-[#CBD5E1]">{row.poDate}</span>,
+      render: (row) => {
+        if (!row.poDate) return <span className="text-xs text-slate-500 font-mono">—</span>;
+        const cleanDate = String(row.poDate).split('T')[0];
+        return <span className="text-xs text-slate-300 font-mono font-medium">{cleanDate}</span>;
+      },
     },
     {
       key: 'numberOfItems',
@@ -271,24 +308,84 @@ const PurchaseOrders: React.FC = () => {
               <MessageCircle size={14} />
             </button>
             <button
+              onClick={() => setSelectedPOForPreview(row)}
+              className="p-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white transition shadow-sm cursor-pointer"
+              title="Preview, Download PDF & Print"
+              aria-label="Preview Purchase Order"
+            >
+              <FileText size={14} />
+            </button>
+            <button
               onClick={() => navigate(`/purchase-orders/${row.id}`)}
-              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm"
-              title="View Purchase Order"
-              aria-label="View Purchase Order"
+              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm cursor-pointer"
+              title="View PO Details"
+              aria-label="View PO Details"
             >
               <Eye size={14} />
             </button>
-            <button
-              onClick={() => setSelectedPOToUpdate(row)}
-              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm"
-              title="Edit Purchase Order"
-              aria-label="Edit Purchase Order"
-            >
-              <Edit size={14} />
-            </button>
+            {isPOEditable(row.status) ? (
+              <button
+                onClick={() => setSelectedPOToUpdate(row)}
+                className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm cursor-pointer"
+                title="Edit Purchase Order"
+                aria-label="Edit Purchase Order"
+              >
+                <Edit size={14} />
+              </button>
+            ) : (
+              <button
+                disabled
+                className="p-1.5 rounded-lg border border-[#334155]/50 bg-[#1e293b]/50 text-gray-600 transition shadow-sm cursor-not-allowed opacity-40"
+                title={`PO is ${row.status.replace(/_/g, ' ')} and cannot be edited`}
+                aria-label="Edit Locked"
+              >
+                <Edit size={14} />
+              </button>
+            )}
+
             <button
               onClick={() => {
-                navigate('/invoice', { state: { convertFromPO: row, salesman: getSalesmanFromPO(row) } });
+                setConfirmConfig({
+                  isOpen: true,
+                  title: 'Delete Purchase Order?',
+                  message: `Are you sure you want to delete PO "${row.poNumber}"? If this PO is linked to a Sales Order, the link will be detached. This action cannot be undone.`,
+                  confirmText: 'Delete PO',
+                  cancelText: 'Cancel',
+                  type: 'danger',
+                  onConfirm: async () => {
+                    try {
+                      await purchaseOrderService.delete(row.id);
+                      setPurchaseOrders(prev => prev.filter(p => p.id !== row.id));
+                      success('PO Deleted', `Purchase Order ${row.poNumber} deleted.`);
+                    } catch (err: any) {
+                      success('Error', err?.message || 'Failed to delete PO');
+                    }
+                  },
+                });
+              }}
+              className="p-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition shadow-sm cursor-pointer"
+              title="Delete Purchase Order"
+              aria-label="Delete Purchase Order"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button
+              onClick={async () => {
+                let sourceOrder = null;
+                if (row.sourceOrderId) {
+                  try {
+                    sourceOrder = await orderService.getById(row.sourceOrderId);
+                  } catch {
+                    // fall back
+                  }
+                }
+                navigate('/invoice', {
+                  state: {
+                    convertFromPO: row,
+                    convertFromOrder: sourceOrder,
+                    salesman: getSalesmanFromPO(row),
+                  },
+                });
               }}
               disabled={!isEligibleForInvoice}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition whitespace-nowrap ${
@@ -402,6 +499,28 @@ const PurchaseOrders: React.FC = () => {
         onClose={() => setSelectedPOToUpdate(null)}
         onSubmit={handleUpdatePO}
         poToEdit={selectedPOToUpdate}
+      />
+      {/* Custom Confirm Modal for Delete */}
+      <CustomConfirm
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        type={confirmConfig.type}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Dedicated Purchase Order Preview & Print Modal */}
+      <PurchaseOrderViewModal
+        isOpen={selectedPOForPreview !== null}
+        onClose={() => setSelectedPOForPreview(null)}
+        selectedPO={selectedPOForPreview}
+        onShareSuccess={(msg) => success('Shared', msg)}
       />
     </AppLayout>
   );

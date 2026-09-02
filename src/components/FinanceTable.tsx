@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   FileText, 
   Eye, 
@@ -10,11 +10,12 @@ import {
   Calendar, 
   ShieldAlert, 
   UserCheck, 
-  MoreVertical, 
   DollarSign, 
-  Receipt 
+  Receipt,
+  RotateCcw
 } from "lucide-react";
 import { Button } from "./common";
+import { ActionMenu } from "./erp";
 import type { InvoiceResponse } from "../types/invoice";
 import { getInvoiceCalculatedStatus } from "../types/invoice";
 import type { FinanceTransaction } from "../types/finance";
@@ -27,6 +28,13 @@ interface FinanceTableProps {
   onDownloadInvoice: (invoice: InvoiceResponse) => void;
   onMarkAsPaid: (invoice: InvoiceResponse) => void;
   financeTransactions: FinanceTransaction[];
+  invoiceReturns?: Array<{
+    id: string;
+    invoiceId: string;
+    returnNumber: string;
+    returnTotal: number;
+    status: string;
+  }>;
   pageSize?: number;
 }
 
@@ -65,7 +73,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
             </div>
             <div className="min-w-0">
               <h3 className="text-base sm:text-lg font-semibold text-gray-200 truncate">
-                Payment Details
+                {transaction?.transactionType === 'refund' ? 'Refund Details' : 'Payment Details'}
               </h3>
               {transaction && (
                 <p className="text-xs sm:text-sm text-gray-400 truncate">
@@ -111,9 +119,26 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({ isOpe
                     <span className="text-gray-200">{transaction.bankName}</span>
                   </div>
                 )}
+                {/* Type Badge */}
+                <div className="flex justify-between items-center pb-2 border-b border-[#334155]">
+                  <span className="text-gray-400">Type:</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    transaction.transactionType === 'refund'
+                      ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  }`}>
+                    {transaction.transactionType === 'refund' ? '↩ Refund' : '✓ Payment'}
+                  </span>
+                </div>
                 <div className="flex justify-between items-center pt-1">
-                  <span className="text-gray-300 font-semibold">Amount Paid:</span>
-                  <span className="text-sm font-bold font-mono text-emerald-400">{transaction.amount}</span>
+                  <span className="text-gray-300 font-semibold">
+                    {transaction.transactionType === 'refund' ? 'Amount Refunded:' : 'Amount Paid:'}
+                  </span>
+                  <span className={`text-sm font-bold font-mono ${
+                    transaction.transactionType === 'refund' ? 'text-red-400' : 'text-emerald-400'
+                  }`}>
+                    {transaction.transactionType === 'refund' ? '-' : '+'}LKR {Math.abs(Math.round(transaction.amount)).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
@@ -132,26 +157,13 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   onDownloadInvoice,
   onMarkAsPaid,
   financeTransactions = [],
+  invoiceReturns = [],
   pageSize = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'near_due' | 'partially_paid' | 'completed'>('all');
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceTransaction | null>(null);
-
-  // Three-dot menu state
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
 
   const formatDate = (date: string) => {
     try {
@@ -168,15 +180,26 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   const trackedInvoices = useMemo(() => {
     return invoices.map(inv => {
       const calc = getInvoiceCalculatedStatus(inv);
+      const completedReturnTotal = invoiceReturns
+        .filter(r => r.invoiceId === inv.id && r.status === 'completed')
+        .reduce((sum, r) => sum + (Number(r.returnTotal) || 0), 0);
+
+      const adjustedRemaining = Math.max(0, calc.remainingAmount - completedReturnTotal);
+      const isFullyReturned = completedReturnTotal >= inv.totalAmount && inv.totalAmount > 0;
+      const effectiveStatus = isFullyReturned ? 'returned' : calc.status;
+
       return {
         ...inv,
-        calculatedStatus: calc.status,
+        calculatedStatus: effectiveStatus,
         effectivePaidAmount: calc.paidAmount,
-        effectiveRemainingAmount: calc.remainingAmount,
+        effectiveRemainingAmount: adjustedRemaining,
         diffDays: calc.diffDays,
+        completedReturnTotal,
+        isFullyReturned,
+        isPartiallyReturned: completedReturnTotal > 0 && !isFullyReturned,
       };
     });
-  }, [invoices]);
+  }, [invoices, invoiceReturns]);
 
   const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'overdue'), [trackedInvoices]);
   const nearDueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'due_soon'), [trackedInvoices]);
@@ -200,6 +223,18 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
     return financeTransactions.find(transaction => 
       transaction?.invoice?.invoiceNumber === invoiceNumber || transaction?.invoice?.invoiceNumber?.includes(invoiceNumber)
     ) || null;
+  };
+
+  // Get returns for a specific invoice by id
+  const getReturnsForInvoice = (invoiceId: string) => {
+    return invoiceReturns.filter(r => r.invoiceId === invoiceId);
+  };
+
+  // Compute completed return total for an invoice (for partial return adjustment)
+  const getCompletedReturnTotal = (invoiceId: string) => {
+    return invoiceReturns
+      .filter(r => r.invoiceId === invoiceId && r.status === 'completed')
+      .reduce((sum, r) => sum + (Number(r.returnTotal) || 0), 0);
   };
 
   // Handle Paid button click
@@ -261,61 +296,61 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
       <div className="space-y-5">
         {/* Credit Period & Due Date Tracking KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-3.5 flex items-center gap-3 shadow-md">
-            <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-[#334155] rounded-xl p-3.5 flex items-center gap-3 shadow-sm">
+            <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-500/20 shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 font-medium truncate">Outstanding Total</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-white tracking-tight truncate">
+              <p className="text-xs text-slate-500 dark:text-gray-400 font-medium truncate">Outstanding Total</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-slate-900 dark:text-white tracking-tight truncate">
                 {formatCurrency(totalOutstandingAmount)}
               </p>
-              <p className="text-[11px] text-gray-500 truncate">
+              <p className="text-[11px] text-slate-500 dark:text-gray-500 truncate">
                 {trackedInvoices.filter(i => i.effectiveRemainingAmount > 0).length} pending balance
               </p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-red-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md bg-gradient-to-r from-red-950/20 to-transparent">
-            <div className="p-2.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-red-200 dark:border-red-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-sm bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20">
+            <div className="p-2.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg border border-red-500/20 shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-red-300 font-medium truncate">Overdue Payments</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-red-400 tracking-tight truncate">
+              <p className="text-xs text-red-700 dark:text-red-300 font-medium truncate">Overdue Payments</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-red-600 dark:text-red-400 tracking-tight truncate">
                 {formatCurrency(totalOverdueAmount)}
               </p>
-              <p className="text-[11px] text-red-400/80 font-medium truncate">
+              <p className="text-[11px] text-red-600/80 dark:text-red-400/80 font-medium truncate">
                 {overdueInvoices.length} invoices passed due date
               </p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-amber-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md bg-gradient-to-r from-amber-950/20 to-transparent">
-            <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-amber-200 dark:border-amber-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-sm bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-950/20">
+            <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg border border-amber-500/20 shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-amber-300 font-medium truncate">Near Expiry (7d)</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-amber-400 tracking-tight truncate">
+              <p className="text-xs text-amber-700 dark:text-amber-300 font-medium truncate">Near Expiry (7d)</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-amber-600 dark:text-amber-400 tracking-tight truncate">
                 {formatCurrency(totalNearDueAmount)}
               </p>
-              <p className="text-[11px] text-amber-400/80 font-medium truncate">
+              <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 font-medium truncate">
                 {nearDueInvoices.length} invoices due in 7d
               </p>
             </div>
           </div>
 
-          <div className="bg-[#1e293b] border border-green-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-md">
-            <div className="p-2.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/20 shrink-0">
+          <div className="bg-white dark:bg-[#1e293b] border border-emerald-200 dark:border-green-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-sm">
+            <div className="p-2.5 bg-green-500/10 text-emerald-600 dark:text-green-400 rounded-lg border border-green-500/20 shrink-0">
               <CheckCircle className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 font-medium truncate">Settled / Completed</p>
-              <p className="text-base sm:text-lg font-bold font-mono text-green-400 tracking-tight truncate">
+              <p className="text-xs text-slate-500 dark:text-gray-400 font-medium truncate">Settled / Completed</p>
+              <p className="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-green-400 tracking-tight truncate">
                 {formatCurrency(completedInvoices.reduce((sum, i) => sum + i.totalAmount, 0))}
               </p>
-              <p className="text-[11px] text-green-500 truncate">{completedInvoices.length} invoices fully paid</p>
+              <p className="text-[11px] text-emerald-600 dark:text-green-500 truncate">{completedInvoices.length} invoices fully paid</p>
             </div>
           </div>
         </div>
@@ -344,7 +379,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
         )}
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#334155] pb-2.5">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-[#334155] pb-2.5">
           {[
             { id: 'all', label: 'All Invoices', count: trackedInvoices.length },
             { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
@@ -354,63 +389,79 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                setCurrentPage(1);
-              }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+              onClick={() => { setActiveTab(tab.id as any); setCurrentPage(1); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                 activeTab === tab.id
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold shadow-sm'
-                  : 'text-gray-400 hover:bg-[#1e293b] hover:text-gray-200 border border-transparent'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1e293b]'
               }`}
             >
               <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono border ${tab.badge || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700 dark:bg-[#0f172a] dark:text-gray-400'
+              }`}>
                 {tab.count}
               </span>
             </button>
           ))}
         </div>
 
-        {/* Compact Table (Desktop & Tablet) - Zero horizontal scroll */}
-        <div className="bg-[#1e293b]/60 backdrop-blur-sm border border-[#334155] rounded-xl overflow-hidden shadow-lg">
+        {/* Compact Table Container */}
+        <div className="bg-white dark:bg-[#1e293b]/60 backdrop-blur-sm border border-slate-200 dark:border-[#334155] rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-[#334155] bg-[#1e293b] text-gray-400 uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-3">Invoice ID</th>
-                  <th className="py-3 px-3">Customer</th>
-                  <th className="py-3 px-2.5">Sales Officer</th>
-                  <th className="py-3 px-2.5 text-right">Invoice Total</th>
-                  <th className="py-3 px-2.5 text-right">Remaining</th>
-                  <th className="py-3 px-2.5 text-center">Status</th>
-                  <th className="py-3 px-2.5">Due Date</th>
-                  <th className="py-3 px-3 text-right w-12"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#334155]/60 text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-[#334155] bg-slate-50 dark:bg-[#1e293b] text-slate-500 dark:text-gray-400 uppercase tracking-wider text-[11px]">
+                <th className="py-3 px-3">Invoice ID</th>
+                <th className="py-3 px-3">Customer</th>
+                <th className="py-3 px-2.5">Sales Officer</th>
+                <th className="py-3 px-2.5 text-right">Invoice Total</th>
+                <th className="py-3 px-2.5 text-right">Remaining</th>
+                <th className="py-3 px-2.5 text-center">Status</th>
+                <th className="py-3 px-2.5">Due Date</th>
+                <th className="py-3 px-3 text-right w-12"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-[#334155]/60 text-xs">
                 {paginatedInvoices.map((invoice, idx) => {
-                  const isMenuOpen = activeMenuId === invoice.id;
                   const transaction = getTransactionForInvoice(invoice.invoiceNumber);
                   const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
-
                   const sName = invoice.salesman?.fullName || invoice.salesmanName || '';
+
+                  // Return awareness
+                  const invoiceReturnsForThis = getReturnsForInvoice(invoice.id);
+                  const hasAnyReturn = invoiceReturnsForThis.length > 0;
+                  const pendingReturnCount = invoiceReturnsForThis.filter(r => r.status === 'pending' || r.status === 'approved').length;
+                  const completedReturnTotal = getCompletedReturnTotal(invoice.id);
+
+                  // For partial returns: effective outstanding = original remaining + refunded amount
+                  // (because backend hasn't deducted the return from paidAmount yet on the invoice)
+                  // We show: what the customer STILL owes = remaining - completedReturnTotal
+                  const adjustedRemaining = Math.max(0, invoice.effectiveRemainingAmount - completedReturnTotal);
+                  const isPartiallyReturned = completedReturnTotal > 0 && completedReturnTotal < invoice.totalAmount;
+                  const isFullyReturned = completedReturnTotal >= invoice.totalAmount;
 
                   return (
                     <tr
                       key={invoice.id}
-                      className={`transition-colors hover:bg-[#1e293b] ${
-                        invoice.calculatedStatus === 'overdue' ? "bg-red-950/15" : (idx % 2 === 0 ? "bg-[#1e293b]/30" : "bg-[#1e293b]/10")
+                      className={`transition-colors hover:bg-slate-50 dark:hover:bg-[#1e293b] ${
+                        isFullyReturned
+                          ? 'bg-red-50/50 dark:bg-red-950/15'
+                          : invoice.calculatedStatus === 'overdue'
+                          ? 'bg-red-50/50 dark:bg-red-950/15'
+                          : idx % 2 === 0
+                          ? 'bg-white dark:bg-[#1e293b]/30'
+                          : 'bg-slate-50/40 dark:bg-[#1e293b]/10'
                       }`}
                     >
-                      <td className="py-3 px-3 font-mono font-bold text-blue-400">
+                      <td className="py-3 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                         <div>{invoice.invoiceNumber}</div>
-                        <div className="text-[10px] text-gray-400 font-sans">{formatDate(invoice.issueDate)}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-gray-400 font-sans">{formatDate(invoice.issueDate)}</div>
                       </td>
 
                       <td className="py-3 px-3">
-                        <span className="font-semibold text-white truncate block max-w-[150px]">
-                          {invoice.customer?.shopName || invoice.customer?.fullName || "N/A"}
+                        <span className="font-semibold text-slate-900 dark:text-white truncate block max-w-[150px]">
+                          {(invoice.customer as any)?.shopName || (invoice.customer as any)?.fullName || "N/A"}
                         </span>
                       </td>
 
@@ -442,48 +493,77 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         <PaymentBreakdownTooltip
                           totalAmount={invoice.totalAmount || 0}
                           paidAmount={invoice.effectivePaidAmount}
-                          remainingAmount={invoice.effectiveRemainingAmount}
-                          statusText={invoice.calculatedStatus}
+                          remainingAmount={adjustedRemaining}
+                          statusText={isFullyReturned ? 'returned' : isPartiallyReturned ? 'partial_return' : invoice.calculatedStatus}
                         >
-                          <span className={`font-mono font-bold text-xs cursor-help ${invoice.effectiveRemainingAmount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
-                            {formatCurrency(invoice.effectiveRemainingAmount)}
+                          <span className={`font-mono font-bold text-xs cursor-help ${
+                            isFullyReturned
+                              ? 'text-gray-500 line-through'
+                              : adjustedRemaining > 0
+                              ? 'text-amber-400'
+                              : 'text-gray-400'
+                          }`}>
+                            {formatCurrency(adjustedRemaining)}
+                            {isPartiallyReturned && (
+                              <span className="block text-[9px] text-red-400 font-normal no-underline" style={{ textDecoration: 'none' }}>
+                                -{formatCurrency(completedReturnTotal)} returned
+                              </span>
+                            )}
                           </span>
                         </PaymentBreakdownTooltip>
                       </td>
 
                       <td className="py-3 px-2.5 text-center">
-                        <PaymentBreakdownTooltip
-                          totalAmount={invoice.totalAmount || 0}
-                          paidAmount={invoice.effectivePaidAmount}
-                          remainingAmount={invoice.effectiveRemainingAmount}
-                          statusText={invoice.calculatedStatus}
-                        >
-                          {invoice.calculatedStatus === 'paid' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                              <CheckCircle className="w-3 h-3" /> Paid
+                        <div className="flex flex-col items-center gap-1">
+                          <PaymentBreakdownTooltip
+                            totalAmount={invoice.totalAmount || 0}
+                            paidAmount={invoice.effectivePaidAmount}
+                            remainingAmount={adjustedRemaining}
+                            statusText={invoice.calculatedStatus}
+                          >
+                            {isFullyReturned ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                <RotateCcw className="w-3 h-3" /> Returned
+                              </span>
+                            ) : invoice.calculatedStatus === 'paid' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                                <CheckCircle className="w-3 h-3" /> Paid
+                              </span>
+                            ) : invoice.calculatedStatus === 'partially_paid' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                <Clock className="w-3 h-3" /> Partially Paid
+                              </span>
+                            ) : invoice.calculatedStatus === 'overdue' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                <ShieldAlert className="w-3 h-3" /> Overdue
+                              </span>
+                            ) : invoice.calculatedStatus === 'due_soon' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                <Clock className="w-3 h-3" /> Due Soon
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700">
+                                Outstanding
+                              </span>
+                            )}
+                          </PaymentBreakdownTooltip>
+
+                          {/* Return Indicator Badge */}
+                          {hasAnyReturn && !isFullyReturned && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${
+                              pendingReturnCount > 0
+                                ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+                                : isPartiallyReturned
+                                ? 'bg-red-500/15 text-red-300 border-red-500/25'
+                                : 'bg-gray-700 text-gray-400 border-gray-600'
+                            }`}>
+                              <RotateCcw size={8} />
+                              {pendingReturnCount > 0
+                                ? `${pendingReturnCount} return pending`
+                                : `partial return`}
                             </span>
                           )}
-                          {invoice.calculatedStatus === 'partially_paid' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                              <Clock className="w-3 h-3" /> Partially Paid
-                            </span>
-                          )}
-                          {invoice.calculatedStatus === 'overdue' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                              <ShieldAlert className="w-3 h-3" /> Overdue
-                            </span>
-                          )}
-                          {invoice.calculatedStatus === 'due_soon' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                              <Clock className="w-3 h-3" /> Due Soon
-                            </span>
-                          )}
-                          {invoice.calculatedStatus === 'outstanding' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700">
-                              Outstanding
-                            </span>
-                          )}
-                        </PaymentBreakdownTooltip>
+                        </div>
                       </td>
 
                       <td className="py-3 px-2.5 text-gray-300 font-mono text-xs whitespace-nowrap">
@@ -494,77 +574,59 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                         {invoice.calculatedStatus === 'due_soon' && (
                           <div className="text-[10px] text-amber-400 font-bold">in {invoice.diffDays}d</div>
                         )}
+                        {invoice.calculatedStatus === 'outstanding' && invoice.diffDays > 0 && (
+                          <div className="text-[10px] text-cyan-400/80 font-medium">in {invoice.diffDays}d</div>
+                        )}
                       </td>
 
                       {/* Three-Dot Menu (⋮) */}
                       <td className="py-3 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="relative flex justify-end">
-                          <button
-                            onClick={() => setActiveMenuId(isMenuOpen ? null : invoice.id)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#334155] transition"
+                        <div className="flex justify-end">
+                          <ActionMenu
                             title="Invoice Actions"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-
-                          {isMenuOpen && (
-                            <div 
-                              ref={menuRef}
-                              className="absolute right-0 top-8 z-50 w-48 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl py-1 text-xs text-slate-200 divide-y divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
-                            >
-                              <div className="p-1">
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    onViewInvoice(invoice);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-600/20 text-slate-200 hover:text-blue-300 transition text-left"
-                                >
-                                  <Eye size={13} className="text-blue-400" />
-                                  <span>View Invoice</span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    onDownloadInvoice(invoice);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-left"
-                                >
-                                  <Download size={13} />
-                                  <span>Download PDF</span>
-                                </button>
-                              </div>
-
-                              <div className="p-1">
-                                {invoice.effectiveRemainingAmount > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      onMarkAsPaid(invoice);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-green-600/20 text-green-400 hover:text-green-300 transition text-left font-semibold"
-                                  >
-                                    <DollarSign size={13} />
-                                    <span>Pay Remaining</span>
-                                  </button>
-                                )}
-
-                                {hasTransaction && (
-                                  <button
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      handlePaidClick(invoice);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-green-600/20 text-green-400 hover:text-green-300 transition text-left"
-                                  >
-                                    <Receipt size={13} />
-                                    <span>Payment Details</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                            items={[
+                              {
+                                items: [
+                                  {
+                                    label: 'View Invoice',
+                                    icon: <Eye size={13} />,
+                                    variant: 'blue',
+                                    onClick: () => onViewInvoice(invoice),
+                                  },
+                                  {
+                                    label: 'Download PDF',
+                                    icon: <Download size={13} />,
+                                    variant: 'default',
+                                    onClick: () => onDownloadInvoice(invoice),
+                                  },
+                                ],
+                              },
+                              {
+                                items: [
+                                  ...(invoice.effectiveRemainingAmount > 0
+                                    ? [
+                                        {
+                                          label: 'Pay Remaining',
+                                          icon: <DollarSign size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => onMarkAsPaid(invoice),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(hasTransaction
+                                    ? [
+                                        {
+                                          label: 'Payment Details',
+                                          icon: <Receipt size={13} />,
+                                          variant: 'emerald' as const,
+                                          onClick: () => handlePaidClick(invoice),
+                                        },
+                                      ]
+                                    : []),
+                                ],
+                              },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>

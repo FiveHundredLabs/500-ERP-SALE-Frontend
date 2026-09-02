@@ -32,10 +32,15 @@ export const mapSupplier = (value: any): Supplier => ({
 
 export const mapInventoryItem = (value: any): InventoryItem => ({
   ...value,
-  purchasePrice: money(value.purchasePrice),
-  sellPrice: money(value.sellPrice),
-  discountRate: money(value.discountRate),
-  actualSoldPrice: money(value.actualSoldPrice),
+  inventoryCode: value.inventoryCode ?? value.inventory_code ?? value.product_code ?? '',
+  productName: value.productName ?? value.product_name ?? '',
+  productCode: value.productCode ?? value.product_code ?? '',
+  quantity: value.quantity ?? 0,
+  soldCount: value.soldCount ?? value.sold_count ?? 0,
+  purchasePrice: money(value.purchasePrice ?? value.purchase_price),
+  sellPrice: money(value.sellPrice ?? value.sell_price),
+  discountRate: money(value.discountRate ?? value.discount_rate),
+  actualSoldPrice: money(value.actualSoldPrice ?? value.actual_sold_price),
 });
 
 export const mapInvoice = (value: any): InvoiceResponse => ({
@@ -50,8 +55,14 @@ export const mapInvoice = (value: any): InvoiceResponse => ({
     itemName: item.itemName ?? item.inventoryItem?.productName ?? '',
     unitPrice: money(item.unitPrice),
     discount: money(item.discount),
+    discountType: item.discountType,
+    discountScope: item.discountScope,
+    discountValue: item.discountValue !== undefined ? money(item.discountValue) : undefined,
+    discountAmount: item.discountAmount !== undefined ? money(item.discountAmount) : undefined,
     total: money(item.total),
   })),
+  totalDiscountType: value.totalDiscountType ?? (value.discountType as any),
+  totalDiscountValue: value.totalDiscountValue !== undefined ? money(value.totalDiscountValue) : undefined,
   payments: (value.payments ?? []).map((payment: any) => ({ ...payment, amount: money(payment.amount) })),
   subTotal: money(value.subTotal),
   discount: money(value.discount),
@@ -94,6 +105,7 @@ export const mapInvoiceReturn = (value: any): InvoiceReturn => ({
 
 export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
   ...value,
+  transactionType: (value.transactionType === 'refund' ? 'refund' : 'payment') as 'payment' | 'refund',
   paymentMethod: ({
     Cash: 'cash', Credit: 'credit', Card: 'card', 'Bank Deposit': 'bank_deposit',
     'Bank Transfer': 'bank_transfer', Cheque: 'cheque',
@@ -106,8 +118,14 @@ export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
 export const mapOrder = (value: any): Order => ({
   ...value,
   salesmanName: value.salesmanName ?? value.salesman?.fullName,
+  totalDiscountType: value.totalDiscountType ?? (value.discountType as any),
+  totalDiscountValue: money(value.totalDiscountValue ?? value.discountValue),
   items: (value.items ?? []).map((item: any) => ({
     ...item,
+    discountType: item.discountType,
+    discountScope: item.discountScope,
+    discountValue: item.discountValue !== undefined ? money(item.discountValue) : undefined,
+    discountAmount: item.discountAmount !== undefined ? money(item.discountAmount) : undefined,
     unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),
     subTotal: money(item.subTotal), total: money(item.total),
   })),
@@ -117,7 +135,7 @@ export const mapOrder = (value: any): Order => ({
 
 export const mapPurchaseOrder = (value: any): PurchaseOrder => ({
   ...value,
-  sourceOrderNumber: value.sourceOrder?.orderNumber,
+  sourceOrderNumber: value.sourceOrder?.orderNumber ?? value.sourceOrderNumber ?? value.referenceOrderNum,
   items: (value.items ?? []).map((item: any) => ({
     ...item,
     unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),

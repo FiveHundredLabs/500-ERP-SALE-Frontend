@@ -4,6 +4,7 @@ export interface FinanceTransaction {
   id: string;
   transactionNumber: string;
   transactionDate: string;
+  transactionType: 'payment' | 'refund';
   paymentMethod: PaymentMethodType;
   bankName?: string;
   accountNumber?: string;

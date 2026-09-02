@@ -78,7 +78,7 @@ export interface InvoiceItem {
   description?: string;
   costPrice?: number;
   discountType?: 'percentage' | 'amount';
-  discountScope?: 'per_unit' | 'total_qty';
+  discountScope?: 'per_unit' | 'total_qty' | 'total';
   discountValue?: number;
   discountAmount?: number;
 }
@@ -87,9 +87,9 @@ export interface InvoiceData {
   id?: string;
   documentTitle?: string;
   invoiceNumber: string;
-  customer: string;
-  customerDetails?: InvoiceCustomer;
-  salesman?: { id: string; fullName?: string; name?: string } | null;
+  customer: string | InvoiceCustomer;
+  customerDetails?: InvoiceCustomer | null;
+  salesman?: { _id?: string; id?: string; fullName?: string; name?: string } | null;
   salesmanName?: string;
   items: InvoiceItem[];
   payments?: InvoicePaymentRecord[];
@@ -105,6 +105,8 @@ export interface InvoiceData {
   dueDate: string;
   vehicleNumber: string;
   notes?: string;
+  sourceOrderId?: string | null;
+  sourcePoId?: string | null;
   applyVat: boolean;
   vatAmount: number;
   taxRate: number;
@@ -139,6 +141,8 @@ export interface InvoiceResponse {
   dueDate: string;
   vehicleNumber: string;
   notes?: string;
+  sourceOrderId?: string | null;
+  sourcePoId?: string | null;
   applyVat: boolean;
   vatAmount: number;
   taxRate: number;
@@ -158,11 +162,17 @@ export interface BackendInvoiceData {
     quantity: number;
     unitPrice?: number;
     discount?: number;
+    discountType?: 'percentage' | 'amount';
+    discountScope?: 'per_unit' | 'total_qty' | 'total';
+    discountValue?: number;
+    discountAmount?: number;
     total?: number;
   }>;
   payments?: InvoicePaymentRecord[];
   subTotal?: number;
   discount?: number;
+  totalDiscountType?: 'percentage' | 'amount';
+  totalDiscountValue?: number;
   totalAmount?: number;
   paidAmount?: number;
   remainingAmount?: number;
@@ -172,6 +182,8 @@ export interface BackendInvoiceData {
   issueDate?: string;
   dueDate?: string;
   notes?: string;
+  sourceOrderId?: string | null;
+  sourcePoId?: string | null;
   bankDepositDate?: string;
   applyVat?: boolean;
   vatAmount?: number;

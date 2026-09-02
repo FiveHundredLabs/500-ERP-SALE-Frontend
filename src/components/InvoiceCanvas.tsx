@@ -32,30 +32,81 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
   const { subTotal, totalAmount, paidAmount, balanceAmount } = calculateTotals();
 
-  const customer = invoiceData.customerDetails || ({} as any);
-  const salesmanName = invoiceData.salesman?.fullName || customer.salesRepName || "N/A";
+  const customer =
+    invoiceData.customerDetails ||
+    (typeof invoiceData.customer === "object" ? (invoiceData.customer as any) : null) ||
+    ({} as any);
+  const salesmanName =
+    invoiceData.salesman?.fullName ||
+    invoiceData.salesman?.name ||
+    (invoiceData as any).salesmanName ||
+    customer.salesRepName ||
+    customer.salesRep?.fullName ||
+    "N/A";
+
+  const customerName =
+    customer.shopName ||
+    customer.fullName ||
+    (typeof invoiceData.customer === "string" ? invoiceData.customer : "") ||
+    "Walk-in Customer";
+
+  const contactPerson =
+    customer.contactPerson && customer.contactPerson !== customerName
+      ? customer.contactPerson
+      : customer.fullName && customer.fullName !== customerName
+      ? customer.fullName
+      : null;
+
 
   const renderAddress = () => {
-    if (!customer.address) return "N/A";
-    return customer.address;
+    const parts = [customer.address, customer.city].filter(Boolean);
+    if (parts.length > 0) return parts.join(", ");
+    return customer.address || "N/A";
+  };
+
+  const renderPhone = () => {
+    const phones = [customer.phone, customer.phone2, customer.phone3].filter(Boolean);
+    if (phones.length > 0) return phones.join(" / ");
+    return "N/A";
   };
 
   const getDiscountDisplay = (item: any) => {
-    // If it's provided directly
-    if (item.discountType === 'percentage' && item.discountValue) return `${Math.round(item.discountValue)}%`;
-    if (item.discountType === 'amount' && item.discountValue && item.unitPrice && item.quantity) {
-       const percent = (item.discountValue / (item.unitPrice * item.quantity)) * 100;
-       return `${Math.round(percent)}%`;
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.unitPrice) || 0;
+    const expectedTotal = qty * price;
+    const total = item.total !== undefined ? Number(item.total) : expectedTotal;
+    const discountAmount = item.discountAmount !== undefined
+      ? Number(item.discountAmount)
+      : item.discount !== undefined
+        ? Number(item.discount)
+        : Math.max(0, expectedTotal - total);
+
+    if (discountAmount <= 0) return '0%';
+
+    // Explicit percentage discount
+    if (item.discountType === 'percentage') {
+      const val = item.discountValue !== undefined ? Number(item.discountValue) : (expectedTotal > 0 ? (discountAmount / expectedTotal) * 100 : 0);
+      return `${Math.round(val)}%`;
     }
-    // Fallback: mathematically calculate it from unitPrice, quantity, and total
-    if (item.unitPrice && item.quantity && item.total) {
-      const expectedTotal = item.unitPrice * item.quantity;
-      if (expectedTotal > item.total) {
-        const discountAmount = expectedTotal - item.total;
-        const percent = (discountAmount / expectedTotal) * 100;
+
+    // Explicit amount discount
+    if (item.discountType === 'amount') {
+      const val = item.discountValue !== undefined ? Number(item.discountValue) : discountAmount;
+      if (item.discountScope === 'per_unit') {
+        return `Rs. ${Math.round(val).toLocaleString()}/u`;
+      }
+      return `Rs. ${Math.round(val).toLocaleString()}`;
+    }
+
+    // Fallback: if discount exists but discountType not specified
+    if (expectedTotal > 0 && discountAmount > 0) {
+      const percent = (discountAmount / expectedTotal) * 100;
+      if (Math.abs(percent - Math.round(percent)) < 0.05 && percent >= 0.5) {
         return `${Math.round(percent)}%`;
       }
+      return `Rs. ${Math.round(discountAmount).toLocaleString()}`;
     }
+
     return '0%';
   };
 
@@ -149,33 +200,48 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
             {/* Info Grid (Customer & Salesman) */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', gap: '15px' }}>
-              {/* Customer Details Box */}
+              {/* Customer / Supplier Details Box */}
               <div style={{ flex: '2', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
-                <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
-                  Billed To
-                </h3>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginBottom: '3px' }}>
-                  {customer.fullName || customer.shopName || "Walk-in Customer"}
+                <div style={{ marginBottom: '6px' }}>
+                  <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
+                    {documentTitle === "PURCHASE ORDER" ? "Supplier Details" : "Customer Details"}
+                  </h3>
                 </div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginBottom: '3px' }}>
+                  {customerName}
+                </div>
+                {contactPerson && (
+                  <div style={{ fontSize: '12px', color: '#475569', marginBottom: '2px' }}>
+                    <span style={{ color: '#64748b' }}>Attn:</span> {contactPerson}
+                  </div>
+                )}
                 <div style={{ fontSize: '13px', color: '#475569', marginBottom: '2px' }}>
-                  {customer.phone || "N/A"}
+                  {renderPhone()}
                 </div>
                 <div style={{ fontSize: '13px', color: '#475569' }}>
                   {renderAddress()}
                 </div>
               </div>
 
-              {/* Salesman & Extra Details */}
+              {/* Salesman / Order Details */}
               <div style={{ flex: '1', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
                 <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
-                  Sales Details
+                  {documentTitle === "PURCHASE ORDER" ? "Order Details" : "Sales Details"}
                 </h3>
                 <div style={{ fontSize: '13px', color: '#475569', marginBottom: '5px' }}>
-                  <strong style={{ color: '#0f172a' }}>Sales Rep:</strong> {salesmanName}
+                  <strong style={{ color: '#0f172a' }}>
+                    {documentTitle === "PURCHASE ORDER" ? "Purchaser / Officer:" : "Sales Officer:"}
+                  </strong>{' '}
+                  {salesmanName || (documentTitle === "PURCHASE ORDER" ? "Procurement" : "N/A")}
                 </div>
                 {invoiceData.paymentMethod && (
                   <div style={{ fontSize: '13px', color: '#475569' }}>
-                    <strong style={{ color: '#0f172a' }}>Payment Term:</strong> {invoiceData.paymentMethod}
+                    <strong style={{ color: '#0f172a' }}>Payment Method:</strong>{' '}
+                    <span style={{ textTransform: 'capitalize' }}>
+                      {String(invoiceData.paymentMethod).toLowerCase() === 'credit'
+                        ? `Credit${invoiceData.creditPeriod ? ` (${invoiceData.creditPeriod} Days)` : ''}`
+                        : invoiceData.paymentMethod}
+                    </span>
                   </div>
                 )}
               </div>
@@ -244,19 +310,65 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                 </div>
 
                 {/* Right Side: Total Calculation */}
-                <div style={{ width: '280px', backgroundColor: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginLeft: 'auto' }}>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                    <span>Sub Total:</span>
-                    <span style={{ color: '#0f172a' }}>Rs. {Math.round(subTotal).toLocaleString()}</span>
-                  </div>
+                {(() => {
+                  const grossItemsTotal = (invoiceData.items || []).reduce((sum, it) => {
+                    if ((it as any).isPlaceholder) return sum;
+                    return sum + ((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0));
+                  }, 0);
 
-                  {(invoiceData.discount > 0 || (invoiceData.discountPercentage ?? 0) > 0) && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
-                      <span>Total Discount:</span>
-                      <span style={{ color: '#dc2626', fontWeight: '600' }}>- Rs. {Math.round(invoiceData.discount).toLocaleString()}</span>
-                    </div>
-                  )}
+                  const totalProductDiscount = (invoiceData.items || []).reduce((sum, it) => {
+                    if ((it as any).isPlaceholder) return sum;
+                    const q = Number(it.quantity) || 0;
+                    const p = Number(it.unitPrice) || 0;
+                    const exp = q * p;
+                    const t = it.total !== undefined ? Number(it.total) : exp;
+                    const d = it.discountAmount !== undefined
+                      ? Number(it.discountAmount)
+                      : it.discount !== undefined
+                        ? Number(it.discount)
+                        : Math.max(0, exp - t);
+                    return sum + Math.max(0, d);
+                  }, 0);
+
+                  const totalBillDiscount = Number(invoiceData.discount) || 0;
+
+                  return (
+                    <div style={{ width: '280px', backgroundColor: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginLeft: 'auto' }}>
+                      
+                      {/* Sub Total (Gross if product discount exists, else standard subtotal) */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                        <span>Sub Total:</span>
+                        <span style={{ color: '#0f172a' }}>
+                          Rs. {Math.round(totalProductDiscount > 0 ? grossItemsTotal : subTotal).toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Product Wise Discount (if user gave discount on items) */}
+                      {totalProductDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
+                          <span>Product Discount:</span>
+                          <span style={{ color: '#dc2626', fontWeight: '600' }}>
+                            - Rs. {Math.round(totalProductDiscount).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Discount for Total (if user set total discount, as like 4th image) */}
+                      {totalBillDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
+                          <span>
+                            Total Discount
+                            {invoiceData.totalDiscountType === 'percentage' && (invoiceData.totalDiscountValue || invoiceData.discountPercentage)
+                              ? ` (${invoiceData.totalDiscountValue || invoiceData.discountPercentage}%)`
+                              : invoiceData.discountPercentage
+                              ? ` (${Math.round(invoiceData.discountPercentage)}%)`
+                              : ''}:
+                          </span>
+                          <span style={{ color: '#dc2626', fontWeight: '600' }}>
+                            - Rs. {Math.round(totalBillDiscount).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#475569' }}>
                     <span>Amount Paid:</span>
@@ -272,13 +384,15 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626' }}>BALANCE DUE:</span>
-                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
-                      Rs. {Math.round(balanceAmount).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626' }}>BALANCE DUE:</span>
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
+                          Rs. {Math.round(balanceAmount).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -293,15 +407,14 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>AUTHORIZED BY</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '25%' }}>
-                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>CUSTOMER SIGNATURE</div>
+                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>
+                    {documentTitle === "PURCHASE ORDER" ? "SUPPLIER ACCEPTANCE" : "CUSTOMER SIGNATURE"}
+                  </div>
                 </div>
               </div>
               
-              <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', marginBottom: '2px', color: '#1e3a8a' }}>
+              <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', color: '#1e3a8a' }}>
                 Thank You For Trusting S & K Enterprises.
-              </div>
-              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '9px' }}>
-                Generated by 500Core ERP System
               </div>
             </div>
           </div>
