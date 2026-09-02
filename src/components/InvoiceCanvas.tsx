@@ -36,7 +36,13 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
     invoiceData.customerDetails ||
     (typeof invoiceData.customer === "object" ? (invoiceData.customer as any) : null) ||
     ({} as any);
-  const salesmanName = invoiceData.salesman?.fullName || customer.salesRepName || "N/A";
+  const salesmanName =
+    invoiceData.salesman?.fullName ||
+    invoiceData.salesman?.name ||
+    (invoiceData as any).salesmanName ||
+    customer.salesRepName ||
+    customer.salesRep?.fullName ||
+    "N/A";
 
   const customerName =
     customer.shopName ||
@@ -176,15 +182,10 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', gap: '15px' }}>
               {/* Customer Details Box */}
               <div style={{ flex: '2', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ marginBottom: '6px' }}>
                   <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
                     Customer Details
                   </h3>
-                  {customerCode && (
-                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                      Code: <span style={{ color: '#1e3a8a' }}>{customerCode}</span>
-                    </span>
-                  )}
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginBottom: '3px' }}>
                   {customerName}
@@ -208,11 +209,16 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   Sales Details
                 </h3>
                 <div style={{ fontSize: '13px', color: '#475569', marginBottom: '5px' }}>
-                  <strong style={{ color: '#0f172a' }}>Sales Rep:</strong> {salesmanName}
+                  <strong style={{ color: '#0f172a' }}>Sales Officer:</strong> {salesmanName}
                 </div>
                 {invoiceData.paymentMethod && (
                   <div style={{ fontSize: '13px', color: '#475569' }}>
-                    <strong style={{ color: '#0f172a' }}>Payment Term:</strong> {invoiceData.paymentMethod}
+                    <strong style={{ color: '#0f172a' }}>Payment Method:</strong>{' '}
+                    <span style={{ textTransform: 'capitalize' }}>
+                      {String(invoiceData.paymentMethod).toLowerCase() === 'credit'
+                        ? `Credit${invoiceData.creditPeriod ? ` (${invoiceData.creditPeriod} Days)` : ''}`
+                        : invoiceData.paymentMethod}
+                    </span>
                   </div>
                 )}
               </div>

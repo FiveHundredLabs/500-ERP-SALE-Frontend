@@ -89,10 +89,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
-  // Salesman list (users with role === 'salesman')
+  // Sales Officer list (users with role === 'salesman')
   const [salesmen, setSalesmen] = useState<User[]>([]);
   useEffect(() => {
-    userService.getUsers().then(users => setSalesmen(users.filter(u => u.role === 'salesman')));
+    userService.getUsers().then(users => {
+      const activeSalesmen = users.filter(u => u.role === 'salesman');
+      setSalesmen(activeSalesmen);
+      if (!invoiceData.salesman?.id && activeSalesmen.length > 0) {
+        const defaultOfficer = activeSalesmen[0];
+        onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+      }
+    });
   }, []);
 
   const handleOrderImport = useCallback((po: PurchaseOrder) => {
@@ -269,7 +276,25 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     onFieldChange('paymentStatus', PaymentStatus.PENDING);
     handleCreditPeriodChange(String(defaultPeriod));
-  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange]);
+
+    // Auto-assign Sales Officer if customer has one assigned or if none selected yet
+    const custSalesRepId = (customer as any).salesRepId;
+    const custSalesRepName = (customer as any).salesRepName;
+    if (custSalesRepId) {
+      const rep = salesmen.find(s => s.id === custSalesRepId);
+      if (rep) {
+        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+      }
+    } else if (custSalesRepName) {
+      const rep = salesmen.find(s => s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
+      if (rep) {
+        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+      }
+    } else if (!invoiceData.salesman?.id && salesmen.length > 0) {
+      const defaultOfficer = salesmen[0];
+      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+    }
+  }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange, salesmen, invoiceData.salesman?.id]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -535,20 +560,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Salesman Selector */}
+            {/* Sales Officer Selector */}
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Salesman</span>
+                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer*</span>
               </label>
               <select
-                value={invoiceData.salesman?.id || ''}
+                value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
                   const selected = salesmen.find(s => s.id === e.target.value);
-                  onFieldChange('salesman', selected ? { id: selected.id, name: selected.fullName } as any : null as any);
+                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
                 }}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
               >
-                <option value="">— Select Salesman —</option>
+                <option value="">— Select Sales Officer —</option>
                 {salesmen.map(s => (
                   <option key={s.id} value={s.id}>{s.fullName}</option>
                 ))}

@@ -651,28 +651,19 @@ const Quotation: React.FC = () => {
       ? (quotation.discount / quotation.subTotal) * 100
       : 0;
 
-    setQuotationData({
-      id: quotation.id,
-      quotationNumber: quotation.quotationNumber,
-      customer: quotation.customer.id || quotation.customer,
-      customerDetails: quotation.customer,
-      items: mappedItems,
-      subTotal: quotation.subTotal,
-      discount: quotation.discount,
-      discountPercentage: discountPercentage,
-      totalAmount: quotation.totalAmount,
-      paymentMethod: quotation.paymentMethod,
-      status: quotation.status,
-      issueDate: quotation.issueDate.split('T')[0],
-      validUntil: quotation.validUntil.split('T')[0],
-      notes: quotation.notes || '',
-    });
+    const loadedSalesman = quotation.salesman || (quotation.customer as any)?.salesRep
+      ? { id: quotation.salesman?.id || (quotation.customer as any)?.salesRep?.id || (quotation.customer as any)?.salesRepId || '', fullName: quotation.salesman?.fullName || (quotation.customer as any)?.salesRep?.fullName || (quotation.customer as any)?.salesRepName || '', name: quotation.salesman?.fullName || (quotation.customer as any)?.salesRepName || '' }
+      : (quotation.customer as any)?.salesRepName
+        ? { id: (quotation.customer as any)?.salesRepId || '', fullName: (quotation.customer as any)?.salesRepName, name: (quotation.customer as any)?.salesRepName }
+        : undefined;
 
-    lastSavedRef.current = {
+    const quotationToSet: QuotationData = {
       id: quotation.id,
       quotationNumber: quotation.quotationNumber,
       customer: quotation.customer.id || quotation.customer,
       customerDetails: quotation.customer,
+      salesman: loadedSalesman,
+      salesmanName: quotation.salesmanName || loadedSalesman?.fullName,
       items: mappedItems,
       subTotal: quotation.subTotal,
       discount: quotation.discount,
@@ -683,7 +674,10 @@ const Quotation: React.FC = () => {
       issueDate: quotation.issueDate.split('T')[0],
       validUntil: quotation.validUntil.split('T')[0],
       notes: quotation.notes || '',
-    } as QuotationData;
+    };
+
+    setQuotationData(quotationToSet);
+    lastSavedRef.current = { ...quotationToSet };
     setIsDirty(false);
     lastSavedAtRef.current = new Date().toISOString();
 
@@ -1007,7 +1001,7 @@ const Quotation: React.FC = () => {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Save</span>
+                      <span>{quotationData.id ? 'Update' : 'Save'}</span>
                     </>
                   )}
                 </button>
@@ -1363,7 +1357,7 @@ const Quotation: React.FC = () => {
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          <span>Save Quotation</span>
+                          <span>{quotationData.id ? 'Update Quotation' : 'Save Quotation'}</span>
                         </>
                       )}
                     </button>

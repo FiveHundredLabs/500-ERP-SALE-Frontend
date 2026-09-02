@@ -628,7 +628,8 @@ const Invoice: React.FC = () => {
     const backendData: BackendInvoiceData = {
       invoiceNumber: data.invoiceNumber,
       customerId: typeof data.customer === 'object' ? (data.customer as any)?.id || '' : data.customer,
-      salesmanId: data.salesman?._id || data.salesman?.id || null,
+      salesmanId: data.salesman?._id || data.salesman?.id || (data.customerDetails as any)?.salesRepId || null,
+      salesmanName: data.salesman?.fullName || data.salesman?.name || (data.customerDetails as any)?.salesRepName || undefined,
       items: data.items.map(item => ({
         inventoryItemId: item.inventoryItemId,
         quantity: item.quantity,
@@ -1037,8 +1038,10 @@ const Invoice: React.FC = () => {
       const customerDetails = fullInvoiceData.customer ?? undefined;
 
       const loadedSalesman = fullInvoiceData.salesman
-        ? { id: fullInvoiceData.salesman.id, name: fullInvoiceData.salesman.fullName || '' }
-        : undefined;
+        ? { id: fullInvoiceData.salesman.id, fullName: fullInvoiceData.salesman.fullName, name: fullInvoiceData.salesman.fullName || '' }
+        : fullInvoiceData.salesmanName
+          ? { id: fullInvoiceData.salesmanId || '', fullName: fullInvoiceData.salesmanName, name: fullInvoiceData.salesmanName }
+          : undefined;
 
       const loadedData: InvoiceData = {
         id: fullInvoiceData.id,
@@ -1366,7 +1369,7 @@ const Invoice: React.FC = () => {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Save</span>
+                      <span>{invoiceData.id ? 'Update' : 'Save'}</span>
                     </>
                   )}
                 </button>
@@ -1731,7 +1734,7 @@ const Invoice: React.FC = () => {
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          <span>Save Invoice</span>
+                          <span>{invoiceData.id ? 'Update Invoice' : 'Save Invoice'}</span>
                         </>
                       )}
                     </button>
