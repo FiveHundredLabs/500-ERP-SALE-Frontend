@@ -111,8 +111,14 @@ export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
 export const mapOrder = (value: any): Order => ({
   ...value,
   salesmanName: value.salesmanName ?? value.salesman?.fullName,
+  totalDiscountType: value.totalDiscountType ?? (value.discountType as any),
+  totalDiscountValue: money(value.totalDiscountValue ?? value.discountValue),
   items: (value.items ?? []).map((item: any) => ({
     ...item,
+    discountType: item.discountType,
+    discountScope: item.discountScope,
+    discountValue: item.discountValue !== undefined ? money(item.discountValue) : undefined,
+    discountAmount: item.discountAmount !== undefined ? money(item.discountAmount) : undefined,
     unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),
     subTotal: money(item.subTotal), total: money(item.total),
   })),

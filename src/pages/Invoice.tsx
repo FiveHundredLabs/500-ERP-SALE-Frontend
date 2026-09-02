@@ -118,6 +118,12 @@ const Invoice: React.FC = () => {
   });
 
 
+  const isInvoiceEditable = (paymentStatus?: string, status?: string) => {
+    const ps = (paymentStatus || '').toLowerCase();
+    const s = (status || '').toLowerCase();
+    return ps !== 'paid' && ps !== 'completed' && s !== 'rejected' && s !== 'returned' && s !== 'return_completed';
+  };
+
   const getInitialInvoiceData = (): InvoiceData => ({
     invoiceNumber: "",
     customer: "",
@@ -165,6 +171,18 @@ const Invoice: React.FC = () => {
       let initialDiscount = 0;
       let initialTotalAmount = 0;
       let initialSalesman = convertFromSalesman || null;
+      let initialSourceOrderId: string | null = null;
+      let initialSourcePoId: string | null = null;
+
+      if (convertFromOrder) {
+        initialSourceOrderId = convertFromOrder.id || null;
+      }
+      if (convertFromPO) {
+        initialSourcePoId = convertFromPO.id || null;
+        if (!initialSourceOrderId) {
+          initialSourceOrderId = convertFromOrder?.id || convertFromPO.sourceOrderId || null;
+        }
+      }
 
       if (convertFromOrder && convertFromOrder.items && convertFromOrder.items.length > 0) {
         // Build customer object from order fields
@@ -179,32 +197,73 @@ const Invoice: React.FC = () => {
           city: convertFromOrder.customerCity,
         };
 
-        // Build items: convert % discount to LKR amount for the invoice backend
+        // Build items preserving exact discountType, discountScope, and discountValue
         initialInvoiceItems = convertFromOrder.items.map((p, idx) => {
-          const subtotalBeforeDiscount = p.quantity * p.unitPrice;
-          // OrderItem.discount is stored as a percentage (0-100)
-          const discountLkr = subtotalBeforeDiscount * (p.discount / 100);
-          const total = Math.max(0, subtotalBeforeDiscount - discountLkr);
+          const qty = p.quantity || 0;
+          const unitPrice = p.unitPrice || 0;
+          const subtotalBeforeDiscount = qty * unitPrice;
+          const discType = p.discountType || 'percentage';
+          const discScope = p.discountScope || 'per_unit';
+          const discVal = p.discountValue !== undefined ? Number(p.discountValue) : (Number(p.discount) || 0);
+
+          let calculatedDiscountAmount = 0;
+          if (discVal > 0 && unitPrice > 0 && qty > 0) {
+            if (discType === 'percentage') {
+              const pct = Math.min(100, Math.max(0, discVal));
+              if (discScope === 'per_unit') {
+                calculatedDiscountAmount = unitPrice * (pct / 100) * qty;
+              } else {
+                calculatedDiscountAmount = subtotalBeforeDiscount * (pct / 100);
+              }
+            } else {
+              if (discScope === 'per_unit') {
+                calculatedDiscountAmount = Math.min(unitPrice, discVal) * qty;
+              } else {
+                calculatedDiscountAmount = Math.min(subtotalBeforeDiscount, discVal);
+              }
+            }
+          }
+
+          const lineTotal = p.total !== undefined ? p.total : Math.max(0, subtotalBeforeDiscount - calculatedDiscountAmount);
+
+          const normalizedScope = discScope === 'total' ? 'total_qty' : (discScope as 'per_unit' | 'total_qty');
+
           return {
             id: `inv-item-${Date.now()}-${idx}`,
             inventoryItemId: p.inventoryItemId || p.id,
             itemName: p.productName,
             itemCode: p.sku,
             productCode: p.sku,
-            quantity: p.quantity,
-            unitPrice: p.unitPrice,
-            discountType: 'percentage' as const,
-            discountScope: 'per_unit' as const,
-            discountValue: p.discount,             // keep % for display
-            discountAmount: discountLkr,            // LKR amount for calculation
-            discount: discountLkr,                  // what backend expects
-            total,
+            quantity: qty,
+            unitPrice: unitPrice,
+            discountType: discType as 'percentage' | 'amount',
+            discountScope: normalizedScope,
+            discountValue: discVal,
+            discountAmount: calculatedDiscountAmount,
+            discount: calculatedDiscountAmount,
+            total: lineTotal,
           };
         });
 
-        initialSubTotal = initialInvoiceItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-        initialDiscount = convertFromOrder.totalDiscount;
-        initialTotalAmount = convertFromOrder.grandTotal;
+        const itemsSubtotal = initialInvoiceItems.reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        const lineDiscountTotal = initialInvoiceItems.reduce((s, i) => s + (i.discountAmount || 0), 0);
+        const subTotalAfterLineDiscounts = Math.max(0, itemsSubtotal - lineDiscountTotal);
+
+        const orderDiscountType = convertFromOrder.totalDiscountType || 'percentage';
+        const orderDiscountVal = convertFromOrder.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0;
+        let calculatedOrderDiscount = 0;
+
+        if (orderDiscountVal > 0) {
+          if (orderDiscountType === 'percentage') {
+            calculatedOrderDiscount = subTotalAfterLineDiscounts * (Math.min(100, orderDiscountVal) / 100);
+          } else {
+            calculatedOrderDiscount = Math.min(subTotalAfterLineDiscounts, orderDiscountVal);
+          }
+        }
+
+        initialSubTotal = subTotalAfterLineDiscounts;
+        initialDiscount = calculatedOrderDiscount;
+        initialTotalAmount = Math.max(0, subTotalAfterLineDiscounts - calculatedOrderDiscount);
         initialNotes = `Converted from Order #${convertFromOrder.orderNumber}`;
 
         // Use salesman from order if available
@@ -234,6 +293,28 @@ const Invoice: React.FC = () => {
         initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
         initialSubTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
         initialTotalAmount = initialSubTotal;
+      } else if (location.state?.convertFromQuotation) {
+        const quot = location.state.convertFromQuotation;
+        initialCustomer = typeof quot.customer === 'object' && quot.customer ? quot.customer : (quot.customerDetails || '');
+        initialInvoiceItems = (quot.items || []).map((it: any, idx: number) => ({
+          id: `inv-item-${Date.now()}-${idx}`,
+          inventoryItemId: it.inventoryItemId || it.id,
+          itemName: it.itemName || it.inventoryItem?.productName || 'Item',
+          itemCode: it.productCode || it.inventoryItem?.productCode || '',
+          productCode: it.productCode || it.inventoryItem?.productCode || '',
+          quantity: it.quantity || 1,
+          unitPrice: it.unitPrice || 0,
+          discountType: 'percentage' as const,
+          discountScope: 'per_unit' as const,
+          discountValue: 0,
+          discountAmount: it.discount || 0,
+          discount: it.discount || 0,
+          total: it.total || ((it.quantity || 1) * (it.unitPrice || 0) - (it.discount || 0)),
+        }));
+        initialSubTotal = quot.subTotal || initialInvoiceItems.reduce((s: number, i: any) => s + i.total, 0);
+        initialDiscount = quot.discount || 0;
+        initialTotalAmount = quot.totalAmount || Math.max(0, initialSubTotal - initialDiscount);
+        initialNotes = `Converted from Quotation #${quot.quotationNumber}`;
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
@@ -246,9 +327,14 @@ const Invoice: React.FC = () => {
         items: initialInvoiceItems,
         subTotal: initialSubTotal || subTotal,
         discount: initialDiscount,
+        totalDiscountType: convertFromOrder?.totalDiscountType || 'percentage',
+        totalDiscountValue: convertFromOrder?.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0,
+        discountPercentage: convertFromOrder?.totalDiscountType === 'percentage' ? (convertFromOrder.totalDiscountValue || 0) : 0,
         totalAmount: initialTotalAmount || subTotal,
         notes: initialNotes,
         salesman: initialSalesman,
+        sourceOrderId: initialSourceOrderId,
+        sourcePoId: initialSourcePoId,
       };
       setInvoiceData(initialInvoiceData);
       lastSavedRef.current = null;
@@ -531,6 +617,7 @@ const Invoice: React.FC = () => {
         inventoryItemId: item.inventoryItemId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discount: item.discountAmount || item.discount || 0,
         total: item.total
       })),
       subTotal: data.subTotal,
@@ -549,6 +636,14 @@ const Invoice: React.FC = () => {
     // Add optional fields only if they exist
     if (data.notes && data.notes.trim()) {
       backendData.notes = data.notes;
+    }
+
+    if (data.sourceOrderId) {
+      backendData.sourceOrderId = data.sourceOrderId;
+    }
+
+    if (data.sourcePoId) {
+      backendData.sourcePoId = data.sourcePoId;
     }
 
     if (data.bankDepositDate && data.bankDepositDate.trim()) {
@@ -891,6 +986,8 @@ const Invoice: React.FC = () => {
         dueDate: formatDateForInput(fullInvoiceData.dueDate),
         vehicleNumber: fullInvoiceData.vehicleNumber || '',
         notes: fullInvoiceData.notes || '',
+        sourceOrderId: fullInvoiceData.sourceOrderId || null,
+        sourcePoId: fullInvoiceData.sourcePoId || null,
         applyVat: fullInvoiceData.applyVat ?? false,
         vatAmount: fullInvoiceData.vatAmount || 0,
         taxRate: fullInvoiceData.taxRate || 0,
@@ -921,9 +1018,10 @@ const Invoice: React.FC = () => {
   const handleDeleteInvoice = async (id: string, invoiceNumber: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: "Delete Invoice",
-      message: `Are you sure you want to delete invoice ${invoiceNumber}? This action cannot be undone.`,
-      confirmText: "Delete",
+      title: "Delete Invoice?",
+      message: `Are you sure you want to delete Invoice "${invoiceNumber}"? This will permanently remove the invoice and any associated payment records. This action cannot be undone.`,
+      confirmText: "Delete Invoice",
+      cancelText: "Cancel",
       type: "danger",
       onConfirm: async () => {
         try {
@@ -1361,7 +1459,7 @@ const Invoice: React.FC = () => {
                                                  },
                                                },
                                                {
-                                                 label: 'Edit Invoice',
+                                                 label: isInvoiceEditable(inv.paymentStatus, inv.status) ? 'Edit Invoice' : 'View Invoice',
                                                  icon: <Edit size={13} />,
                                                  variant: 'purple',
                                                  onClick: () => {

@@ -42,6 +42,48 @@ export const orderService = {
     return mapOrder(await res.json());
   },
 
+  async update(id: string, orderData: Partial<Order>): Promise<Order> {
+    const res = await fetch(`${API_BASE}/orders/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(orderData),
+    });
+    if (!res.ok) throw new Error(`Failed to update order`);
+    return mapOrder(await res.json());
+  },
+
+  async getConnectedDocs(id: string): Promise<{ po: any | null; invoices: any[] }> {
+    const res = await fetch(`${API_BASE}/orders/${id}/connected-docs`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch connected documents`);
+    return res.json();
+  },
+
+  async disconnect(id: string, orderData?: Partial<Order>): Promise<Order> {
+    const res = await fetch(`${API_BASE}/orders/${id}/disconnect`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(orderData || {}),
+    });
+    if (!res.ok) throw new Error(`Failed to disconnect order`);
+    return mapOrder(await res.json());
+  },
+
+  async syncConnected(id: string, orderData: Partial<Order>): Promise<Order> {
+    const res = await fetch(`${API_BASE}/orders/${id}/sync-connected`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(orderData),
+    });
+    if (!res.ok) throw new Error(`Failed to sync connected documents`);
+    return mapOrder(await res.json());
+  },
+
   async updateStatus(id: string, status: string, notes?: string): Promise<Order> {
     const res = await fetch(`${API_BASE}/orders/${id}/status`, {
       method: 'PATCH',

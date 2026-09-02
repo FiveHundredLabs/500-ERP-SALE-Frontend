@@ -78,7 +78,7 @@ export interface InvoiceItem {
   description?: string;
   costPrice?: number;
   discountType?: 'percentage' | 'amount';
-  discountScope?: 'per_unit' | 'total_qty';
+  discountScope?: 'per_unit' | 'total_qty' | 'total';
   discountValue?: number;
   discountAmount?: number;
 }
@@ -105,6 +105,8 @@ export interface InvoiceData {
   dueDate: string;
   vehicleNumber: string;
   notes?: string;
+  sourceOrderId?: string | null;
+  sourcePoId?: string | null;
   applyVat: boolean;
   vatAmount: number;
   taxRate: number;
@@ -139,6 +141,8 @@ export interface InvoiceResponse {
   dueDate: string;
   vehicleNumber: string;
   notes?: string;
+  sourceOrderId?: string | null;
+  sourcePoId?: string | null;
   applyVat: boolean;
   vatAmount: number;
   taxRate: number;
@@ -172,6 +176,8 @@ export interface BackendInvoiceData {
   issueDate?: string;
   dueDate?: string;
   notes?: string;
+  sourceOrderId?: string | null;
+  sourcePoId?: string | null;
   bankDepositDate?: string;
   applyVat?: boolean;
   vatAmount?: number;

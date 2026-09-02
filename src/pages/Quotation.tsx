@@ -22,9 +22,11 @@ import {
   Check,
   Share2,
   ShoppingCart,
+  ShoppingBag,
   MessageCircle,
   RotateCcw,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import QuotationForm from "../components/quotation/QuotationForm";
 import QuotationViewModal from "../components/quotation/QuotationViewModal";
 import type {
@@ -45,8 +47,11 @@ import CustomConfirm from "../components/CustomConfirm";
 import UserProfileDropdown from "../components/UserProfileDropdown";
 import ThemeToggle from "../components/ThemeToggle";
 import { purchaseOrderService } from "../services/PurchaseOrderService";
+import { orderService } from "../services/OrderService";
 import type { PurchaseOrder } from "../types/purchaseOrders";
+import type { Order } from "../types/orders";
 import CreatePOModal, { type POInitialData, type POConversionItem } from "../components/orders/CreatePOModal";
+import CreateOrderModal from "../components/orders/CreateOrderModal";
 
 const Quotation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -61,8 +66,11 @@ const Quotation: React.FC = () => {
   const lastSavedRef = useRef<QuotationData | null>(null);
   const lastSavedAtRef = useRef<string | null>(null);
 
-  const [poModalInitialData, setPoModalInitialData] = useState<POInitialData | null>(null);
+  const navigate = useNavigate();
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderModalInitialData, setOrderModalInitialData] = useState<Order | null>(null);
   const [showPOModal, setShowPOModal] = useState(false);
+  const [poModalInitialData, setPoModalInitialData] = useState<POInitialData | null>(null);
 
   const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
   const [allQuotations, setAllQuotations] = useState<QuotationResponse[]>([]);
@@ -275,7 +283,6 @@ const Quotation: React.FC = () => {
       });
   };
 
-  // share quotation link
   // Preview completed quotation on-demand
   const handleOpenPreview = () => {
     if (quotationData.items.length === 0) {
@@ -691,6 +698,61 @@ const Quotation: React.FC = () => {
     setShowPOModal(true);
   };
 
+  const handleConvertQuotationToOrder = (quotation: QuotationResponse | QuotationData) => {
+    const cust = typeof quotation.customer === 'object' && quotation.customer ? quotation.customer : undefined;
+    const items = (quotation.items || []).map((it: any) => ({
+      id: it.inventoryItemId || it.id || Date.now().toString(),
+      inventoryItemId: it.inventoryItemId || it.id,
+      sku: it.productCode || it.inventoryItem?.productCode || 'ITEM',
+      productName: it.itemName || it.inventoryItem?.productName || 'Product',
+      quantity: it.quantity || 1,
+      unit: 'PCS',
+      unitPrice: it.unitPrice || 0,
+      discount: it.discount || 0,
+      discountType: 'percentage' as const,
+      discountScope: 'per_unit' as const,
+      discountValue: 0,
+      discountAmount: it.discount || 0,
+      tax: 0,
+      subTotal: (it.quantity || 1) * (it.unitPrice || 0),
+      total: it.total || ((it.quantity || 1) * (it.unitPrice || 0) - (it.discount || 0)),
+    }));
+
+    const draftOrder: Order = {
+      id: Date.now().toString(),
+      orderNumber: `ORD-${10025 + Math.floor(Math.random() * 9000)}`,
+      orderDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      customerId: cust?.id || String(quotation.customer || ''),
+      customerName: cust?.shopName || cust?.fullName || 'Customer',
+      contactPerson: cust?.contactPerson || '',
+      contactPhone: cust?.phone || '',
+      customerAddress: cust?.address || '',
+      customerCity: cust?.city || '',
+      items,
+      numberOfProducts: items.length,
+      subTotal: quotation.subTotal || items.reduce((s: number, i: any) => s + i.total, 0),
+      totalDiscount: quotation.discount || 0,
+      totalTax: 0,
+      grandTotal: quotation.totalAmount || quotation.subTotal || 0,
+      status: 'pending',
+      paymentStatus: 'unpaid',
+      notes: `Converted from Quotation #${quotation.quotationNumber}`,
+    };
+
+    setOrderModalInitialData(draftOrder);
+    setShowOrderModal(true);
+  };
+
+  const handleConvertQuotationToInvoice = (quotation: QuotationResponse | QuotationData) => {
+    navigate('/invoice', {
+      state: {
+        convertFromQuotation: quotation,
+      },
+    });
+  };
+
   const handlePOSubmit = async (newPO: PurchaseOrder) => {
     try {
       await purchaseOrderService.create(newPO);
@@ -826,6 +888,28 @@ const Quotation: React.FC = () => {
                   const isQuotationSaved = Boolean(quotationData.id);
                   return (
                     <>
+                      <button
+                        type="button"
+                        onClick={() => handleConvertQuotationToOrder(quotationData)}
+                        disabled={!isQuotationSaved || isLoading || isSaving}
+                        className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Sales Order"}
+                      >
+                        <ShoppingBag className="w-4 h-4" />
+                        <span className="hidden sm:inline">Convert to Order</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleConvertQuotationToInvoice(quotationData)}
+                        disabled={!isQuotationSaved || isLoading || isSaving}
+                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Invoice"}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span className="hidden sm:inline">Convert to Invoice</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleConvertQuotationToPO(quotationData)}
@@ -1035,9 +1119,25 @@ const Quotation: React.FC = () => {
                                       </button>
 
                                       <button
+                                        onClick={() => handleConvertQuotationToOrder(quotation)}
+                                        title="Convert to Sales Order"
+                                        className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition cursor-pointer"
+                                      >
+                                        <ShoppingBag className="w-4 h-4" />
+                                      </button>
+
+                                      <button
+                                        onClick={() => handleConvertQuotationToInvoice(quotation)}
+                                        title="Convert to Invoice"
+                                        className="p-2 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                      </button>
+
+                                      <button
                                         onClick={() => handleConvertQuotationToPO(quotation)}
                                         title="Convert to Purchase Order"
-                                        className="p-2 rounded-md text-amber-400 hover:bg-amber-500/20 transition"
+                                        className="p-2 rounded-md text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
                                       >
                                         <ShoppingCart className="w-4 h-4" />
                                       </button>
@@ -1234,7 +1334,7 @@ const Quotation: React.FC = () => {
         />
 
         {/* Convert to PO Modal */}
-        {showPOModal && (
+        {showPOModal && poModalInitialData && (
           <CreatePOModal
             isOpen={showPOModal}
             onClose={() => {
@@ -1243,6 +1343,35 @@ const Quotation: React.FC = () => {
             }}
             onSubmit={handlePOSubmit}
             initialData={poModalInitialData}
+          />
+        )}
+
+        {/* Convert to Order Modal */}
+        {showOrderModal && (
+          <CreateOrderModal
+            isOpen={showOrderModal}
+            onClose={() => {
+              setShowOrderModal(false);
+              setOrderModalInitialData(null);
+            }}
+            onSubmit={async (orderPayload) => {
+              try {
+                const res = await orderService.create(orderPayload);
+                setShowOrderModal(false);
+                setOrderModalInitialData(null);
+                setAlert({
+                  type: 'success',
+                  message: `Order ${res.orderNumber} created successfully from Quotation!`,
+                });
+                return res;
+              } catch (err: any) {
+                setAlert({
+                  type: 'error',
+                  message: err?.message || 'Failed to create order from quotation',
+                });
+              }
+            }}
+            initialOrder={orderModalInitialData}
           />
         )}
       </div>

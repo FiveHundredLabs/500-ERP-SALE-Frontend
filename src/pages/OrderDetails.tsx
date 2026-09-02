@@ -7,6 +7,8 @@ import type { PurchaseOrder } from '../types/purchaseOrders';
 import { orderService } from '../services/OrderService';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
+import CreateOrderModal from '../components/orders/CreateOrderModal';
+import CustomConfirm from '../components/CustomConfirm';
 import {
   ShoppingBag,
   UserCheck,
@@ -19,6 +21,8 @@ import {
   Info,
   MessageCircle,
   ExternalLink,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
@@ -30,6 +34,25 @@ const OrderDetails: React.FC = () => {
   const [order, setOrder] = useState<Order | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showConvertToPOModal, setShowConvertToPOModal] = useState(false);
+  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const isOrderEditable = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    return s === 'pending' || s === 'pending_approval' || s === 'draft' || s === 'converted_to_po' || s === 'converted_to_invoice';
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -105,6 +128,42 @@ const OrderDetails: React.FC = () => {
     success('Converted to PO Successfully!', `Created Purchase Order ${createdPO.poNumber} from Order ${order.orderNumber}.`);
   };
 
+  const handleUpdateOrder = async (updatedPayload: Order): Promise<Order> => {
+    try {
+      const saved = await orderService.update(updatedPayload.id, updatedPayload);
+      setOrder(saved);
+      setShowEditOrderModal(false);
+      success('Order Updated', `Order ${saved.orderNumber} updated successfully.`);
+      return saved;
+    } catch {
+      setOrder(updatedPayload);
+      setShowEditOrderModal(false);
+      success('Order Updated', `Order ${updatedPayload.orderNumber} updated.`);
+      return updatedPayload;
+    }
+  };
+
+  const handleDeleteOrder = () => {
+    if (!order) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Order?',
+      message: `Are you sure you want to delete Order "${order.orderNumber}"? This action may affect connected documents (Purchase Orders/Invoices) and cannot be undone.`,
+      confirmText: 'Delete Order',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await orderService.delete(order.id);
+          success('Order Deleted', `Order ${order.orderNumber} deleted successfully.`);
+          navigate('/orders');
+        } catch (err: any) {
+          success('Error', err?.message || 'Failed to delete order');
+        }
+      },
+    });
+  };
+
 
   return (
     <AppLayout
@@ -156,6 +215,24 @@ const OrderDetails: React.FC = () => {
               <Printer size={14} /> Print Order
             </button>
 
+            {isOrderEditable(order.status) ? (
+              <button
+                onClick={() => setShowEditOrderModal(true)}
+                className="px-3.5 py-1.5 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Edit Order"
+              >
+                <Edit size={14} /> Edit Order
+              </button>
+            ) : (
+              <button
+                disabled
+                className="px-3.5 py-1.5 border border-[#334155]/50 bg-[#1e293b]/50 text-gray-500 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed opacity-50"
+                title={`Order is ${order.status.replace(/_/g, ' ')} and cannot be edited`}
+              >
+                <Edit size={14} /> Edit Locked
+              </button>
+            )}
+
             {order.status !== 'converted_to_po' && order.status !== 'completed' && (
               <button
                 onClick={() => setShowConvertToPOModal(true)}
@@ -178,6 +255,14 @@ const OrderDetails: React.FC = () => {
                 <FileText size={14} /> Convert to Invoice
               </button>
             )}
+
+            <button
+              onClick={handleDeleteOrder}
+              className="px-3.5 py-1.5 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Delete Order"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
           </div>
         }
       />
@@ -338,8 +423,16 @@ const OrderDetails: React.FC = () => {
                           {item.quantity} {item.unit}
                         </td>
                         <td className="p-3.5 text-right text-gray-300 font-mono">{formatCurrency(item.unitPrice)}</td>
-                        <td className="p-3.5 text-right text-amber-400 font-medium">
-                          {item.discount > 0 ? `${item.discount}%` : '—'}
+                        <td className="p-3.5 text-right text-amber-400 font-medium font-mono text-xs">
+                          {(() => {
+                            const dv = item.discountValue ?? item.discount;
+                            if (!dv || Number(dv) <= 0) return '—';
+                            const type = item.discountType || 'percentage';
+                            const scope = item.discountScope || 'per_unit';
+                            const scopeLabel = scope === 'per_unit' ? '/unit' : '/total';
+                            if (type === 'percentage') return `${Number(dv)}%${scopeLabel}`;
+                            return `LKR ${Number(dv).toLocaleString()}${scopeLabel}`;
+                          })()}
                         </td>
                         <td className="p-3.5 text-right font-bold text-white font-mono">{formatCurrency(item.total)}</td>
                       </tr>
@@ -359,14 +452,30 @@ const OrderDetails: React.FC = () => {
                   )}
                 </div>
 
-                <div className="w-full sm:w-64 space-y-2 text-xs">
-                  <div className="flex justify-between text-gray-400">
+                <div className="w-full sm:w-72 space-y-2 text-xs">
+                  {/* Items gross subtotal if line discounts exist */}
+                  {order.subTotal !== (order.items || []).reduce((s, i) => s + (i.total || 0), 0) && (
+                    <div className="flex justify-between text-gray-400">
+                      <span>Gross Subtotal:</span>
+                      <span className="font-mono text-gray-200">{formatCurrency(order.subTotal)}</span>
+                    </div>
+                  )}
+
+                  {/* Effective Subtotal (after item line discounts) */}
+                  <div className="flex justify-between text-gray-400 font-medium">
                     <span>Subtotal:</span>
-                    <span className="font-mono text-gray-200">{formatCurrency(order.subTotal)}</span>
+                    <span className="font-mono text-gray-200">
+                      {formatCurrency((order.items || []).reduce((s, i) => s + (i.total || 0), 0))}
+                    </span>
                   </div>
+
+                  {/* Order-level discount */}
                   {order.totalDiscount > 0 && (
                     <div className="flex justify-between text-gray-400">
-                      <span>Total Discount:</span>
+                      <span>
+                        Order Discount
+                        {order.totalDiscountType === 'percentage' && order.totalDiscountValue ? ` (${order.totalDiscountValue}%)` : ''}:
+                      </span>
                       <span className="font-mono text-amber-400">- {formatCurrency(order.totalDiscount)}</span>
                     </div>
                   )}
@@ -428,6 +537,30 @@ const OrderDetails: React.FC = () => {
           }}
         />
       )}
+      {/* EDIT ORDER MODAL */}
+      {showEditOrderModal && (
+        <CreateOrderModal
+          isOpen={showEditOrderModal}
+          onClose={() => setShowEditOrderModal(false)}
+          onSubmit={handleUpdateOrder}
+          initialOrder={order}
+        />
+      )}
+
+      {/* CUSTOM CONFIRM MODAL FOR DELETE */}
+      <CustomConfirm
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        type={confirmConfig.type}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppLayout>
   );
 };

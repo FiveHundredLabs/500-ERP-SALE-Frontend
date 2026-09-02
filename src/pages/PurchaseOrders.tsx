@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { Eye, Download, ShoppingCart, Plus, Edit, FileText, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
+import CustomConfirm from '../components/CustomConfirm';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
@@ -29,6 +30,25 @@ const PurchaseOrders: React.FC = () => {
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const isPOEditable = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    return s !== 'completed' && s !== 'paid' && s !== 'cancelled';
+  };
 
   const fetchPOs = async () => {
     setLoading(true);
@@ -293,13 +313,51 @@ const PurchaseOrders: React.FC = () => {
             >
               <Eye size={14} />
             </button>
+            {isPOEditable(row.status) ? (
+              <button
+                onClick={() => setSelectedPOToUpdate(row)}
+                className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm cursor-pointer"
+                title="Edit Purchase Order"
+                aria-label="Edit Purchase Order"
+              >
+                <Edit size={14} />
+              </button>
+            ) : (
+              <button
+                disabled
+                className="p-1.5 rounded-lg border border-[#334155]/50 bg-[#1e293b]/50 text-gray-600 transition shadow-sm cursor-not-allowed opacity-40"
+                title={`PO is ${row.status.replace(/_/g, ' ')} and cannot be edited`}
+                aria-label="Edit Locked"
+              >
+                <Edit size={14} />
+              </button>
+            )}
+
             <button
-              onClick={() => setSelectedPOToUpdate(row)}
-              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 transition shadow-sm"
-              title="Edit Purchase Order"
-              aria-label="Edit Purchase Order"
+              onClick={() => {
+                setConfirmConfig({
+                  isOpen: true,
+                  title: 'Delete Purchase Order?',
+                  message: `Are you sure you want to delete PO "${row.poNumber}"? If this PO is linked to a Sales Order, the link will be detached. This action cannot be undone.`,
+                  confirmText: 'Delete PO',
+                  cancelText: 'Cancel',
+                  type: 'danger',
+                  onConfirm: async () => {
+                    try {
+                      await purchaseOrderService.delete(row.id);
+                      setPurchaseOrders(prev => prev.filter(p => p.id !== row.id));
+                      success('PO Deleted', `Purchase Order ${row.poNumber} deleted.`);
+                    } catch (err: any) {
+                      success('Error', err?.message || 'Failed to delete PO');
+                    }
+                  },
+                });
+              }}
+              className="p-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition shadow-sm cursor-pointer"
+              title="Delete Purchase Order"
+              aria-label="Delete Purchase Order"
             >
-              <Edit size={14} />
+              <Trash2 size={14} />
             </button>
             <button
               onClick={async () => {
@@ -431,6 +489,20 @@ const PurchaseOrders: React.FC = () => {
         onClose={() => setSelectedPOToUpdate(null)}
         onSubmit={handleUpdatePO}
         poToEdit={selectedPOToUpdate}
+      />
+      {/* Custom Confirm Modal for Delete */}
+      <CustomConfirm
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        type={confirmConfig.type}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </AppLayout>
   );

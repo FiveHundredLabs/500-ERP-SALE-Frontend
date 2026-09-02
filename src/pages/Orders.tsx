@@ -4,8 +4,9 @@ import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import type { Order } from '../types/orders';
-import { Eye, Download, ShoppingBag, Plus, MessageCircle } from 'lucide-react';
+import { Eye, Edit, Download, ShoppingBag, Plus, MessageCircle, Trash2 } from 'lucide-react';
 import CreateOrderModal from '../components/orders/CreateOrderModal';
+import CustomConfirm from '../components/CustomConfirm';
 import { orderService } from '../services/OrderService';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
 
@@ -28,6 +29,26 @@ const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const isOrderEditable = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    return s === 'pending' || s === 'pending_approval' || s === 'draft' || s === 'converted_to_po' || s === 'converted_to_invoice';
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -145,15 +166,48 @@ const Orders: React.FC = () => {
     success('Export Completed', `Exported ${sortedOrders.length} orders to CSV.`);
   };
 
-  const handleCreateOrder = async (newOrder: Order): Promise<Order> => {
+  const handleSaveOrder = async (orderPayload: Order): Promise<Order> => {
     try {
-      const created = await orderService.create(newOrder);
-      setOrders(prev => [created, ...prev.filter(o => o.id !== newOrder.id)]);
-      return created;
+      const isExisting = orders.some(o => o.id === orderPayload.id);
+      let result: Order;
+      if (isExisting) {
+        result = await orderService.update(orderPayload.id, orderPayload);
+        setOrders(prev => prev.map(o => o.id === result.id ? result : o));
+      } else {
+        result = await orderService.create(orderPayload);
+        setOrders(prev => [result, ...prev.filter(o => o.id !== result.id)]);
+      }
+      return result;
     } catch {
-      setOrders(prev => [newOrder, ...prev]);
-      return newOrder;
+      setOrders(prev => {
+        const isExisting = prev.some(o => o.id === orderPayload.id);
+        if (isExisting) {
+          return prev.map(o => o.id === orderPayload.id ? orderPayload : o);
+        }
+        return [orderPayload, ...prev];
+      });
+      return orderPayload;
     }
+  };
+
+  const handleDeleteOrder = (orderToDelete: Order) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Order?',
+      message: `Are you sure you want to delete Order "${orderToDelete.orderNumber}"? This action may affect connected documents (Purchase Orders/Invoices) and cannot be undone.`,
+      confirmText: 'Delete Order',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await orderService.delete(orderToDelete.id);
+          setOrders(prev => prev.filter(o => o.id !== orderToDelete.id));
+          success('Order Deleted', `Order ${orderToDelete.orderNumber} deleted successfully.`);
+        } catch (err: any) {
+          success('Error', err?.message || 'Failed to delete order');
+        }
+      },
+    });
   };
 
   const formatCurrency = (val: number) =>
@@ -255,16 +309,47 @@ const Orders: React.FC = () => {
               const url = getWhatsAppUrl(row.contactPhone || '', text);
               window.open(url, '_blank');
             }}
-            className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs"
+            className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
             title="Share on WhatsApp"
           >
             <MessageCircle size={15} />
           </button>
+          
+          {isOrderEditable(row.status) ? (
+            <button
+              onClick={() => {
+                setEditingOrder(row);
+                setShowCreateModal(true);
+              }}
+              className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+              title="Edit Order"
+            >
+              <Edit size={15} />
+            </button>
+          ) : (
+            <button
+              disabled
+              className="p-1.5 text-gray-600 rounded-lg inline-flex items-center gap-1 text-xs cursor-not-allowed opacity-40"
+              title={`Order is ${row.status.replace(/_/g, ' ')} and cannot be edited`}
+            >
+              <Edit size={15} />
+            </button>
+          )}
+
           <button
             onClick={() => navigate(`/orders/${row.id}`)}
-            className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs"
+            className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="View Order"
           >
-            <Eye size={15} /> View
+            <Eye size={15} />
+          </button>
+
+          <button
+            onClick={() => handleDeleteOrder(row)}
+            className="p-1.5 text-rose-400 hover:bg-rose-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Delete Order"
+          >
+            <Trash2 size={15} />
           </button>
         </div>
       ),
@@ -305,8 +390,11 @@ const Orders: React.FC = () => {
                 <Download size={15} /> Export CSV
               </button>
               <button
-                onClick={() => setShowCreateModal(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
+                onClick={() => {
+                  setEditingOrder(null);
+                  setShowCreateModal(true);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
               >
                 <Plus size={15} /> New Order
               </button>
@@ -372,11 +460,29 @@ const Orders: React.FC = () => {
         </div>
       </AppLayout>
 
-      {/* Create Order Slide-in Modal */}
+      {/* Create / Edit Order Slide-in Modal */}
       <CreateOrderModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateOrder}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditingOrder(null);
+        }}
+        onSubmit={handleSaveOrder}
+        initialOrder={editingOrder}
+      />
+      {/* Custom Confirm Modal for Delete */}
+      <CustomConfirm
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        type={confirmConfig.type}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </>
   );

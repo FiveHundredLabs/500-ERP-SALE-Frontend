@@ -12,11 +12,14 @@ import { useClickOutside } from '../../hooks/useClickOutside';
 import { useToast } from '../erp/Toast';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import CreatePOModal from './CreatePOModal';
+import ConnectedOrderEditModal, { type ConnectedDocsInfo } from './ConnectedOrderEditModal';
+import { orderService } from '../../services/OrderService';
 
 interface CreateOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (order: Order) => Promise<Order | void> | void;
+  initialOrder?: Order | null;
 }
 
 interface DraftProduct {
@@ -30,7 +33,7 @@ interface DraftProduct {
   discountScope?: 'per_unit' | 'total';
 }
 
-const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit }) => {
+const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, onSubmit, initialOrder }) => {
   const navigate = useNavigate();
   const toast = useToast();
   const today = new Date().toISOString().split('T')[0];
@@ -60,11 +63,41 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   });
   const [quickProductErrors, setQuickProductErrors] = useState<Record<string, string>>({});
 
+  // Connected documents resolution state
+  const [showConnectedModal, setShowConnectedModal] = useState(false);
+  const [connectedDocs, setConnectedDocs] = useState<ConnectedDocsInfo>({});
+  const [pendingOrderToSave, setPendingOrderToSave] = useState<Order | null>(null);
+  const [isProcessingConnected, setIsProcessingConnected] = useState(false);
+
   useEffect(() => {
     if (!isOpen) {
       setCreatedOrder(null);
+    } else if (isOpen && initialOrder) {
+      setSelectedCustomerId(initialOrder.customerId || '');
+      setCustomerSearch(initialOrder.customerName || '');
+      setSelectedSalesmanId(initialOrder.salesmanId || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.id : '') || '');
+      setSalesmanSearch(initialOrder.salesmanName || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.fullName : '') || '');
+      setOrderDate(initialOrder.orderDate ? String(initialOrder.orderDate).split('T')[0] : today);
+      setNotes(initialOrder.notes || '');
+      setTotalDiscountType(initialOrder.totalDiscountType || 'percentage');
+      setTotalDiscountValue(initialOrder.totalDiscountValue !== undefined ? Number(initialOrder.totalDiscountValue) : 0);
+      
+      const mappedProducts: DraftProduct[] = (initialOrder.items || []).map((it) => ({
+        id: it.inventoryItemId || it.id,
+        productName: it.productName,
+        quantity: it.quantity,
+        unit: 'PCS',
+        unitPrice: it.unitPrice,
+        discount: it.discountValue !== undefined ? Number(it.discountValue) : (Number(it.discount) || 0),
+        discountType: (it.discountType as 'percentage' | 'amount') || 'percentage',
+        discountScope: (it.discountScope === 'total' || it.discountScope === 'total_qty') ? 'total' : 'per_unit',
+      }));
+      setProducts(mappedProducts);
+      setCreatedOrder(null);
+    } else if (isOpen && !initialOrder) {
+      handleReset();
     }
-  }, [isOpen]);
+  }, [isOpen, initialOrder]);
 
   const customerRef = useRef<HTMLDivElement>(null);
   const salesmanRef = useRef<HTMLDivElement>(null);
@@ -319,20 +352,24 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         unit: 'PCS',
         unitPrice: p.unitPrice,
         discount: p.discountType === 'percentage' ? p.discount : (subtotal > 0 ? (discAmt / subtotal) * 100 : 0),
+        discountType: p.discountType || 'percentage',
+        discountScope: p.discountScope || 'per_unit',
+        discountValue: p.discount !== undefined ? Number(p.discount) : 0,
+        discountAmount: discAmt,
         tax: 0,
         subTotal: subtotal,
         total,
       };
     });
 
-    const orderId = `ORD-${10025 + Math.floor(Math.random() * 9000)}`;
+    const orderId = initialOrder?.orderNumber || `ORD-${10025 + Math.floor(Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
-    const newOrder: Order = {
-      id: Date.now().toString(),
+    const orderPayload: Order = {
+      id: initialOrder?.id || Date.now().toString(),
       orderNumber: orderId,
       orderDate,
-      createdAt: now,
+      createdAt: initialOrder?.createdAt || now,
       updatedAt: now,
       salesman: selectedSalesman ? { id: selectedSalesman.id, fullName: selectedSalesman.name } as any : null,
       salesmanId: selectedSalesman?.id || null,
@@ -340,22 +377,34 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       salesmanEmployeeId: selectedSalesman?.employeeId || null,
       salesmanPhone: selectedSalesman?.phone || null,
       salesmanArea: selectedSalesman?.area || null,
-      customerId: selectedCustomer!.id,
-      customerName: selectedCustomer!.shopName || selectedCustomer!.fullName || 'Customer',
-      contactPerson: selectedCustomer!.contactPerson || '',
-      contactPhone: selectedCustomer!.phone,
-      customerAddress: selectedCustomer!.address || '',
-      customerCity: selectedCustomer!.city || '',
+      customerId: selectedCustomer?.id || initialOrder?.customerId || selectedCustomerId,
+      customerName: selectedCustomer?.shopName || selectedCustomer?.fullName || initialOrder?.customerName || 'Customer',
+      contactPerson: selectedCustomer?.contactPerson || initialOrder?.contactPerson || '',
+      contactPhone: selectedCustomer?.phone || initialOrder?.contactPhone || '',
+      customerAddress: selectedCustomer?.address || initialOrder?.customerAddress || '',
+      customerCity: selectedCustomer?.city || initialOrder?.customerCity || '',
       items: orderProducts,
       numberOfProducts: orderProducts.length,
       subTotal: totals.subTotal,
       totalDiscount: totals.totalDiscount,
+      totalDiscountType: totalDiscountType,
+      totalDiscountValue: totalDiscountValue,
       totalTax: 0,
       grandTotal: totals.grandTotal,
-      status: 'pending',
-      paymentStatus: 'unpaid',
+      status: initialOrder?.status || 'pending',
+      paymentStatus: initialOrder?.paymentStatus || 'unpaid',
+      convertedPurchaseOrder: initialOrder?.convertedPurchaseOrder,
       notes,
-      timeline: [
+      timeline: initialOrder?.timeline ? [
+        ...initialOrder.timeline,
+        {
+          id: Date.now().toString(),
+          event: 'Order Updated',
+          description: 'Order details updated by Admin',
+          occurredAt: now,
+          actor: 'Admin User',
+        },
+      ] : [
         {
           id: Date.now().toString(),
           event: 'Order Created',
@@ -366,9 +415,24 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       ],
     };
 
-    let createdResult: Order = newOrder;
+    if (initialOrder) {
+      try {
+        const docs = await orderService.getConnectedDocs(initialOrder.id);
+        const hasConnected = Boolean(docs.po || (docs.invoices && docs.invoices.length > 0));
+        if (hasConnected) {
+          setConnectedDocs(docs);
+          setPendingOrderToSave(orderPayload);
+          setShowConnectedModal(true);
+          return;
+        }
+      } catch {
+        // If lookup fails or order is independent, continue with standard update
+      }
+    }
+
+    let createdResult: Order = orderPayload;
     try {
-      const res = await onSubmit(newOrder);
+      const res = await onSubmit(orderPayload);
       if (res && (res as Order).id) {
         createdResult = res as Order;
       }
@@ -376,7 +440,47 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       // ignore
     }
     setCreatedOrder(createdResult);
-    toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+    if (initialOrder) {
+      toast.success('Order Updated', `Order ${createdResult.orderNumber} updated successfully!`);
+    } else {
+      toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+    }
+  };
+
+  const handleDisconnectAndSave = async () => {
+    if (!initialOrder || !pendingOrderToSave) return;
+    try {
+      setIsProcessingConnected(true);
+      const res = await orderService.disconnect(initialOrder.id, pendingOrderToSave);
+      setShowConnectedModal(false);
+      setCreatedOrder(res);
+      await onSubmit(res);
+      toast.success('Order Disconnected', `Order ${res.orderNumber} disconnected from related PO/Invoice and returned to Pending.`);
+      handleReset();
+      onClose();
+    } catch (err: any) {
+      toast.error('Error', err?.message || 'Failed to disconnect order');
+    } finally {
+      setIsProcessingConnected(false);
+    }
+  };
+
+  const handleSyncAndSave = async () => {
+    if (!initialOrder || !pendingOrderToSave) return;
+    try {
+      setIsProcessingConnected(true);
+      const res = await orderService.syncConnected(initialOrder.id, pendingOrderToSave);
+      setShowConnectedModal(false);
+      setCreatedOrder(res);
+      await onSubmit(res);
+      toast.success('Order & Connected Docs Updated', `Order ${res.orderNumber} and connected documents synchronized successfully.`);
+      handleReset();
+      onClose();
+    } catch (err: any) {
+      toast.error('Error', err?.message || 'Failed to sync connected documents');
+    } finally {
+      setIsProcessingConnected(false);
+    }
   };
 
   const handleShareWhatsApp = (orderToShare?: Order) => {
@@ -467,8 +571,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               <ShoppingBag size={18} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Create New Order</h2>
-              <p className="text-xs text-gray-400">Fill in the details below to create a manual order</p>
+              <h2 className="text-base font-semibold text-white">
+                {initialOrder ? `Edit Order — ${initialOrder.orderNumber}` : 'Create New Order'}
+              </h2>
+              <p className="text-xs text-gray-400">
+                {initialOrder ? 'Modify products, quantities, and discounts for this order' : 'Fill in the details below to create a manual order'}
+              </p>
             </div>
           </div>
           <button
@@ -1163,18 +1271,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               <FileText size={14} /> Convert to Invoice
             </button>
 
-            {/* Create Order button / Created State */}
+            {/* Create / Update Order button */}
             {!createdOrder ? (
               <button
                 type="submit"
                 form="create-order-form"
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
               >
-                <ShoppingBag size={14} /> Create Order
+                <ShoppingBag size={14} /> {initialOrder ? 'Update Order' : 'Create Order'}
               </button>
             ) : (
               <div className="px-3.5 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 select-none">
-                <CheckCircle size={14} /> Order Created
+                <CheckCircle size={14} /> {initialOrder ? 'Order Updated' : 'Order Created'}
               </div>
             )}
           </div>
@@ -1346,6 +1454,22 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
               sellingPrice: p.unitPrice,
             })),
           }}
+        />
+      )}
+
+      {/* Connected Order Edit Resolution Modal */}
+      {showConnectedModal && pendingOrderToSave && (
+        <ConnectedOrderEditModal
+          isOpen={showConnectedModal}
+          orderNumber={pendingOrderToSave.orderNumber}
+          connectedDocs={connectedDocs}
+          onDisconnect={handleDisconnectAndSave}
+          onSync={handleSyncAndSave}
+          onCancel={() => {
+            setShowConnectedModal(false);
+            setPendingOrderToSave(null);
+          }}
+          isProcessing={isProcessingConnected}
         />
       )}
     </div>

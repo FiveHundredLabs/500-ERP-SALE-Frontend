@@ -15,9 +15,13 @@ import {
   FileText,
   PackageCheck,
   ShoppingBag,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 import { getWhatsAppUrl, generatePOWhatsAppMessage } from '../utils/whatsapp';
 import PurchaseOrderViewModal from '../components/orders/PurchaseOrderViewModal';
+import CreatePOModal from '../components/orders/CreatePOModal';
+import CustomConfirm from '../components/CustomConfirm';
 
 const PO_STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
@@ -38,7 +42,27 @@ const PurchaseOrderDetails: React.FC = () => {
   const [po, setPo] = useState<PurchaseOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const isPOEditable = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    return s !== 'completed' && s !== 'paid' && s !== 'cancelled';
+  };
 
   React.useEffect(() => {
     if (!id) return;
@@ -98,10 +122,42 @@ const PurchaseOrderDetails: React.FC = () => {
       setPo(updated);
       success('Goods Received', `PO ${po.poNumber} marked as Goods Received.`);
     } catch {
-      toastError('Update Failed', 'Could not update PO status. Please try again.');
+      toastError('Failed to update status', 'Could not mark PO as goods received. Please try again.');
     } finally {
       setUpdatingStatus(false);
     }
+  };
+
+  const handleUpdatePO = async (updatedPO: PurchaseOrder) => {
+    try {
+      const saved = await purchaseOrderService.update(updatedPO.id, updatedPO);
+      setPo(saved);
+      setShowEditModal(false);
+      success('PO Updated', `Purchase Order ${saved.poNumber} updated successfully.`);
+    } catch (err: any) {
+      toastError('Update Failed', err?.message || 'Failed to update Purchase Order');
+    }
+  };
+
+  const handleDeletePO = () => {
+    if (!po) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Purchase Order?',
+      message: `Are you sure you want to delete PO "${po.poNumber}"? If this PO is linked to a Sales Order, the link will be detached. This action cannot be undone.`,
+      confirmText: 'Delete PO',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await purchaseOrderService.delete(po.id);
+          success('PO Deleted', `Purchase Order ${po.poNumber} deleted.`);
+          navigate('/purchase-orders');
+        } catch (err: any) {
+          toastError('Error', err?.message || 'Failed to delete PO');
+        }
+      },
+    });
   };
 
   const getSalesmanFromPO = (_po: PurchaseOrder) => undefined;
@@ -196,6 +252,25 @@ const PurchaseOrderDetails: React.FC = () => {
                 <Printer size={14} /> Print
               </button>
 
+              {/* Edit PO — locked if completed/paid/cancelled */}
+              {isPOEditable(po.status) ? (
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="px-3.5 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-amber-400 hover:text-amber-300 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Edit Purchase Order"
+                >
+                  <Edit size={14} /> Edit PO
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="px-3.5 py-2 border border-[#334155]/50 bg-[#1e293b]/50 text-gray-500 rounded-lg text-sm font-semibold flex items-center gap-1.5 cursor-not-allowed opacity-50"
+                  title={`PO is ${po.status.replace(/_/g, ' ')} and cannot be edited`}
+                >
+                  <Edit size={14} /> Edit Locked
+                </button>
+              )}
+
               {/* Mark Goods Received — only shown when status allows it */}
               {po.status !== 'goods_received' && po.status !== 'completed' && po.status !== 'cancelled' && (
                 <button
@@ -214,6 +289,14 @@ const PurchaseOrderDetails: React.FC = () => {
                 title="Convert Purchase Order to Sales Invoice"
               >
                 <FileText size={15} /> Convert to Invoice
+              </button>
+
+              <button
+                onClick={handleDeletePO}
+                className="px-3 py-2 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Delete Purchase Order"
+              >
+                <Trash2 size={14} /> Delete
               </button>
 
               <button
@@ -352,6 +435,31 @@ const PurchaseOrderDetails: React.FC = () => {
         isOpen={showPrintModal}
         onClose={() => setShowPrintModal(false)}
         selectedPO={po}
+      />
+
+      {/* Edit PO Modal */}
+      {showEditModal && po && (
+        <CreatePOModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleUpdatePO}
+          poToEdit={po}
+        />
+      )}
+
+      {/* Custom Confirm Modal for Delete */}
+      <CustomConfirm
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        type={confirmConfig.type}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </AppLayout>
   );
