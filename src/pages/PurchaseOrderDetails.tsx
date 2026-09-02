@@ -246,10 +246,32 @@ const PurchaseOrderDetails: React.FC = () => {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setShowPrintModal(true)}
-                className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+                onClick={() => {
+                  const text = generatePOWhatsAppMessage({
+                    poNumber: po.poNumber,
+                    supplierName: po.supplierName,
+                    totalAmount: po.totalAmount,
+                    poDate: po.poDate ? String(po.poDate).split('T')[0] : '',
+                    itemsCount: po.totalItems || po.items?.length || 0,
+                    remarks: po.notes,
+                    shareUrl: window.location.href,
+                  });
+                  const url = getWhatsAppUrl(po.supplierPhone || '+94705787818', text);
+                  window.open(url, '_blank');
+                  success('WhatsApp Opened', `Opened chat for ${po.supplierName} (${po.supplierPhone || '+94 705787818'})`);
+                }}
+                className="px-3.5 py-2 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                title="Share Purchase Order via WhatsApp"
               >
-                <Printer size={14} /> Print
+                <MessageCircle size={15} /> WhatsApp
+              </button>
+
+              <button
+                onClick={() => setShowPrintModal(true)}
+                className="px-3.5 py-2 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                title="Preview, Download PDF or Print Purchase Order"
+              >
+                <FileText size={15} /> Preview & Print
               </button>
 
               {/* Edit PO — locked if completed/paid/cancelled */}
@@ -297,26 +319,6 @@ const PurchaseOrderDetails: React.FC = () => {
                 title="Delete Purchase Order"
               >
                 <Trash2 size={14} /> Delete
-              </button>
-
-              <button
-                onClick={() => {
-                  const message = generatePOWhatsAppMessage({
-                    poNumber: po.poNumber,
-                    supplierName: po.supplierName,
-                    totalAmount: po.totalAmount,
-                    poDate: po.poDate,
-                    itemsCount: po.items.length,
-                    remarks: po.notes,
-                    shareUrl: `${window.location.origin}/purchase-orders/view/${po.id || po.poNumber}`,
-                  });
-                  const waUrl = getWhatsAppUrl(po.supplierPhone, message);
-                  window.open(waUrl, '_blank');
-                  success('WhatsApp Shared', `Opened chat for ${po.supplierName} (${po.supplierPhone})`);
-                }}
-                className="px-3 py-2 border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
-              >
-                <MessageCircle size={14} /> Send via WhatsApp
               </button>
             </div>
           }
@@ -435,6 +437,7 @@ const PurchaseOrderDetails: React.FC = () => {
         isOpen={showPrintModal}
         onClose={() => setShowPrintModal(false)}
         selectedPO={po}
+        onShareSuccess={(msg) => success('Shared', msg)}
       />
 
       {/* Edit PO Modal */}

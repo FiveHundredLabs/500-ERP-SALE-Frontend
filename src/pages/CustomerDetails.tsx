@@ -332,6 +332,14 @@ const CustomerDetails: React.FC = () => {
       headerIcon={<Building2 size={20} className="text-blue-400" />}
       headerTitle="Customer Details"
       headerSubtitle={customer.customerCode}
+      headerRight={
+        <button
+          onClick={() => navigate('/customers')}
+          className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={13} /> Back to Customers
+        </button>
+      }
     >
       <div className="space-y-5">
         {/* ── Breadcrumb Navigation ── */}

@@ -7,6 +7,7 @@ import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Downloa
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
+import PurchaseOrderViewModal from '../components/orders/PurchaseOrderViewModal';
 import CustomConfirm from '../components/CustomConfirm';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../utils/whatsapp';
@@ -27,6 +28,7 @@ const PurchaseOrders: React.FC = () => {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPOToUpdate, setSelectedPOToUpdate] = useState<PurchaseOrder | null>(null);
+  const [selectedPOForPreview, setSelectedPOForPreview] = useState<PurchaseOrder | null>(null);
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -306,10 +308,18 @@ const PurchaseOrders: React.FC = () => {
               <MessageCircle size={14} />
             </button>
             <button
+              onClick={() => setSelectedPOForPreview(row)}
+              className="p-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white transition shadow-sm cursor-pointer"
+              title="Preview, Download PDF & Print"
+              aria-label="Preview Purchase Order"
+            >
+              <FileText size={14} />
+            </button>
+            <button
               onClick={() => navigate(`/purchase-orders/${row.id}`)}
-              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm"
-              title="View Purchase Order"
-              aria-label="View Purchase Order"
+              className="p-1.5 rounded-lg border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 hover:text-white transition shadow-sm cursor-pointer"
+              title="View PO Details"
+              aria-label="View PO Details"
             >
               <Eye size={14} />
             </button>
@@ -503,6 +513,14 @@ const PurchaseOrders: React.FC = () => {
           setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
         }}
         onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Dedicated Purchase Order Preview & Print Modal */}
+      <PurchaseOrderViewModal
+        isOpen={selectedPOForPreview !== null}
+        onClose={() => setSelectedPOForPreview(null)}
+        selectedPO={selectedPOForPreview}
+        onShareSuccess={(msg) => success('Shared', msg)}
       />
     </AppLayout>
   );

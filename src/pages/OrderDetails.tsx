@@ -170,6 +170,14 @@ const OrderDetails: React.FC = () => {
       headerIcon={<ShoppingBag size={20} className="text-blue-400" />}
       headerTitle={`Order ${order.orderNumber}`}
       headerSubtitle={`Created on ${order.orderDate ? String(order.orderDate).split('T')[0] : 'N/A'} by ${order.salesmanName || (typeof order.salesman === 'object' && order.salesman?.fullName) || 'Sales Representative'}`}
+      headerRight={
+        <button
+          onClick={() => navigate('/orders')}
+          className="px-3 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={13} /> Back to Orders
+        </button>
+      }
     >
       <PageHeader
         title={`Order: ${order.orderNumber}`}
@@ -182,12 +190,6 @@ const OrderDetails: React.FC = () => {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/orders')}
-              className="px-3.5 py-1.5 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft size={14} /> Back to Orders
-            </button>
 
             <button
               onClick={() => {
@@ -198,6 +200,7 @@ const OrderDetails: React.FC = () => {
                   orderDate: order.orderDate,
                   itemsCount: order.items?.length || 0,
                   remarks: order.notes,
+                  shareUrl: window.location.href,
                 });
                 const url = getWhatsAppUrl(order.contactPhone || '', text);
                 window.open(url, '_blank');

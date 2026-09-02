@@ -1001,7 +1001,7 @@ const Invoice: React.FC = () => {
     return invoice.customer?.shopName || invoice.customer?.fullName || 'Unknown Customer';
   };
 
-  const handleLoadInvoice = async (invoiceData: InvoiceResponse) => {
+  const handleLoadInvoice = async (invoiceData: InvoiceResponse, switchToEdit: boolean = false) => {
     try {
       // Fetch full invoice details
       let fullInvoiceData = invoiceData;
@@ -1084,16 +1084,17 @@ const Invoice: React.FC = () => {
 
       setInvoiceData(loadedData);
 
-      lastSavedRef.current = loadedData;
-      setIsDirty(false);
-      lastSavedAtRef.current = new Date().toISOString();
+      if (switchToEdit) {
+        lastSavedRef.current = loadedData;
+        setIsDirty(false);
+        lastSavedAtRef.current = new Date().toISOString();
+        setViewMode('edit');
 
-      setViewMode('edit');
-
-      setAlert({
-        type: 'success',
-        message: `Invoice ${fullInvoiceData.invoiceNumber} loaded successfully`
-      });
+        setAlert({
+          type: 'success',
+          message: `Invoice ${fullInvoiceData.invoiceNumber} loaded successfully`
+        });
+      }
     } catch (error) {
       setAlert({
         type: 'error',
@@ -1540,8 +1541,8 @@ const Invoice: React.FC = () => {
                                                  label: 'Preview & PDF',
                                                  icon: <Eye size={13} />,
                                                  variant: 'blue',
-                                                 onClick: () => {
-                                                   handleLoadInvoice(inv);
+                                                 onClick: async () => {
+                                                   await handleLoadInvoice(inv, false);
                                                    setShowPreviewModal(true);
                                                  },
                                                },
@@ -1550,15 +1551,15 @@ const Invoice: React.FC = () => {
                                                  icon: <Edit size={13} />,
                                                  variant: 'purple',
                                                  onClick: () => {
-                                                   handleLoadInvoice(inv);
+                                                   handleLoadInvoice(inv, true);
                                                  },
                                                },
                                                {
                                                  label: 'Share on WhatsApp',
                                                  icon: <MessageCircle size={13} />,
                                                  variant: 'emerald',
-                                                 onClick: () => {
-                                                   handleLoadInvoice(inv);
+                                                 onClick: async () => {
+                                                   await handleLoadInvoice(inv, false);
                                                    setShowPreviewModal(true);
                                                  },
                                                },
@@ -1566,8 +1567,8 @@ const Invoice: React.FC = () => {
                                                  label: 'Return Invoice',
                                                  icon: <RotateCcw size={13} />,
                                                  variant: 'amber',
-                                                 onClick: () => {
-                                                   handleLoadInvoice(inv);
+                                                 onClick: async () => {
+                                                   await handleLoadInvoice(inv, false);
                                                    setShowReturnModal(true);
                                                  },
                                                },

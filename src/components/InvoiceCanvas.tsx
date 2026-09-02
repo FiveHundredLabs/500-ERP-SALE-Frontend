@@ -201,11 +201,11 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
             {/* Info Grid (Customer & Salesman) */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', gap: '15px' }}>
-              {/* Customer Details Box */}
+              {/* Customer / Supplier Details Box */}
               <div style={{ flex: '2', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
                 <div style={{ marginBottom: '6px' }}>
                   <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
-                    Customer Details
+                    {documentTitle === "PURCHASE ORDER" ? "Supplier Details" : "Customer Details"}
                   </h3>
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginBottom: '3px' }}>
@@ -224,13 +224,16 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                 </div>
               </div>
 
-              {/* Salesman & Extra Details */}
+              {/* Salesman / Order Details */}
               <div style={{ flex: '1', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
                 <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
-                  Sales Details
+                  {documentTitle === "PURCHASE ORDER" ? "Order Details" : "Sales Details"}
                 </h3>
                 <div style={{ fontSize: '13px', color: '#475569', marginBottom: '5px' }}>
-                  <strong style={{ color: '#0f172a' }}>Sales Officer:</strong> {salesmanName}
+                  <strong style={{ color: '#0f172a' }}>
+                    {documentTitle === "PURCHASE ORDER" ? "Purchaser / Officer:" : "Sales Officer:"}
+                  </strong>{' '}
+                  {salesmanName || (documentTitle === "PURCHASE ORDER" ? "Procurement" : "N/A")}
                 </div>
                 {invoiceData.paymentMethod && (
                   <div style={{ fontSize: '13px', color: '#475569' }}>
@@ -405,7 +408,9 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>AUTHORIZED BY</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '25%' }}>
-                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>CUSTOMER SIGNATURE</div>
+                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>
+                    {documentTitle === "PURCHASE ORDER" ? "SUPPLIER ACCEPTANCE" : "CUSTOMER SIGNATURE"}
+                  </div>
                 </div>
               </div>
               
