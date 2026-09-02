@@ -42,6 +42,17 @@ export const purchaseOrderService = {
     return mapPurchaseOrder(await res.json());
   },
 
+  async update(id: string, poData: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
+    const res = await fetch(`${API_BASE}/purchase-orders/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(poData),
+    });
+    if (!res.ok) throw new Error(`Failed to update purchase order`);
+    return mapPurchaseOrder(await res.json());
+  },
+
   async updateStatus(id: string, status: string): Promise<PurchaseOrder> {
     const res = await fetch(`${API_BASE}/purchase-orders/${id}/status`, {
       method: 'PATCH',

@@ -7,6 +7,7 @@ import { salesOfficerService } from '../../services/SalesOfficerService';
 import type { Customer, CustomerCreateDto, CustomerStatusValue } from '../../types/customers';
 import type { SalesOfficer } from '../../types/salesOfficer';
 import { extractCityFromAddress } from '../../types/customers';
+import { getInvoiceCalculatedStatus } from '../../types/invoice';
 import { 
   Plus, 
   Eye,
@@ -49,11 +50,59 @@ const CustomersTab: React.FC = () => {
 
   const fetchCustomers = async () => {
     try {
-      const [custs, officers] = await Promise.all([
+      const [custs, officers, allInvoices] = await Promise.all([
         invoiceService.getAllCustomers(),
         salesOfficerService.getAll(),
+        invoiceService.getAll().catch(() => []),
       ]);
-      setCustomers(custs as any || []);
+
+      // Calculate live outstanding balance per customer from real invoices
+      const invoiceCustomerMap = new Map<string, { totalInvoiced: number; totalPaid: number; outstandingBalance: number }>();
+      (allInvoices || []).forEach(inv => {
+        const custId = (inv.customer as any)?.id || inv.customerId;
+        const custCode = (inv.customer as any)?.customerCode;
+        const custName = (inv.customer as any)?.shopName || (inv.customer as any)?.fullName;
+
+        const calc = getInvoiceCalculatedStatus(inv);
+        const rem = calc.remainingAmount;
+        const paid = calc.paidAmount;
+        const total = inv.totalAmount || 0;
+
+        const recordBalance = (key?: string | null) => {
+          if (!key) return;
+          const k = key.trim().toLowerCase();
+          const prev = invoiceCustomerMap.get(k) || { totalInvoiced: 0, totalPaid: 0, outstandingBalance: 0 };
+          invoiceCustomerMap.set(k, {
+            totalInvoiced: prev.totalInvoiced + total,
+            totalPaid: prev.totalPaid + paid,
+            outstandingBalance: prev.outstandingBalance + rem,
+          });
+        };
+
+        if (custId) recordBalance(custId);
+        if (custCode) recordBalance(custCode);
+        if (custName) recordBalance(custName);
+      });
+
+      const enriched = (custs as any || []).map((c: any) => {
+        const byId = c.id ? invoiceCustomerMap.get(c.id.toLowerCase()) : null;
+        const byCode = c.customerCode ? invoiceCustomerMap.get(c.customerCode.toLowerCase()) : null;
+        const byName = c.shopName ? invoiceCustomerMap.get(c.shopName.toLowerCase()) : null;
+        const stats = byId || byCode || byName;
+
+        const outstanding = stats ? stats.outstandingBalance : (c.outstandingBalance || 0);
+        const totalInvoiced = stats ? stats.totalInvoiced : (c.totalInvoiced || 0);
+        const totalPaid = stats ? stats.totalPaid : (c.totalPaid || 0);
+
+        return {
+          ...c,
+          outstandingBalance: outstanding,
+          totalInvoiced,
+          totalPaid,
+        };
+      });
+
+      setCustomers(enriched);
       setSalesOfficers(officers || []);
     } catch {
       setCustomers([]);
@@ -174,6 +223,9 @@ const CustomersTab: React.FC = () => {
       if (sortColumn === 'shopName') {
         valA = a.shopName || '';
         valB = b.shopName || '';
+      } else if (sortColumn === 'outstandingBalance') {
+        valA = Number(a.outstandingBalance || 0);
+        valB = Number(b.outstandingBalance || 0);
       }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "../components/Sidebar";
 import FinanceTable from "../components/FinanceTable";
-import PaymentModal from "../components/PaymentModal";
-import type { PaymentDetails } from "../components/PaymentModal";
+import RecordPaymentModal from "../components/RecordPaymentModal";
+import type { RecordPaymentResult } from "../components/RecordPaymentModal";
+import { getInvoiceCalculatedStatus } from "../types/invoice";
 import InvoiceViewModal from "../components/InvoiceViewModal";
 import { LoadingSpinner } from "../components/common";
 import {
@@ -240,6 +241,8 @@ const Finance: React.FC = () => {
 
   // ─── Modal State ──────────────────────────────────────────────────────────
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceResponse | null>(null);
+  const [selectedInvoiceRemaining, setSelectedInvoiceRemaining] = useState(0);
+  const [selectedInvoicePaid, setSelectedInvoicePaid] = useState(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showInvoiceView, setShowInvoiceView] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -250,10 +253,6 @@ const Finance: React.FC = () => {
     confirmText?: string; cancelText?: string; type?: "warning" | "danger" | "info";
     onConfirm: () => void;
   }>({ isOpen: false, message: "", onConfirm: () => {} });
-  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
-    method: "bank_transfer", bankName: "", accountNumber: "",
-    transactionRef: "", amount: "", transactionDate: new Date().toISOString().split("T")[0],
-  });
 
   // ─── Load Data ────────────────────────────────────────────────────────────
   const loadAll = async () => {
@@ -325,37 +324,48 @@ const Finance: React.FC = () => {
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleMarkAsPaid = (invoice: InvoiceResponse) => {
+    const calc = getInvoiceCalculatedStatus(invoice);
     setSelectedInvoice(invoice);
-    setPaymentDetails({
-      method: "bank_transfer", bankName: "", accountNumber: "", transactionRef: "",
-      amount: invoice.totalAmount.toFixed(2), transactionDate: new Date().toISOString().split("T")[0],
-    });
+    setSelectedInvoiceRemaining(calc.remainingAmount);
+    setSelectedInvoicePaid(calc.paidAmount);
     setShowPaymentModal(true);
   };
 
-  const handlePaymentSubmit = async () => {
+  const handlePaymentSubmit = async (result: RecordPaymentResult) => {
     if (!selectedInvoice) return;
     try {
       setIsProcessingPayment(true);
       const transactionId = await financeService.getNextId();
       const paymentData: FinancePaymentData = {
         transactionNumber: transactionId,
-        transactionDate: new Date(paymentDetails.transactionDate).toISOString(),
+        transactionDate: new Date(result.transactionDate).toISOString(),
         transactionType: "payment",
-        paymentMethod: paymentDetails.method,
-        bankName: paymentDetails.bankName || undefined,
-        accountNumber: paymentDetails.accountNumber || undefined,
-        transactionRef: paymentDetails.transactionRef || "PAY-" + Date.now(),
+        paymentMethod: result.method,
+        bankName: result.bankName || undefined,
+        transactionRef: result.transactionRef,
         invoiceId: selectedInvoice.id,
         invoiceNumber: selectedInvoice.invoiceNumber,
-        amount: parseFloat(paymentDetails.amount),
+        amount: result.amount,
       };
       await financeService.create(paymentData);
-      await invoiceService.updatePaymentStatus(selectedInvoice.id, "completed");
-      setAlert({ type: "success", message: "Payment recorded for " + selectedInvoice.invoiceNumber });
+      // Smart status: full payment → completed, partial → partially_paid
+      const isFullPayment = Math.abs(result.amount - selectedInvoiceRemaining) < 0.01;
+      const newStatus = isFullPayment ? "completed" : "partially_paid";
+      const newPaid = (selectedInvoice.paidAmount || 0) + result.amount;
+      const newRemaining = Math.max(0, selectedInvoice.totalAmount - newPaid);
+
+      await Promise.allSettled([
+        invoiceService.update(selectedInvoice.id, {
+          paidAmount: newPaid,
+          remainingAmount: newRemaining,
+          paymentStatus: newStatus as any,
+        }),
+        invoiceService.updatePaymentStatus(selectedInvoice.id, newStatus as any),
+      ]);
+
+      setAlert({ type: "success", message: `Payment of LKR ${Math.round(result.amount).toLocaleString()} recorded for ${selectedInvoice.invoiceNumber}` });
       await loadAll();
       setShowPaymentModal(false);
-      setPaymentDetails({ method: "bank_transfer", bankName: "", accountNumber: "", transactionRef: "", amount: "", transactionDate: new Date().toISOString().split("T")[0] });
     } catch (error: any) {
       setAlert({ type: "error", message: error?.response?.data?.message || error?.message || "Failed to process payment." });
     } finally {
@@ -610,14 +620,17 @@ const Finance: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <PaymentModal
+      <RecordPaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        selectedInvoice={selectedInvoice}
-        paymentDetails={paymentDetails}
-        onPaymentDetailsChange={details => setPaymentDetails(prev => ({ ...prev, ...details, bankName: details.bankName || "", accountNumber: details.accountNumber || "", transactionRef: details.transactionRef || "", amount: details.amount || "", transactionDate: details.transactionDate || prev.transactionDate }))}
-        onSubmit={handlePaymentSubmit}
+        onConfirm={handlePaymentSubmit}
         isProcessing={isProcessingPayment}
+        documentNumber={selectedInvoice?.invoiceNumber ?? ""}
+        partyName={(selectedInvoice?.customer as any)?.shopName || (selectedInvoice?.customer as any)?.fullName || ""}
+        totalAmount={selectedInvoice?.totalAmount ?? 0}
+        paidAmount={selectedInvoicePaid}
+        remainingAmount={selectedInvoiceRemaining}
+        mode="invoice"
       />
       <InvoiceViewModal
         isOpen={showInvoiceView}
