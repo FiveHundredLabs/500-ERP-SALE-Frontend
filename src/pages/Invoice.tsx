@@ -420,6 +420,7 @@ const Invoice: React.FC = () => {
       const paymentData: FinancePaymentData = {
         transactionNumber: transactionId,
         transactionDate: new Date(paymentDetails.transactionDate).toISOString(),
+        transactionType: 'payment',
         paymentMethod,
         bankName: paymentDetails.bankName || undefined,
         accountNumber: paymentDetails.accountNumber || undefined,
@@ -651,7 +652,7 @@ const Invoice: React.FC = () => {
       issueDate: formatDateToISO(data.issueDate),
       dueDate: (() => {
         let d = data.dueDate;
-        if (data.paymentMethod === PaymentMethod.CREDIT || data.paymentMethod === 'credit') {
+        if ((data.paymentMethod as any) === PaymentMethod.CREDIT || (data.paymentMethod as any) === 'credit') {
           const issueTime = data.issueDate ? new Date(data.issueDate).getTime() : Date.now();
           const dueTime = d ? new Date(d).getTime() : 0;
           if (!d || dueTime <= issueTime) {
@@ -1063,8 +1064,8 @@ const Invoice: React.FC = () => {
         subTotal: fullInvoiceData.subTotal,
         discount: fullInvoiceData.discount,
         discountPercentage: discountPercentage,
-        totalDiscountType: fullInvoiceData.totalDiscountType || 'percentage',
-        totalDiscountValue: fullInvoiceData.totalDiscountValue !== undefined ? fullInvoiceData.totalDiscountValue : (fullInvoiceData.discount || 0),
+        totalDiscountType: (fullInvoiceData as any).totalDiscountType || 'percentage',
+        totalDiscountValue: (fullInvoiceData as any).totalDiscountValue !== undefined ? (fullInvoiceData as any).totalDiscountValue : (fullInvoiceData.discount || 0),
         totalAmount: fullInvoiceData.totalAmount,
         paymentMethod: fullInvoiceData.paymentMethod,
         paymentStatus: fullInvoiceData.paymentStatus,
@@ -1547,7 +1548,7 @@ const Invoice: React.FC = () => {
                                                  },
                                                },
                                                {
-                                                 label: isInvoiceEditable(inv.paymentStatus, inv.status) ? 'Edit Invoice' : 'View Invoice',
+                                                 label: isInvoiceEditable(inv.paymentStatus, (inv as any).status) ? 'Edit Invoice' : 'View Invoice',
                                                  icon: <Edit size={13} />,
                                                  variant: 'purple',
                                                  onClick: () => {

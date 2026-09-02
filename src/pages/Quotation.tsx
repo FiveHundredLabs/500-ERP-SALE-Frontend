@@ -783,6 +783,7 @@ const Quotation: React.FC = () => {
       status: 'pending',
       paymentStatus: 'unpaid',
       notes: `Converted from Quotation #${quotation.quotationNumber}`,
+      timeline: [],
     };
 
     setOrderModalInitialData(draftOrder);

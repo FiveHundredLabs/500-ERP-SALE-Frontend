@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Truck,
   ArrowLeft,
-  Printer,
   MessageCircle,
   MessageSquare,
   FileText,

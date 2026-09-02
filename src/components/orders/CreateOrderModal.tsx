@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, FileCheck, FileText, CheckCircle, TrendingUp, MessageCircle } from 'lucide-react';
+import { X, Plus, Trash2, ShoppingBag, Search, ChevronDown, FileCheck, FileText, CheckCircle, TrendingUp, MessageCircle, AlertCircle } from 'lucide-react';
 import type { Order, OrderProduct } from '../../types/orders';
 import type { InventoryItem } from '../../types/inventory';
 import type { PurchaseOrder } from '../../types/purchaseOrders';

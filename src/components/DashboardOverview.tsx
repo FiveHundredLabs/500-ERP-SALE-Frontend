@@ -17,7 +17,6 @@ import {
   ShoppingBag,
   Clock,
   ShoppingCart,
-  Receipt,
   Users,
   Truck,
   UserCheck,
@@ -204,7 +203,7 @@ const DashboardOverview: React.FC = () => {
   const pendingPOCount = useMemo(
     () =>
       purchaseOrders.filter(
-        (p) => p.status === "pending_approval" || p.status === "draft" || p.status === "pending"
+        (p) => (p.status as string) === "pending_approval" || (p.status as string) === "draft" || (p.status as string) === "pending"
       ).length,
     [purchaseOrders]
   );
@@ -214,14 +213,6 @@ const DashboardOverview: React.FC = () => {
     [inventoryItems]
   );
 
-  const inventoryValue = useMemo(
-    () =>
-      inventoryItems.reduce(
-        (sum, i) => sum + (i.quantity || 0) * (i.purchasePrice || i.sellPrice || 0),
-        0
-      ),
-    [inventoryItems]
-  );
 
   // ── Operational Status Breakdown (Categories: Order Stage, PO Stage, Pending (Invoice), Overdue, Completed, Return) ──
   const operationalStatusBreakdown = useMemo(() => {

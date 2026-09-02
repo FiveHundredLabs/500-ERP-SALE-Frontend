@@ -226,7 +226,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   // Auto-correct: If invoice is Credit and dueDate is missing or identical to issueDate, auto-set to credit period (default 30d)
   useEffect(() => {
     if (
-      (invoiceData.paymentMethod === PaymentMethod.CREDIT || invoiceData.paymentMethod === 'credit') &&
+      ((invoiceData.paymentMethod as any) === PaymentMethod.CREDIT || (invoiceData.paymentMethod as any) === 'credit') &&
       invoiceData.issueDate &&
       (!invoiceData.dueDate || invoiceData.dueDate === invoiceData.issueDate)
     ) {

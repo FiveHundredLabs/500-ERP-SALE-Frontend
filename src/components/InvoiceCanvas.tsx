@@ -57,7 +57,6 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
       ? customer.fullName
       : null;
 
-  const customerCode = customer.customerCode || customer.code || null;
 
   const renderAddress = () => {
     const parts = [customer.address, customer.city].filter(Boolean);

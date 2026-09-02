@@ -27,7 +27,7 @@ export const QuotationSummary: React.FC<QuotationSummaryProps> = ({
   onTotalDiscountChange,
 }) => {
   const overallDiscountValidation = useMemo(() => {
-    if (!items.length || !totalDiscountValue) return { isValid: true };
+    if (!items.length || !totalDiscountValue) return { isValid: true, error: undefined as string | undefined };
     return validateOverallDiscount({
       items: items.map(it => {
         const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
