@@ -19,7 +19,7 @@ import {
   UserCheck, 
   MapPin, 
   ChevronDown,
-  Upload
+  // Upload
 } from 'lucide-react';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 import CustomerPdfImportModal from './CustomerPdfImportModal';
@@ -532,13 +532,13 @@ const CustomersTab: React.FC = () => {
           }}
           rightContent={
             <div className="flex items-center gap-2">
-              <button
+              {/* <button
                 onClick={() => setShowImportModal(true)}
                 className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-600/20 dark:hover:bg-purple-600/30 dark:text-purple-300 dark:border-purple-500/40 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shadow-sm active:scale-95"
                 title="Import Customers from PDF"
               >
                 <Upload size={14} /> Import Customers
-              </button>
+              </button> */}
               <button
                 onClick={() => {
                   setEditCustomer(null);

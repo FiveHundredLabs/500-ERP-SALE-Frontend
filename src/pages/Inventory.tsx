@@ -7,7 +7,7 @@ import InventoryForm from "../components/InventoryForm";
 import ProductImportModal from "../components/ProductImportModal";
 import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
-import { Package, FileSpreadsheet } from "lucide-react";
+import { Package /*, FileSpreadsheet */ } from "lucide-react";
 import { inventoryService } from "../services/InventoryService";
 import type { InventoryItem } from "../types/inventory";
 import UserProfileDropdown from "../components/UserProfileDropdown";
@@ -179,7 +179,7 @@ const Inventory: React.FC = () => {
             columns={inventoryColumns}
             columnLabels={inventoryColumnLabels}
             headerTitle="Products List"
-            customActions={
+            /* customActions={
               <button
                 onClick={() => setIsImportOpen(true)}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
@@ -187,7 +187,7 @@ const Inventory: React.FC = () => {
                 <FileSpreadsheet size={16} />
                 Import Excel
               </button>
-            }
+            } */
             onAdd={handleAddItem}
             onEdit={handleEditItem}
             onDelete={handleDeleteItem}
