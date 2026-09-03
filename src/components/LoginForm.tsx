@@ -79,7 +79,7 @@ const LoginForm: React.FC = () => {
           className="text-xs font-bold text-blue-400 tracking-[0.2em] uppercase mt-1.5"
           style={{ color: '#60a5fa' }}
         >
-          Automotive &amp; Hardware ERP Suite
+          Hardware ERP Suite
         </p>
       </div>
 
