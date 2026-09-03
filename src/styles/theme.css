@@ -81,6 +81,57 @@ html.light .flex.h-screen.bg-\[\#0f172a\] {
 }
 
 /* ====================================================
+   LOGIN PAGE — PERMANENTLY DARK (DEFAULT SYSTEM THEME)
+   ==================================================== */
+html.light .login-page,
+.login-page {
+  background-color: #0b1120 !important;
+  color: #f8fafc !important;
+}
+
+html.light .login-page h1,
+.login-page h1,
+html.light .login-page .text-white,
+.login-page .text-white {
+  color: #ffffff !important;
+}
+
+html.light .login-page p,
+.login-page p {
+  color: #94a3b8 !important;
+}
+
+html.light .login-page label,
+.login-page label {
+  color: #cbd5e1 !important;
+}
+
+html.light .login-page .login-card,
+.login-page .login-card {
+  background-color: #131d36 !important;
+  border-color: #263558 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 25px rgba(37, 99, 235, 0.08) !important;
+}
+
+html.light .login-page input,
+.login-page input {
+  background-color: #0b1120 !important;
+  border-color: #263558 !important;
+  color: #ffffff !important;
+}
+
+html.light .login-page input::placeholder,
+.login-page input::placeholder {
+  color: #64748b !important;
+}
+
+html.light .login-page button[type="submit"],
+.login-page button[type="submit"] {
+  color: #ffffff !important;
+}
+
+/* ====================================================
    SIDEBAR
    ==================================================== */
 html.light aside,
