@@ -6,8 +6,8 @@ import Logo from "../assets/logo_without_bg.png";
 
 const LoginForm: React.FC = () => {
   const [formData, setFormData] = useState({
-    email: "500labs.admin@gmail.com",
-    password: "500labs",
+    email: "",
+    password: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -105,7 +105,7 @@ const LoginForm: React.FC = () => {
           </div>
         )}
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5" onSubmit={handleSubmit} autoComplete="off">
           {/* EMAIL */}
           <div>
             <label 
@@ -121,6 +121,7 @@ const LoginForm: React.FC = () => {
               disabled={isLoading}
               value={formData.email}
               onChange={handleChange}
+              autoComplete="off"
               style={{ 
                 backgroundColor: '#0b1120', 
                 borderColor: fieldErrors.email ? '#ef4444' : '#263558', 
@@ -151,6 +152,7 @@ const LoginForm: React.FC = () => {
                 disabled={isLoading}
                 value={formData.password}
                 onChange={handleChange}
+                autoComplete="new-password"
                 style={{ 
                   backgroundColor: '#0b1120', 
                   borderColor: fieldErrors.password ? '#ef4444' : '#263558', 
