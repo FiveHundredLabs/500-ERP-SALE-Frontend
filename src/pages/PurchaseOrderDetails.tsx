@@ -253,7 +253,7 @@ const PurchaseOrderDetails: React.FC = () => {
                     poDate: po.poDate ? String(po.poDate).split('T')[0] : '',
                     itemsCount: po.totalItems || po.items?.length || 0,
                     remarks: po.notes,
-                    shareUrl: window.location.href,
+                    shareUrl: `${window.location.origin}/purchase-orders/${po.id || po.poNumber}/preview`,
                   });
                   const url = getWhatsAppUrl(po.supplierPhone || '+94705787818', text);
                   window.open(url, '_blank');
