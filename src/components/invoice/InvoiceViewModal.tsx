@@ -178,18 +178,44 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <title>Print Invoice ${invoiceData.invoiceNumber}</title>
             <style>
               @page { size: A4 portrait; margin: 0; }
-              body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
-              .page-img { width: 210mm; height: 297mm; object-fit: contain; page-break-after: always; display: block; }
-              .page-img:last-child { page-break-after: auto; }
+              body {
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: #fff;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              .page-img {
+                width: 210mm;
+                height: 297mm;
+                object-fit: contain;
+                page-break-after: always;
+                display: block;
+              }
+              .page-img:last-child {
+                page-break-after: auto;
+              }
+              @media print {
+                body { margin: 0 !important; padding: 0 !important; }
+                .page-img { page-break-after: always; }
+                .page-img:last-child { page-break-after: auto; }
+              }
             </style>
           </head>
           <body>
             ${imgTags}
             <script>
               window.onload = function() {
-                window.print();
-                window.close();
-              }
+                setTimeout(function() {
+                  window.print();
+                  setTimeout(function() {
+                    window.close();
+                  }, 800);
+                }, 300);
+              };
             </script>
           </body>
         </html>

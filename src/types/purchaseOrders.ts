@@ -1,3 +1,5 @@
+import type { PurchaseOrderReturn } from './po-return';
+
 export const POStatus = {
   DRAFT: 'draft', PENDING_APPROVAL: 'pending_approval', APPROVED: 'approved', PROCESSING: 'processing',
   GOODS_RECEIVED: 'goods_received', PARTIALLY_RECEIVED: 'partially_received',
@@ -29,8 +31,26 @@ export interface PurchaseOrder {
   id: string;
   poNumber: string;
   sourceOrderId?: string | null;
-  sourceOrder?: { id: string; orderNumber: string } | null;
+  sourceOrder?: {
+    id: string;
+    orderNumber: string;
+    customerId?: string;
+    customerName?: string;
+    contactPerson?: string;
+    contactPhone?: string;
+    customerAddress?: string;
+    customerCity?: string;
+    salesmanId?: string;
+    salesmanName?: string;
+    customer?: any;
+    salesman?: { id: string; fullName: string; email?: string; role?: string } | null;
+    totalDiscountType?: string | null;
+    totalDiscountValue?: any;
+    totalDiscount?: any;
+    items?: any[];
+  } | null;
   sourceOrderNumber?: string;
+  customerId?: string;
   supplierId: string;
   supplierName: string;
   supplierContact: string;
@@ -62,4 +82,5 @@ export interface PurchaseOrder {
   paymentTerms: string;
   deliveryTerms?: string;
   notes?: string;
+  returns?: PurchaseOrderReturn[];
 }

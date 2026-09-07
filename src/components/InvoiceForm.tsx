@@ -15,6 +15,7 @@ import POPickerModal from "./common/POPickerModal";
 import type { PurchaseOrder } from "../types/purchaseOrders";
 import { ClipboardList, UserCheck } from "lucide-react";
 import userService from "../services/UserService";
+import { orderService } from "../services/OrderService";
 import type { User } from "../types/users";
 
 interface InvoiceFormProps {
@@ -102,21 +103,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     });
   }, []);
 
-  const handleOrderImport = useCallback((po: PurchaseOrder) => {
-    po.items.forEach(p => {
-      const lineItem: Omit<InvoiceItem, 'id' | 'total'> = {
-        inventoryItemId: p.inventoryItemId || p.id,
-        itemName: `${p.productName} (${p.sku})`,
-        quantity: p.quantityOrdered,
-        discount: p.discount || 0,
-        unitPrice: p.unitPrice,
-      };
-      onAddItem(lineItem);
-    });
 
-    setImportedOrderId(po.poNumber);
-    onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
-  }, [onFieldChange, onAddItem]);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
@@ -295,6 +282,127 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
     }
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange, salesmen, invoiceData.salesman?.id]);
+
+  const handleOrderImport = useCallback(async (po: PurchaseOrder) => {
+    setImportedOrderId(po.poNumber);
+    onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
+    if (po.id) {
+      onFieldChange('sourcePoId' as any, po.id);
+    }
+    const orderId = po.sourceOrderId || (po.sourceOrder as any)?.id;
+    if (orderId) {
+      onFieldChange('sourceOrderId' as any, orderId);
+    }
+
+    // 1. Resolve source order if available
+    let srcOrder: any = po.sourceOrder || null;
+    if ((!srcOrder?.customerId || !srcOrder?.items?.length) && orderId) {
+      try {
+        srcOrder = await orderService.getById(orderId);
+      } catch {
+        // ignore
+      }
+    }
+
+    // 2. Add PO items to invoice with discounts and prices from source order
+    const srcOrderItems = srcOrder?.items || [];
+    po.items.forEach((p, idx) => {
+      const orderItem = srcOrderItems.find((oi: any) =>
+        (oi.inventoryItemId && p.inventoryItemId && oi.inventoryItemId === p.inventoryItemId) ||
+        (oi.sku && p.sku && oi.sku.trim().toLowerCase() === p.sku.trim().toLowerCase()) ||
+        (oi.productName && p.productName && oi.productName.trim().toLowerCase() === p.productName.trim().toLowerCase())
+      ) || (srcOrderItems.length === po.items.length ? srcOrderItems[idx] : undefined);
+
+      const unitPrice = orderItem?.unitPrice !== undefined ? Number(orderItem.unitPrice) : ((p as any).sellingPrice || p.unitPrice || 0);
+      const discType = (orderItem?.discountType || 'percentage') as 'percentage' | 'amount';
+      const rawScope = orderItem?.discountScope || 'per_unit';
+      const discScope = (rawScope === 'total' || rawScope === 'total_qty') ? 'total_qty' : 'per_unit';
+      const discVal = orderItem?.discountValue !== undefined && orderItem?.discountValue !== null
+        ? Number(orderItem.discountValue)
+        : (Number(orderItem?.discount) || 0);
+
+      const qty = p.quantityOrdered;
+      let calculatedDiscountAmount = 0;
+      if (discVal > 0 && unitPrice > 0 && qty > 0) {
+        if (discType === 'percentage') {
+          const pct = Math.min(100, Math.max(0, discVal));
+          calculatedDiscountAmount = discScope === 'per_unit'
+            ? unitPrice * (pct / 100) * qty
+            : (unitPrice * qty) * (pct / 100);
+        } else {
+          calculatedDiscountAmount = discScope === 'per_unit'
+            ? Math.min(unitPrice, discVal) * qty
+            : Math.min(unitPrice * qty, discVal);
+        }
+      }
+
+      const lineItem: any = {
+        inventoryItemId: p.inventoryItemId || p.id,
+        itemName: p.productName,
+        itemCode: p.sku,
+        productCode: p.sku,
+        quantity: qty,
+        unitPrice: unitPrice,
+        costPrice: p.unitPrice,
+        discountType: discType as 'percentage' | 'amount',
+        discountScope: discScope as 'per_unit' | 'total_qty',
+        discountValue: discVal,
+        discountAmount: calculatedDiscountAmount,
+        discount: calculatedDiscountAmount,
+      };
+      onAddItem(lineItem);
+    });
+
+    // 3. Auto-fill Customer
+    let customerToSelect: Customer | null = null;
+    if (srcOrder?.customerId) {
+      customerToSelect = allCustomers.find(c => c.id === srcOrder.customerId) || null;
+      if (!customerToSelect && srcOrder.customer) {
+        customerToSelect = srcOrder.customer;
+      }
+      if (!customerToSelect) {
+        customerToSelect = {
+          id: srcOrder.customerId,
+          customerCode: srcOrder.customerId,
+          fullName: srcOrder.customerName || '',
+          shopName: srcOrder.customerName || '',
+          contactPerson: srcOrder.contactPerson || '',
+          phone: srcOrder.contactPhone || '',
+          address: srcOrder.customerAddress || '',
+          city: srcOrder.customerCity || '',
+          status: 'Active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as Customer;
+      }
+    } else if (po.customerName) {
+      customerToSelect = allCustomers.find(c =>
+        c.fullName?.toLowerCase() === po.customerName?.toLowerCase() ||
+        c.shopName?.toLowerCase() === po.customerName?.toLowerCase()
+      ) || null;
+    }
+
+    if (customerToSelect) {
+      handleCustomerSelect(customerToSelect);
+    }
+
+    // 4. Auto-fill Sales Officer from order if present
+    const salesmanId = srcOrder?.salesmanId || (srcOrder?.salesman as any)?.id;
+    const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.fullName;
+    if (salesmanId || salesmanName) {
+      const rep = salesmen.find(s => s.id === salesmanId || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
+      if (rep) {
+        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+      } else if (salesmanName) {
+        onFieldChange('salesman', { id: salesmanId || '', fullName: salesmanName, name: salesmanName } as any);
+      }
+    }
+
+    // 5. Auto-apply overall order discount if present on source order
+    if (srcOrder?.totalDiscountValue && onTotalDiscountChange) {
+      onTotalDiscountChange(srcOrder.totalDiscountType || 'percentage', Number(srcOrder.totalDiscountValue));
+    }
+  }, [onFieldChange, onAddItem, allCustomers, handleCustomerSelect, salesmen, onTotalDiscountChange]);
 
   const handleClearCustomer = useCallback(() => {
     setSelectedCustomer(null);
@@ -563,7 +671,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             {/* Sales Officer Selector */}
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer*</span>
+                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer <span className="text-red-400 font-bold">*</span></span>
               </label>
               <select
                 value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}
@@ -666,6 +774,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 />
               </div>
             )}
+          </div>
+
+          {/* Remarks / Notes (Optional) */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Remarks / Notes (optional)
+            </label>
+            <textarea
+              rows={2}
+              value={invoiceData.notes || ''}
+              onChange={(e) => onFieldChange('notes', e.target.value)}
+              placeholder="Enter remarks or notes (optional)..."
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium resize-none"
+            />
           </div>
         </div>
       </div>
