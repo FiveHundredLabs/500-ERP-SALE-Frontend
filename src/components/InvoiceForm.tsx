@@ -433,22 +433,41 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
     const { inventoryItemId, itemName, productCode, quantity, unitPrice, costPrice, discountType, discountScope, discountValue, discountAmount } = itemData;
 
-    const existingItem = invoiceData.items.find(inv => inv.inventoryItemId === inventoryItemId);
+    const existingItem = invoiceData.items.find(inv => {
+      const sameProduct =
+        (inv.inventoryItemId && inventoryItemId && inv.inventoryItemId === inventoryItemId) ||
+        (inv.itemName && itemName && inv.itemName.trim().toLowerCase() === itemName.trim().toLowerCase());
+      const samePrice = Number(inv.unitPrice) === Number(unitPrice);
+      const sameDiscType = (inv.discountType || 'percentage') === (discountType || 'percentage');
+      const sameDiscScope = (inv.discountScope || 'per_unit') === (discountScope || 'per_unit');
+      const invDiscVal = Number(inv.discountValue !== undefined ? inv.discountValue : ((inv as any).discount || 0));
+      const addDiscVal = Number(discountValue !== undefined ? discountValue : 0);
+      const sameDiscVal = Math.abs(invDiscVal - addDiscVal) < 0.0001;
+      return sameProduct && samePrice && sameDiscType && sameDiscScope && sameDiscVal;
+    });
 
     if (existingItem) {
       const updatedQty = existingItem.quantity + quantity;
-      const newTotal = updatedQty * unitPrice - discountAmount;
+      let newDiscountAmount = 0;
+      if (discountValue > 0 && unitPrice > 0) {
+        if (discountType === 'percentage') {
+          newDiscountAmount = (updatedQty * unitPrice) * (discountValue / 100);
+        } else {
+          newDiscountAmount = discountScope === 'per_unit' ? discountValue * updatedQty : discountValue;
+        }
+      }
+      const newTotal = Math.max(0, updatedQty * unitPrice - newDiscountAmount);
       onUpdateItem(existingItem.id, {
         quantity: updatedQty,
         unitPrice,
-        total: Math.max(0, newTotal),
+        total: newTotal,
         productCode,
         itemCode: productCode,
         costPrice,
         discountType,
         discountScope,
         discountValue,
-        discountAmount,
+        discountAmount: newDiscountAmount,
       });
     } else {
       onAddItem({

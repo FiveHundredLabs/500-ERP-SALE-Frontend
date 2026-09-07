@@ -371,7 +371,30 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     };
 
     const commitAdd = () => {
-      setProducts(prev => [...prev, productToAdd]);
+      setProducts(prev => {
+        const existingIdx = prev.findIndex(p => {
+          const sameProduct =
+            (p.id && productToAdd.id && p.id === productToAdd.id) ||
+            (p.productName && productToAdd.productName && p.productName.trim().toLowerCase() === productToAdd.productName.trim().toLowerCase());
+          const samePrice = Number(p.unitPrice) === Number(productToAdd.unitPrice);
+          const sameDiscType = (p.discountType || 'percentage') === (productToAdd.discountType || 'percentage');
+          const sameDiscScope = (p.discountScope || 'per_unit') === (productToAdd.discountScope || 'per_unit');
+          const pDiscVal = Number(p.discount || 0);
+          const addDiscVal = Number(productToAdd.discount || 0);
+          const sameDiscVal = Math.abs(pDiscVal - addDiscVal) < 0.0001;
+          return sameProduct && samePrice && sameDiscType && sameDiscScope && sameDiscVal;
+        });
+
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            quantity: Number(updated[existingIdx].quantity) + Number(productToAdd.quantity),
+          };
+          return updated;
+        }
+        return [...prev, productToAdd];
+      });
       setNewProduct({
         id: '',
         productName: '',
@@ -627,8 +650,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     } else {
       toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully!`);
     }
-    handleReset();
-    onClose();
   };
 
   const handleDisconnectAndSave = async () => {
@@ -654,7 +675,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   };
 
   const handleShareWhatsApp = (orderToShare?: Order) => {
-    const target = orderToShare || createdOrder;
+    const target = orderToShare || createdOrder || initialOrder;
     if (!target) return;
     const phone = target.contactPhone || selectedCustomer?.phone || '';
     const text = generateOrderWhatsAppMessage({
@@ -670,7 +691,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   };
 
   const handleConvertToPO = () => {
-    if (!createdOrder) return;
+    const target = createdOrder || initialOrder;
+    if (!target) return;
+    setCreatedOrder(target);
     setShowPOModal(true);
   };
 
@@ -688,12 +711,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   };
 
   const handleConvertToInvoice = async () => {
-    if (!createdOrder) return;
-    // Navigate to Invoice page with the order as context.
-    // The Invoice page will pre-fill the form so the user can review and save.
+    const target = createdOrder || initialOrder;
+    if (!target) return;
     handleReset();
     onClose();
-    navigate('/invoice', { state: { convertFromOrder: createdOrder } });
+    navigate('/invoice', { state: { convertFromOrder: target } });
   };
 
   const handleReset = () => {
@@ -1646,21 +1668,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         <div className="flex-shrink-0 px-6 py-4 border-t border-[#334155] bg-[#1e293b]/80 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => {
-              handleReset();
-              onClose();
-            }}
-            className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 rounded-lg text-xs font-medium transition-colors"
+            onClick={onClose}
+            className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-300 rounded-lg text-xs font-medium transition-colors cursor-pointer"
           >
-            {createdOrder ? 'Close' : 'Cancel'}
+            {createdOrder || initialOrder ? 'Close' : 'Cancel'}
           </button>
 
           <div className="flex flex-wrap items-center gap-2">
             {/* Share on WhatsApp button */}
-            {createdOrder && (
+            {(createdOrder || initialOrder) && (
               <button
                 type="button"
-                onClick={() => handleShareWhatsApp(createdOrder)}
+                onClick={() => handleShareWhatsApp(createdOrder || initialOrder || undefined)}
                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
                 title="Share order details on WhatsApp"
               >
@@ -1672,10 +1691,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             <button
               type="button"
               onClick={handleConvertToPO}
-              disabled={!createdOrder}
-              title={!createdOrder ? 'Create the order first to convert to Purchase Order' : 'Convert order to Purchase Order'}
+              disabled={!(createdOrder || initialOrder)}
+              title={!(createdOrder || initialOrder) ? 'Create the order first to convert to Purchase Order' : 'Convert order to Purchase Order'}
               className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                createdOrder
+                createdOrder || initialOrder
                   ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 cursor-pointer'
                   : 'bg-[#1e293b]/50 border border-[#334155] text-gray-500 cursor-not-allowed opacity-50'
               }`}
@@ -1687,10 +1706,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             <button
               type="button"
               onClick={handleConvertToInvoice}
-              disabled={!createdOrder}
-              title={!createdOrder ? 'Create the order first to convert to Invoice' : 'Convert order to Invoice'}
+              disabled={!(createdOrder || initialOrder)}
+              title={!(createdOrder || initialOrder) ? 'Create the order first to convert to Invoice' : 'Convert order to Invoice'}
               className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                createdOrder
+                createdOrder || initialOrder
                   ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20 cursor-pointer'
                   : 'bg-[#1e293b]/50 border border-[#334155] text-gray-500 cursor-not-allowed opacity-50'
               }`}
@@ -1699,19 +1718,13 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             </button>
 
             {/* Create / Update Order button */}
-            {!createdOrder ? (
-              <button
-                type="submit"
-                form="create-order-form"
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
-              >
-                <ShoppingBag size={14} /> {initialOrder ? 'Update Order' : 'Create Order'}
-              </button>
-            ) : (
-              <div className="px-3.5 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 select-none">
-                <CheckCircle size={14} /> {initialOrder ? 'Order Updated' : 'Order Created'}
-              </div>
-            )}
+            <button
+              type="submit"
+              form="create-order-form"
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
+            >
+              <ShoppingBag size={14} /> {createdOrder || initialOrder ? 'Update Order' : 'Create Order'}
+            </button>
           </div>
         </div>
       </div>
