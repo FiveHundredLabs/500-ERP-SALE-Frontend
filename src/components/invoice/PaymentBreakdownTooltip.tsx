@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface PaymentBreakdownTooltipProps {
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
   statusText?: string;
+  position?: 'top' | 'bottom' | 'auto';
   children: React.ReactNode;
 }
 
@@ -13,17 +14,38 @@ export const PaymentBreakdownTooltip: React.FC<PaymentBreakdownTooltipProps> = (
   paidAmount,
   remainingAmount,
   statusText,
+  position = 'bottom',
   children,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [effectivePosition, setEffectivePosition] = useState<'top' | 'bottom'>(
+    position === 'auto' ? 'bottom' : position
+  );
+
+  useEffect(() => {
+    if (isOpen && position === 'auto' && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      // If close to top of viewport (less than 220px), open downwards
+      if (rect.top < 220) {
+        setEffectivePosition('bottom');
+      } else {
+        setEffectivePosition('top');
+      }
+    } else if (position !== 'auto') {
+      setEffectivePosition(position);
+    }
+  }, [isOpen, position]);
 
   const formatCurrency = (val: number) =>
     `LKR ${Math.round(val || 0).toLocaleString()}/=`;
 
   const percentPaid = totalAmount > 0 ? Math.min(100, Math.round((paidAmount / totalAmount) * 100)) : 0;
+  const isTop = effectivePosition === 'top';
 
   return (
     <div 
+      ref={containerRef}
       className="relative inline-block"
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
@@ -31,9 +53,17 @@ export const PaymentBreakdownTooltip: React.FC<PaymentBreakdownTooltipProps> = (
       {children}
 
       {isOpen && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-60 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl p-3 text-slate-100 text-xs pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-          {/* Arrow */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-[#0b132b]" />
+        <div 
+          className={`absolute left-1/2 -translate-x-1/2 z-[100] w-64 bg-[#0b132b] border border-slate-700/90 rounded-xl shadow-2xl p-3 text-slate-100 text-xs pointer-events-none animate-in fade-in zoom-in-95 duration-150 ${
+            isTop ? 'bottom-full mb-2' : 'top-full mt-2'
+          }`}
+        >
+          {/* Arrow Indicator */}
+          {isTop ? (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-[#0b132b]" />
+          ) : (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-[1px] border-4 border-transparent border-b-[#0b132b]" />
+          )}
 
           <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-800">
             <span className="font-bold text-[11px] text-slate-300 uppercase tracking-wider">Payment Breakdown</span>

@@ -40,7 +40,7 @@ const CustomerDetails: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | undefined>(undefined);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'due_soon' | 'partially_paid' | 'paid' | 'payments' | 'orders'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'outstanding' | 'overdue' | 'due_soon' | 'partially_paid' | 'paid' | 'payments' | 'orders'>('all');
 
   // Modal states
   const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
@@ -115,6 +115,7 @@ const CustomerDetails: React.FC = () => {
   }, [invoices]);
 
   // Categorization
+  const outstandingInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'outstanding'), [trackedInvoices]);
   const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'overdue'), [trackedInvoices]);
   const dueSoonInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'due_soon'), [trackedInvoices]);
   const partiallyPaidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'partially_paid'), [trackedInvoices]);
@@ -150,12 +151,13 @@ const CustomerDetails: React.FC = () => {
 
   // Filtered invoices by active tab
   const filteredInvoices = useMemo(() => {
+    if (activeTab === 'outstanding') return outstandingInvoices;
     if (activeTab === 'overdue') return overdueInvoices;
     if (activeTab === 'due_soon') return dueSoonInvoices;
     if (activeTab === 'partially_paid') return partiallyPaidInvoices;
     if (activeTab === 'paid') return paidInvoices;
     return trackedInvoices;
-  }, [trackedInvoices, overdueInvoices, dueSoonInvoices, partiallyPaidInvoices, paidInvoices, activeTab]);
+  }, [trackedInvoices, outstandingInvoices, overdueInvoices, dueSoonInvoices, partiallyPaidInvoices, paidInvoices, activeTab]);
 
   // Credit Utilization
   const creditLimit = customer?.creditLimit || 1000000;
@@ -593,10 +595,11 @@ const CustomerDetails: React.FC = () => {
             <div className="flex flex-wrap items-center gap-1">
               {[
                 { id: 'all', label: 'All Invoices', count: trackedInvoices.length },
-                { id: 'overdue', label: 'overdue', count: overdueInvoices.length, color: 'text-red-400' },
-                { id: 'due_soon', label: 'due_soon', count: dueSoonInvoices.length, color: 'text-amber-400' },
-                { id: 'partially_paid', label: 'partially_paid', count: partiallyPaidInvoices.length, color: 'text-purple-400' },
-                { id: 'paid', label: 'paid', count: paidInvoices.length, color: 'text-emerald-400' },
+                { id: 'outstanding', label: 'Outstanding (Active Credit)', count: outstandingInvoices.length, color: 'text-blue-400' },
+                { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, color: 'text-red-400' },
+                { id: 'due_soon', label: 'Near Due (7 Days)', count: dueSoonInvoices.length, color: 'text-amber-400' },
+                { id: 'partially_paid', label: 'Partially Paid', count: partiallyPaidInvoices.length, color: 'text-purple-400' },
+                { id: 'paid', label: 'Completed / Paid', count: paidInvoices.length, color: 'text-emerald-400' },
                 { id: 'payments', label: 'Payment Ledger', count: paymentHistoryRecords.length, icon: History },
                 { id: 'orders', label: 'Orders', count: customerOrders.length, icon: ShoppingBag },
               ].map((tab) => {

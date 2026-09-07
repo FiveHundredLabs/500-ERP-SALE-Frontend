@@ -161,7 +161,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   pageSize = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'near_due' | 'partially_paid' | 'completed'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'outstanding' | 'overdue' | 'near_due' | 'partially_paid' | 'completed'>('all');
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceTransaction | null>(null);
 
@@ -201,6 +201,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
     });
   }, [invoices, invoiceReturns]);
 
+  const outstandingInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'outstanding'), [trackedInvoices]);
   const overdueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'overdue'), [trackedInvoices]);
   const nearDueInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'due_soon'), [trackedInvoices]);
   const partiallyPaidInvoices = useMemo(() => trackedInvoices.filter(i => i.calculatedStatus === 'partially_paid'), [trackedInvoices]);
@@ -211,12 +212,13 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
   const totalOutstandingAmount = useMemo(() => trackedInvoices.reduce((sum, i) => sum + i.effectiveRemainingAmount, 0), [trackedInvoices]);
 
   const filteredInvoices = useMemo(() => {
+    if (activeTab === 'outstanding') return outstandingInvoices;
     if (activeTab === 'overdue') return overdueInvoices;
     if (activeTab === 'near_due') return nearDueInvoices;
     if (activeTab === 'partially_paid') return partiallyPaidInvoices;
     if (activeTab === 'completed') return completedInvoices;
     return trackedInvoices;
-  }, [trackedInvoices, overdueInvoices, nearDueInvoices, partiallyPaidInvoices, completedInvoices, activeTab]);
+  }, [trackedInvoices, outstandingInvoices, overdueInvoices, nearDueInvoices, partiallyPaidInvoices, completedInvoices, activeTab]);
 
   // Find transaction for a specific invoice
   const getTransactionForInvoice = (invoiceNumber: string) => {
@@ -382,9 +384,10 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-[#334155] pb-2.5">
           {[
             { id: 'all', label: 'All Invoices', count: trackedInvoices.length },
+            { id: 'outstanding', label: 'Outstanding (Active Credit)', count: outstandingInvoices.length, badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
             { id: 'overdue', label: 'Overdue Credit Period', count: overdueInvoices.length, badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
             { id: 'near_due', label: 'Near Due (7 Days)', count: nearDueInvoices.length, badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-            { id: 'partially_paid', label: 'partially_paid', count: partiallyPaidInvoices.length, badge: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+            { id: 'partially_paid', label: 'Partially Paid', count: partiallyPaidInvoices.length, badge: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
             { id: 'completed', label: 'Completed / Paid', count: completedInvoices.length, badge: 'bg-green-500/20 text-green-400 border-green-500/30' },
           ].map(tab => (
             <button
