@@ -347,7 +347,35 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
             <div className="flex items-center bg-[#0f172a] border border-[#334155] rounded p-0.5 text-[9px]">
               <button
                 type="button"
-                onClick={() => onDiscountChange({ discountType: 'percentage', discountScope, discountValue })}
+                onClick={() => {
+                  onDiscountChange({ discountType: 'percentage', discountScope, discountValue });
+                  if (discVal > 0 && unitPrice > 0) {
+                    const check = checkDiscountBelowCost({
+                      productName: newItem.itemName,
+                      unitPrice,
+                      quantity: qty,
+                      discountType: 'percentage',
+                      discountScope,
+                      discountValue: discVal,
+                      costPrice,
+                      minPrice,
+                    });
+                    if (check.isBelowCostOrZero) {
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Discount Below Cost',
+                        message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                        confirmText: 'Allow / Continue',
+                        cancelText: 'Cancel',
+                        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+                        onCancel: () => {
+                          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                          onDiscountChange({ discountType: 'percentage', discountScope, discountValue: '0' });
+                        },
+                      });
+                    }
+                  }
+                }}
                 className={`px-1 py-0.2 rounded transition-colors font-bold ${
                   discountType === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'
                 }`}
@@ -357,7 +385,35 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => onDiscountChange({ discountType: 'amount', discountScope, discountValue })}
+                onClick={() => {
+                  onDiscountChange({ discountType: 'amount', discountScope, discountValue });
+                  if (discVal > 0 && unitPrice > 0) {
+                    const check = checkDiscountBelowCost({
+                      productName: newItem.itemName,
+                      unitPrice,
+                      quantity: qty,
+                      discountType: 'amount',
+                      discountScope,
+                      discountValue: discVal,
+                      costPrice,
+                      minPrice,
+                    });
+                    if (check.isBelowCostOrZero) {
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Discount Below Cost',
+                        message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                        confirmText: 'Allow / Continue',
+                        cancelText: 'Cancel',
+                        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+                        onCancel: () => {
+                          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                          onDiscountChange({ discountType: 'amount', discountScope, discountValue: '0' });
+                        },
+                      });
+                    }
+                  }
+                }}
                 className={`px-1 py-0.2 rounded transition-colors font-bold ${
                   discountType === 'amount' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'
                 }`}
@@ -373,6 +429,37 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               min="0"
               value={discountValue === '0' ? '' : discountValue}
               onChange={(e) => onDiscountChange({ discountType, discountScope, discountValue: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+              onBlur={() => {
+                if (discVal > 0 && unitPrice > 0) {
+                  const check = checkDiscountBelowCost({
+                    productName: newItem.itemName,
+                    unitPrice,
+                    quantity: qty,
+                    discountType,
+                    discountScope,
+                    discountValue: discVal,
+                    costPrice,
+                    minPrice,
+                  });
+                  if (check.isBelowCostOrZero) {
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Discount Below Cost',
+                      message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                      confirmText: 'Allow / Continue',
+                      cancelText: 'Cancel',
+                      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+                      onCancel: () => {
+                        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                        onDiscountChange({ discountType, discountScope, discountValue: '0' });
+                      },
+                    });
+                  }
+                }
+              }}
               disabled={!newItem.inventoryItemId}
               placeholder="0"
               className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-7 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
@@ -394,7 +481,35 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
             <button
               type="button"
               disabled={!newItem.inventoryItemId}
-              onClick={() => onDiscountChange({ discountType, discountScope: 'per_unit', discountValue })}
+              onClick={() => {
+                onDiscountChange({ discountType, discountScope: 'per_unit', discountValue });
+                if (discVal > 0 && unitPrice > 0) {
+                  const check = checkDiscountBelowCost({
+                    productName: newItem.itemName,
+                    unitPrice,
+                    quantity: qty,
+                    discountType,
+                    discountScope: 'per_unit',
+                    discountValue: discVal,
+                    costPrice,
+                    minPrice,
+                  });
+                  if (check.isBelowCostOrZero) {
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Discount Below Cost',
+                      message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                      confirmText: 'Allow / Continue',
+                      cancelText: 'Cancel',
+                      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+                      onCancel: () => {
+                        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                        onDiscountChange({ discountType, discountScope: 'per_unit', discountValue: '0' });
+                      },
+                    });
+                  }
+                }
+              }}
               className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
                 discountScope === 'per_unit' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
               }`}
@@ -405,7 +520,35 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
             <button
               type="button"
               disabled={!newItem.inventoryItemId}
-              onClick={() => onDiscountChange({ discountType, discountScope: 'total_qty', discountValue })}
+              onClick={() => {
+                onDiscountChange({ discountType, discountScope: 'total_qty', discountValue });
+                if (discVal > 0 && unitPrice > 0) {
+                  const check = checkDiscountBelowCost({
+                    productName: newItem.itemName,
+                    unitPrice,
+                    quantity: qty,
+                    discountType,
+                    discountScope: 'total_qty',
+                    discountValue: discVal,
+                    costPrice,
+                    minPrice,
+                  });
+                  if (check.isBelowCostOrZero) {
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Discount Below Cost',
+                      message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                      confirmText: 'Allow / Continue',
+                      cancelText: 'Cancel',
+                      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+                      onCancel: () => {
+                        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                        onDiscountChange({ discountType, discountScope: 'total_qty', discountValue: '0' });
+                      },
+                    });
+                  }
+                }
+              }}
               className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
                 discountScope === 'total_qty' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
               }`}

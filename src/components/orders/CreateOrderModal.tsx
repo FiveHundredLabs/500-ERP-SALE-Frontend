@@ -357,8 +357,21 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
+    const matchedInv = allInventoryItems.find(
+      i => i.id === newProduct.id ||
+           i.productName.toLowerCase() === newProduct.productName.trim().toLowerCase() ||
+           (i.productCode && i.productCode.toLowerCase() === newProduct.productName.trim().toLowerCase())
+    );
+    const resolvedCost = resolveMinPrice(matchedInv || newProduct);
+    const productToAdd: DraftProduct = {
+      ...newProduct,
+      id: newProduct.id || matchedInv?.id || Date.now().toString(),
+      minPrice: resolvedCost,
+      costPrice: matchedInv?.purchasePrice || newProduct.costPrice,
+    };
+
     const commitAdd = () => {
-      setProducts(prev => [...prev, { ...newProduct, id: newProduct.id || Date.now().toString() }]);
+      setProducts(prev => [...prev, productToAdd]);
       setNewProduct({
         id: '',
         productName: '',
@@ -374,7 +387,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       setErrors({});
     };
 
-    const belowCostCheck = checkDiscountBelowCost(newProduct);
+    const belowCostCheck = checkDiscountBelowCost(productToAdd);
     if (belowCostCheck.isBelowCostOrZero) {
       setDiscountWarningModal({
         isOpen: true,
@@ -417,7 +430,20 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const handleRequestUpdateProduct = (id: string, updates: Partial<DraftProduct>, skipWarning = false) => {
     const current = products.find(p => p.id === id);
     if (!current) return;
-    const simulated = { ...current, ...updates };
+
+    const matchedInv = allInventoryItems.find(
+      i => i.id === current.id ||
+           i.productName.toLowerCase() === current.productName.trim().toLowerCase() ||
+           (i.productCode && i.productCode.toLowerCase() === current.productName.trim().toLowerCase())
+    );
+    const resolvedCost = resolveMinPrice(matchedInv || current);
+
+    const simulated: DraftProduct = {
+      ...current,
+      ...updates,
+      minPrice: resolvedCost,
+      costPrice: matchedInv?.purchasePrice || current.costPrice,
+    };
 
     if (!skipWarning && (
       updates.discount !== undefined ||
@@ -981,7 +1007,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         onChange={e => {
                           const val = e.target.value;
                           setProductSearch(val);
-                          setNewProduct(prev => ({ ...prev, productName: val, unitPrice: 0 }));
+                          const matched = allInventoryItems.find(i => i.productName.toLowerCase() === val.trim().toLowerCase());
+                          setNewProduct(prev => ({
+                            ...prev,
+                            id: matched ? matched.id : prev.id,
+                            productName: val,
+                            unitPrice: matched ? (matched.sellPrice || 0) : prev.unitPrice,
+                            minPrice: matched ? resolveMinPrice(matched) : prev.minPrice,
+                            costPrice: matched ? matched.purchasePrice : prev.costPrice,
+                          }));
                           setShowProductDropdown(true);
                         }}
                         onFocus={() => setShowProductDropdown(true)}
@@ -993,7 +1027,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setNewProduct(prev => ({ ...prev, productName: '', unitPrice: 0 }));
+                            setNewProduct(prev => ({ ...prev, id: '', productName: '', unitPrice: 0, minPrice: 0, costPrice: 0 }));
                             setProductSearch('');
                             setShowProductDropdown(true);
                           }}
@@ -1089,86 +1123,193 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                     {errors.quantity && <p className="text-red-400 text-[11px] mt-0.5">{errors.quantity}</p>}
                   </div>
 
-                  {/* Discount (Compact % / Rs. toggle + input) */}
-                  <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-gray-300">Discount</label>
-                      <div className="flex items-center bg-[#0f172a] border border-[#334155] rounded p-0.5 text-[9px]">
+                    {/* Discount (Compact % / Rs. toggle + input) */}
+                    <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-semibold text-gray-300">Discount</label>
+                        <div className="flex items-center bg-[#0f172a] border border-[#334155] rounded p-0.5 text-[9px]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...newProduct, discountType: 'percentage' as const };
+                              setNewProduct(updated);
+                              if (updated.discount > 0 && updated.unitPrice > 0) {
+                                const matched = allInventoryItems.find(i => i.id === updated.id || i.productName.toLowerCase() === updated.productName.trim().toLowerCase());
+                                const check = checkDiscountBelowCost({ ...updated, minPrice: resolveMinPrice(matched || updated), costPrice: matched?.purchasePrice || updated.costPrice });
+                                if (check.isBelowCostOrZero) {
+                                  setDiscountWarningModal({
+                                    isOpen: true,
+                                    title: 'Discount Below Cost',
+                                    message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                                    confirmText: 'Allow / Continue',
+                                    cancelText: 'Cancel',
+                                    onConfirm: () => setDiscountWarningModal(prev => ({ ...prev, isOpen: false })),
+                                    onCancel: () => {
+                                      setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+                                      setNewProduct(p => ({ ...p, discount: 0 }));
+                                    },
+                                  });
+                                }
+                              }
+                            }}
+                            className={`px-1 py-0.2 rounded transition-colors font-bold ${
+                              newProduct.discountType === 'percentage'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                            title="Percentage (%)"
+                          >
+                            %
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...newProduct, discountType: 'amount' as const };
+                              setNewProduct(updated);
+                              if (updated.discount > 0 && updated.unitPrice > 0) {
+                                const matched = allInventoryItems.find(i => i.id === updated.id || i.productName.toLowerCase() === updated.productName.trim().toLowerCase());
+                                const check = checkDiscountBelowCost({ ...updated, minPrice: resolveMinPrice(matched || updated), costPrice: matched?.purchasePrice || updated.costPrice });
+                                if (check.isBelowCostOrZero) {
+                                  setDiscountWarningModal({
+                                    isOpen: true,
+                                    title: 'Discount Below Cost',
+                                    message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                                    confirmText: 'Allow / Continue',
+                                    cancelText: 'Cancel',
+                                    onConfirm: () => setDiscountWarningModal(prev => ({ ...prev, isOpen: false })),
+                                    onCancel: () => {
+                                      setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+                                      setNewProduct(p => ({ ...p, discount: 0 }));
+                                    },
+                                  });
+                                }
+                              }
+                            }}
+                            className={`px-1 py-0.2 rounded transition-colors font-bold ${
+                              newProduct.discountType === 'amount'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                            title="Amount (Rs.)"
+                          >
+                            Rs
+                          </button>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max={newProduct.discountType === 'percentage' ? 100 : undefined}
+                          step={newProduct.discountType === 'percentage' ? '0.1' : '1'}
+                          className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0"
+                          value={newProduct.discount && newProduct.discount > 0 ? newProduct.discount : ''}
+                          onChange={e => setNewProduct(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
+                          onBlur={() => {
+                            if (newProduct.discount > 0 && newProduct.unitPrice > 0) {
+                              const matched = allInventoryItems.find(i => i.id === newProduct.id || i.productName.toLowerCase() === newProduct.productName.trim().toLowerCase());
+                              const check = checkDiscountBelowCost({ ...newProduct, minPrice: resolveMinPrice(matched || newProduct), costPrice: matched?.purchasePrice || newProduct.costPrice });
+                              if (check.isBelowCostOrZero) {
+                                setDiscountWarningModal({
+                                  isOpen: true,
+                                  title: 'Discount Below Cost',
+                                  message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                                  confirmText: 'Allow / Continue',
+                                  cancelText: 'Cancel',
+                                  onConfirm: () => setDiscountWarningModal(prev => ({ ...prev, isOpen: false })),
+                                  onCancel: () => {
+                                    setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+                                    setNewProduct(p => ({ ...p, discount: 0 }));
+                                  },
+                                });
+                              }
+                            }
+                          }}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
+                          {newProduct.discountType === 'percentage' ? '%' : 'Rs'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Apply Discount: Unit / Total (Invoice Style) */}
+                    <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                      <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
+                        Apply Discount
+                      </label>
+                      <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[32px]">
                         <button
                           type="button"
-                          onClick={() => setNewProduct(p => ({ ...p, discountType: 'percentage' }))}
-                          className={`px-1 py-0.2 rounded transition-colors font-bold ${
-                            newProduct.discountType === 'percentage'
-                              ? 'bg-blue-600 text-white'
+                          onClick={() => {
+                            const updated = { ...newProduct, discountScope: 'per_unit' as const };
+                            setNewProduct(updated);
+                            if (updated.discount > 0 && updated.unitPrice > 0) {
+                              const matched = allInventoryItems.find(i => i.id === updated.id || i.productName.toLowerCase() === updated.productName.trim().toLowerCase());
+                              const check = checkDiscountBelowCost({ ...updated, minPrice: resolveMinPrice(matched || updated), costPrice: matched?.purchasePrice || updated.costPrice });
+                              if (check.isBelowCostOrZero) {
+                                setDiscountWarningModal({
+                                  isOpen: true,
+                                  title: 'Discount Below Cost',
+                                  message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                                  confirmText: 'Allow / Continue',
+                                  cancelText: 'Cancel',
+                                  onConfirm: () => setDiscountWarningModal(prev => ({ ...prev, isOpen: false })),
+                                  onCancel: () => {
+                                    setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+                                    setNewProduct(p => ({ ...p, discount: 0 }));
+                                  },
+                                });
+                              }
+                            }
+                          }}
+                          className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
+                            newProduct.discountScope === 'per_unit'
+                              ? 'bg-purple-600 text-white shadow-sm'
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
-                          title="Percentage (%)"
+                          title="Apply discount per unit"
                         >
-                          %
+                          Unit
                         </button>
                         <button
                           type="button"
-                          onClick={() => setNewProduct(p => ({ ...p, discountType: 'amount' }))}
-                          className={`px-1 py-0.2 rounded transition-colors font-bold ${
-                            newProduct.discountType === 'amount'
-                              ? 'bg-blue-600 text-white'
+                          onClick={() => {
+                            const updated = { ...newProduct, discountScope: 'total' as const };
+                            setNewProduct(updated);
+                            if (updated.discount > 0 && updated.unitPrice > 0) {
+                              const matched = allInventoryItems.find(i => i.id === updated.id || i.productName.toLowerCase() === updated.productName.trim().toLowerCase());
+                              const check = checkDiscountBelowCost({ ...updated, minPrice: resolveMinPrice(matched || updated), costPrice: matched?.purchasePrice || updated.costPrice });
+                              if (check.isBelowCostOrZero) {
+                                setDiscountWarningModal({
+                                  isOpen: true,
+                                  title: 'Discount Below Cost',
+                                  message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+                                  confirmText: 'Allow / Continue',
+                                  cancelText: 'Cancel',
+                                  onConfirm: () => setDiscountWarningModal(prev => ({ ...prev, isOpen: false })),
+                                  onCancel: () => {
+                                    setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+                                    setNewProduct(p => ({ ...p, discount: 0 }));
+                                  },
+                                });
+                              }
+                            }
+                          }}
+                          className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
+                            newProduct.discountScope === 'total'
+                              ? 'bg-purple-600 text-white shadow-sm'
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
-                          title="Amount (Rs.)"
+                          title="Apply discount on total line"
                         >
-                          Rs
+                          Total
                         </button>
                       </div>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        max={newProduct.discountType === 'percentage' ? 100 : undefined}
-                        step={newProduct.discountType === 'percentage' ? '0.1' : '1'}
-                        className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-6 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        placeholder="0"
-                        value={newProduct.discount && newProduct.discount > 0 ? newProduct.discount : ''}
-                        onChange={e => setNewProduct(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 pointer-events-none">
-                        {newProduct.discountType === 'percentage' ? '%' : 'Rs'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Apply Discount: Unit / Total (Invoice Style) */}
-                  <div className="col-span-6 sm:col-span-3 md:col-span-2 lg:col-span-2">
-                    <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
-                      Apply Discount
-                    </label>
-                    <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-0.5 border border-[#334155] rounded-lg h-[32px]">
-                      <button
-                        type="button"
-                        onClick={() => setNewProduct(p => ({ ...p, discountScope: 'per_unit' }))}
-                        className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
-                          newProduct.discountScope === 'per_unit'
-                            ? 'bg-purple-600 text-white shadow-sm'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                        title="Apply discount per unit"
-                      >
-                        Unit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewProduct(p => ({ ...p, discountScope: 'total' }))}
-                        className={`text-[10px] rounded font-semibold transition flex items-center justify-center ${
-                          newProduct.discountScope === 'total'
-                            ? 'bg-purple-600 text-white shadow-sm'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                        title="Apply discount on total line"
-                      >
-                        Total
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Real-time discount validation alert for new product */}
