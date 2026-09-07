@@ -1,3 +1,5 @@
+import type { PurchaseOrderReturn } from './po-return';
+
 export const POStatus = {
   DRAFT: 'draft', PENDING_APPROVAL: 'pending_approval', APPROVED: 'approved', PROCESSING: 'processing',
   GOODS_RECEIVED: 'goods_received', PARTIALLY_RECEIVED: 'partially_received',
@@ -80,4 +82,5 @@ export interface PurchaseOrder {
   paymentTerms: string;
   deliveryTerms?: string;
   notes?: string;
+  returns?: PurchaseOrderReturn[];
 }

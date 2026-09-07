@@ -157,4 +157,5 @@ export const mapPurchaseOrder = (value: any): PurchaseOrder => ({
   subTotal: money(value.subTotal), discountValue: money(value.discountValue),
   totalDiscount: money(value.totalDiscount), totalTax: money(value.totalTax),
   shippingCharges: money(value.shippingCharges), totalAmount: money(value.totalAmount),
+  returns: (value.returns ?? []).map(mapPOReturn),
 });

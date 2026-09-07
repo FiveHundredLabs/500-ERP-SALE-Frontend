@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download } from 'lucide-react';
+import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download, RotateCcw } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
@@ -217,8 +217,20 @@ const PurchaseOrders: React.FC = () => {
       key: 'poNumber',
       header: 'PO Number',
       sortable: true,
-      minWidth: '120px',
-      render: (row) => <span className="font-mono text-[#38BDF8] font-bold text-xs">{row.poNumber}</span>,
+      minWidth: '130px',
+      render: (row) => {
+        const hasReturns = row.returns && row.returns.filter(r => r.status !== 'cancelled').length > 0;
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-[#38BDF8] font-bold text-xs">{row.poNumber}</span>
+            {hasReturns && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30" title={`${row.returns?.length} return(s) processed`}>
+                <RotateCcw size={9} /> Return
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'referenceOrderNum',

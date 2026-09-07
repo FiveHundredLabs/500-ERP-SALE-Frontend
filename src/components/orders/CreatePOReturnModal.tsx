@@ -20,6 +20,7 @@ interface CreatePOReturnModalProps {
   onClose: () => void;
   initialPO?: PurchaseOrder | null;
   po?: PurchaseOrder | null;
+  defaultPOId?: string;
   onSuccess: (newReturn?: PurchaseOrderReturn) => void;
 }
 
@@ -37,6 +38,7 @@ export const CreatePOReturnModal: React.FC<CreatePOReturnModalProps> = ({
   onClose,
   initialPO = null,
   po = null,
+  defaultPOId,
   onSuccess,
 }) => {
   const toast = useToast();
@@ -62,6 +64,10 @@ export const CreatePOReturnModal: React.FC<CreatePOReturnModalProps> = ({
     if (isOpen) {
       if (preloadedPO) {
         setSelectedPO(preloadedPO);
+      } else if (defaultPOId) {
+        purchaseOrderService.getById(defaultPOId).then(p => {
+          if (p) setSelectedPO(p);
+        }).catch(() => {});
       } else {
         setSelectedPO(null);
         fetchPOs();
@@ -72,7 +78,7 @@ export const CreatePOReturnModal: React.FC<CreatePOReturnModalProps> = ({
       setRemarks('');
       setPOSearchQuery('');
     }
-  }, [isOpen, preloadedPO]);
+  }, [isOpen, preloadedPO, defaultPOId]);
 
   // Load past returns when PO is selected
   useEffect(() => {
