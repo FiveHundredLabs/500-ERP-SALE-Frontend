@@ -130,10 +130,72 @@ const DashboardOverview: React.FC = () => {
     setInvoiceReturns(returnsList);
     setPoReturns(poReturnsList);
 
-    const chqs = finTransactions.filter(
-      (t: any) => t.paymentMethod === "cheque" || t.paymentMethod === "Cheque"
-    );
-    setCheques(chqs);
+    // Map cheques from finance transactions
+    const chequeFinTransactions = finTransactions
+      .filter((t: any) => String(t.paymentMethod || "").toLowerCase() === "cheque")
+      .map((t: any) => {
+        const matchingInv = invs.find(
+          (i: any) => i.invoiceNumber === t.invoiceNumber || i.id === t.invoiceId
+        );
+        const party =
+          matchingInv?.customer?.shopName ||
+          matchingInv?.customer?.fullName ||
+          (typeof matchingInv?.customer === "string" ? matchingInv.customer : "") ||
+          matchingInv?.customerDetails?.shopName ||
+          matchingInv?.customerDetails?.fullName ||
+          t.bankName ||
+          "Customer";
+        const dueDate = t.transactionDate || matchingInv?.dueDate || matchingInv?.issueDate || t.createdAt;
+
+        return {
+          id: t.id,
+          referenceNumber: t.transactionRef || t.transactionNumber || "—",
+          transactionNumber: t.transactionNumber,
+          party,
+          bank: t.bankName || "—",
+          date: dueDate,
+          dueDate: dueDate,
+          transactionDate: t.transactionDate,
+          amount: Number(t.amount) || 0,
+          status: (t as any).status || "pending",
+          invoiceNumber: t.invoiceNumber,
+        };
+      });
+
+    // Also include any invoices where paymentMethod is cheque that might not have a finance transaction yet
+    const chequeInvoices = invs
+      .filter(
+        (i: any) =>
+          String(i.paymentMethod || "").toLowerCase() === "cheque" &&
+          !chequeFinTransactions.some((ct: any) => ct.invoiceNumber === i.invoiceNumber)
+      )
+      .map((i: any) => {
+        const party =
+          i.customer?.shopName ||
+          i.customer?.fullName ||
+          (typeof i.customer === "string" ? i.customer : "") ||
+          i.customerDetails?.shopName ||
+          i.customerDetails?.fullName ||
+          "Customer";
+        const dueDate = i.dueDate || i.issueDate || i.createdAt;
+
+        return {
+          id: i.id,
+          referenceNumber: i.invoiceNumber,
+          transactionNumber: i.invoiceNumber,
+          party,
+          bank: "—",
+          date: dueDate,
+          dueDate: dueDate,
+          transactionDate: dueDate,
+          amount: Number(i.remainingAmount ?? i.totalAmount) || 0,
+          status: i.paymentStatus === "completed" || i.paymentStatus === "paid" ? "cleared" : "pending",
+          invoiceNumber: i.invoiceNumber,
+        };
+      });
+
+    const allCheques = [...chequeFinTransactions, ...chequeInvoices];
+    setCheques(allCheques);
 
     if (errs.length > 0) setErrors(errs);
     setLastUpdated(new Date());
@@ -396,26 +458,48 @@ const DashboardOverview: React.FC = () => {
       .slice(0, 5);
   }, [orders]);
 
-  // ── Overdue Cheques (due date <= today) ───────────────────────────────────
+  // ── Overdue Cheques (due date < start of today) ───────────────────────────────────
   const overdueCheques = useMemo(() => {
-    const today = new Date();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return cheques
       .filter((chq) => {
-        const due = new Date(chq.date || chq.dueDate || "");
-        return !isNaN(due.getTime()) && due <= today && chq.status !== "cleared";
+        const rawDate = chq.dueDate || chq.transactionDate || chq.date || chq.issueDate || "";
+        const due = new Date(rawDate);
+        return (
+          !isNaN(due.getTime()) &&
+          due < startOfToday &&
+          chq.status !== "cleared" &&
+          chq.status !== "paid"
+        );
       })
-      .sort((a, b) => new Date(a.date || a.dueDate || "").getTime() - new Date(b.date || b.dueDate || "").getTime())
+      .sort((a, b) => {
+        const da = new Date(a.dueDate || a.transactionDate || a.date || "").getTime();
+        const db = new Date(b.dueDate || b.transactionDate || b.date || "").getTime();
+        return da - db;
+      })
       .slice(0, 6);
   }, [cheques]);
 
   const pendingCheques = useMemo(() => {
-    const today = new Date();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return cheques
       .filter((chq) => {
-        const due = new Date(chq.date || chq.dueDate || "");
-        return !isNaN(due.getTime()) && due > today && chq.status !== "cleared";
+        const rawDate = chq.dueDate || chq.transactionDate || chq.date || chq.issueDate || "";
+        const due = new Date(rawDate);
+        return (
+          !isNaN(due.getTime()) &&
+          due >= startOfToday &&
+          chq.status !== "cleared" &&
+          chq.status !== "paid"
+        );
       })
-      .sort((a, b) => new Date(a.date || a.dueDate || "").getTime() - new Date(b.date || b.dueDate || "").getTime())
+      .sort((a, b) => {
+        const da = new Date(a.dueDate || a.transactionDate || a.date || "").getTime();
+        const db = new Date(b.dueDate || b.transactionDate || b.date || "").getTime();
+        return da - db;
+      })
       .slice(0, 6);
   }, [cheques]);
 
@@ -775,23 +859,26 @@ const DashboardOverview: React.FC = () => {
                   </tr>
                 ) : (
                   displayCheques.map((chq: any, idx: number) => {
-                    const dueDate = new Date(chq.date || chq.dueDate || "");
-                    const isOverdue = dueDate <= new Date();
+                    const rawDate = chq.dueDate || chq.transactionDate || chq.date || "";
+                    const dueDate = new Date(rawDate);
+                    const now = new Date();
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const isOverdue = !isNaN(dueDate.getTime()) && dueDate < startOfToday;
                     return (
                       <tr
-                        key={idx}
+                        key={chq.id || idx}
                         className={`border-b border-[#334155]/60 text-xs ${
                           isOverdue ? "bg-red-950/20" : idx % 2 ? "bg-[#111b2d]" : "bg-[#0f172a]"
                         }`}
                       >
                         <td className="py-2.5 px-3 font-mono font-bold text-blue-400">
-                          {chq.referenceNumber || chq.transactionNumber || `—`}
+                          {chq.referenceNumber || chq.transactionRef || chq.transactionNumber || chq.invoiceNumber || `—`}
                         </td>
                         <td className="py-2.5 px-3 text-slate-200 truncate max-w-[120px]">
                           {chq.party || chq.customerName || chq.bank || "—"}
                         </td>
                         <td className={`py-2.5 px-3 ${isOverdue ? "text-red-400 font-semibold" : "text-slate-400"}`}>
-                          {!isNaN(dueDate.getTime()) ? dueDate.toLocaleDateString() : "—"}
+                          {!isNaN(dueDate.getTime()) ? dueDate.toLocaleDateString("en-GB") : "—"}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
                           {formatCurrency(Number(chq.amount) || 0)}
