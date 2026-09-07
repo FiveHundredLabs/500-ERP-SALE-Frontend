@@ -731,7 +731,7 @@ const Quotation: React.FC = () => {
     setPoModalInitialData({
       sourceOrderNumber: quotation.quotationNumber,
       customerName,
-      notes: `Converted from Quotation #${quotation.quotationNumber}`,
+      notes: quotation.notes || '',
       items: conversionItems,
     });
     setShowPOModal(true);
@@ -777,7 +777,7 @@ const Quotation: React.FC = () => {
       grandTotal: quotation.totalAmount || quotation.subTotal || 0,
       status: 'pending',
       paymentStatus: 'unpaid',
-      notes: `Converted from Quotation #${quotation.quotationNumber}`,
+      notes: quotation.notes || '',
       timeline: [],
     };
 
@@ -1025,11 +1025,9 @@ const Quotation: React.FC = () => {
       minWidth: '140px',
       render: (row) => {
         const salesmanName = getSalesmanDisplay(row);
-        const area = (row.salesman as any)?.area || 'All Regions';
         return (
           <div>
             <p className="text-xs font-semibold text-gray-300">{salesmanName || '—'}</p>
-            {salesmanName && <p className="text-[11px] text-gray-400">{area}</p>}
           </div>
         );
       },

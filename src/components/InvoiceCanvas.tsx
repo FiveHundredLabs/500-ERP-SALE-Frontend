@@ -323,7 +323,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '15px' }}>
                 {/* Left Side: Notes & Terms */}
                 <div style={{ flex: '1.2', paddingRight: '20px' }}>
-                  {invoiceData.notes && (
+                  {Boolean(invoiceData.notes && invoiceData.notes.trim()) && (
                     <div style={{ 
                       backgroundColor: '#f8fafc', 
                       border: '1px solid #e2e8f0', 

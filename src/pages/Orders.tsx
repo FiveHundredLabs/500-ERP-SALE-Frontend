@@ -254,11 +254,9 @@ const Orders: React.FC = () => {
       minWidth: '140px',
       render: (row) => {
         const salesmanName = row.salesmanName || (typeof row.salesman === 'object' && row.salesman?.fullName) || (typeof row.salesman === 'string' ? row.salesman : '') || '—';
-        const area = (typeof row.salesman === 'object' && row.salesman?.area) || (row as any).salesmanArea;
         return (
           <div>
             <p className="text-xs font-semibold text-gray-300">{salesmanName}</p>
-            {area && <p className="text-[11px] text-gray-400">{area}</p>}
           </div>
         );
       },

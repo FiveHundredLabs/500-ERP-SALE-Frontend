@@ -1629,11 +1629,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
 
             {/* Notes */}
             <div className="mt-6">
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Notes (optional)</label>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Remarks / Notes (optional)</label>
               <textarea
                 className="w-full bg-[#1e293b] border border-[#334155] rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows={3}
-                placeholder="Any special instructions or notes for this order..."
+                placeholder="Enter remarks or notes (optional)..."
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
               />
@@ -1876,7 +1876,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             customerId: createdOrder.customerId,
             salesmanId: createdOrder.salesmanId || undefined,
             salesmanName: createdOrder.salesmanName || undefined,
-            notes: `Converted from Sales Order #${createdOrder.orderNumber}`,
+            notes: createdOrder.notes || '',
             items: createdOrder.items.map((p) => ({
               sku: p.sku,
               productName: p.productName,

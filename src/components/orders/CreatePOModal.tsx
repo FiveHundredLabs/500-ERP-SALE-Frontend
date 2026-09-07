@@ -192,7 +192,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       // Converting from Order / Quotation
       setReferenceOrderNum(initialData.sourceOrderNumber || '');
       setCustomerName(initialData.customerName || '');
-      setNotes(initialData.notes || (initialData.sourceOrderNumber ? `Converted from Order #${initialData.sourceOrderNumber}` : ''));
+      setNotes(initialData.notes || '');
       setPoDate(today);
       setDiscountType('percentage');
       setDiscountValue(0);
@@ -982,10 +982,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
             {/* Pricing Summary, Discount, and Notes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-[#1e293b] pt-6">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300">Purchase Terms & Notes</label>
+                <label className="text-xs font-semibold text-slate-300">Remarks / Notes (optional)</label>
                 <textarea
                   rows={4}
-                  placeholder="Enter additional delivery instructions, payment notes, or general terms..."
+                  placeholder="Enter remarks or notes (optional)..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full bg-[#0b1120] border border-[#1e293b] rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"

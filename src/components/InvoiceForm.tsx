@@ -775,6 +775,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               </div>
             )}
           </div>
+
+          {/* Remarks / Notes (Optional) */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Remarks / Notes (optional)
+            </label>
+            <textarea
+              rows={2}
+              value={invoiceData.notes || ''}
+              onChange={(e) => onFieldChange('notes', e.target.value)}
+              placeholder="Enter remarks or notes (optional)..."
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium resize-none"
+            />
+          </div>
         </div>
       </div>
 

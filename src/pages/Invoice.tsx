@@ -316,7 +316,7 @@ const Invoice: React.FC = () => {
         initialSubTotal = subTotalAfterLineDiscounts;
         initialDiscount = calculatedOrderDiscount;
         initialTotalAmount = Math.max(0, subTotalAfterLineDiscounts - calculatedOrderDiscount);
-        initialNotes = `Converted from Order #${convertFromOrder.orderNumber}`;
+        initialNotes = convertFromOrder.notes || '';
 
         // Use salesman from order if available
         if (convertFromOrder.salesmanId || convertFromOrder.salesmanName) {
@@ -399,7 +399,7 @@ const Invoice: React.FC = () => {
           }
         }
 
-        initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
+        initialNotes = convertFromPO.notes || '';
         initialSubTotal = subTotalAfterLineDiscounts;
         initialDiscount = orderDiscount;
         initialTotalAmount = Math.max(0, subTotalAfterLineDiscounts - orderDiscount);
@@ -471,7 +471,7 @@ const Invoice: React.FC = () => {
         initialSubTotal = quot.subTotal || initialInvoiceItems.reduce((s: number, i: any) => s + i.total, 0);
         initialDiscount = quot.discount || 0;
         initialTotalAmount = quot.totalAmount || Math.max(0, initialSubTotal - initialDiscount);
-        initialNotes = `Converted from Quotation #${quot.quotationNumber}`;
+        initialNotes = quot.notes || '';
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
@@ -1546,11 +1546,9 @@ const Invoice: React.FC = () => {
       minWidth: '140px',
       render: (row) => {
         const salesmanName = getSalesmanDisplay(row);
-        const area = (row.salesman as any)?.area || 'All Regions';
         return (
           <div>
             <p className="text-xs font-semibold text-gray-300">{salesmanName || '—'}</p>
-            {salesmanName && <p className="text-[11px] text-gray-400">{area}</p>}
           </div>
         );
       },
