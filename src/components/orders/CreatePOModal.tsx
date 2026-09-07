@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Plus, Trash2, Search, ShoppingBag, MessageSquare, Percent, Edit2, Check, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { X, Plus, Trash2, Search, ShoppingBag, MessageSquare, Percent, Edit2, Check, AlertCircle, MessageCircle, FileText } from 'lucide-react';
 import type { PurchaseOrder, POItem } from '../../types/purchaseOrders';
 import type { InventoryItem } from '../../types/inventory';
 import type { Supplier } from '../../types/suppliers';
@@ -7,6 +9,7 @@ import { supplierService } from '../../services/SupplierService';
 import { inventoryService } from '../../services/InventoryService';
 import { useToast } from '../erp/Toast';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 
 export interface POConversionItem {
   sku?: string;
@@ -53,8 +56,11 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   poToEdit,
   initialData,
 }) => {
+  const navigate = useNavigate();
   const toast = useToast();
   const today = new Date().toISOString().split('T')[0];
+
+  const [createdPO, setCreatedPO] = useState<PurchaseOrder | null>(null);
 
   // Supplier state
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
@@ -268,15 +274,40 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     );
   }, [allSuppliers, supplierSearch]);
 
-  // Filter items
+  // Intelligent Ranked filtering for inventory items
   const filteredInventoryItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
     if (!q) return allInventoryItems;
-    return allInventoryItems.filter(
-      (item) =>
-        item.productName.toLowerCase().includes(q) ||
-        item.productCode.toLowerCase().includes(q)
-    );
+
+    const tier1: InventoryItem[] = [];
+    const tier2: InventoryItem[] = [];
+    const tier3: InventoryItem[] = [];
+
+    allInventoryItems.forEach((item) => {
+      const name = (item.productName || '').toLowerCase();
+      const code = (item.productCode || item.inventoryCode || '').toLowerCase();
+      const category = ((item as any).category || '').toLowerCase();
+      const brand = ((item as any).brand || '').toLowerCase();
+
+      if (name.startsWith(q) || code.startsWith(q)) {
+        tier1.push(item);
+      } else {
+        const words = name.split(/\s+|-|_|\//);
+        const hasWordPrefix = words.some((w) => w.startsWith(q));
+        if (hasWordPrefix) {
+          tier2.push(item);
+        } else if (
+          name.includes(q) ||
+          code.includes(q) ||
+          (category && category.includes(q)) ||
+          (brand && brand.includes(q))
+        ) {
+          tier3.push(item);
+        }
+      }
+    });
+
+    return [...tier1, ...tier2, ...tier3];
   }, [allInventoryItems, itemSearch]);
 
   const handleSelectSupplier = (sup: Supplier) => {
@@ -305,13 +336,15 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       return;
     }
 
-    const existingIdx = items.findIndex((it) => it.inventoryItem.id === selectedItemToAdd.id);
+    const existingIdx = items.findIndex(
+      (it) =>
+        it.inventoryItem.id === selectedItemToAdd.id &&
+        Number(it.unitPrice) === Number(addPrice) &&
+        ((it.remark || '').trim() === addRemark.trim())
+    );
     if (existingIdx !== -1) {
       const updated = [...items];
       updated[existingIdx].quantity += addQty;
-      if (addRemark.trim()) {
-        updated[existingIdx].remark = addRemark.trim();
-      }
       setItems(updated);
     } else {
       setItems((prev) => [
@@ -520,15 +553,39 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     };
 
     onSubmit(newPO);
+    setCreatedPO(newPO);
     toast.success(
       poToEdit ? 'PO Updated' : 'PO Created Successfully',
       `Purchase Order ${newPO.poNumber} has been ${poToEdit ? 'updated' : 'created'}.`
     );
+  };
+
+  const handleShareWhatsApp = (targetPo?: PurchaseOrder | null) => {
+    const target = targetPo || createdPO || poToEdit;
+    if (!target) return;
+    const phone = target.supplierPhone || customSupplier.phone || '';
+    const text = generatePOWhatsAppMessage({
+      poNumber: target.poNumber,
+      supplierName: target.supplierName,
+      totalAmount: target.totalAmount,
+      poDate: target.poDate,
+      itemsCount: target.items.length,
+      remarks: target.notes || notes,
+    });
+    const url = getWhatsAppUrl(phone, text);
+    window.open(url, '_blank');
+  };
+
+  const handleConvertToInvoice = () => {
+    const target = createdPO || poToEdit;
+    if (!target) return;
     resetState();
     onClose();
+    navigate('/invoice', { state: { convertFromPO: target } });
   };
 
   const resetState = () => {
+    setCreatedPO(null);
     setSelectedSupplierId('');
     setSupplierSearch('');
     setIsCustomSupplier(false);
@@ -559,9 +616,9 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
   const isConverting = !!initialData && !poToEdit;
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-[900] flex items-start justify-end">
+      <div className="fixed inset-0 z-[9999] flex items-start justify-end">
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -781,22 +838,47 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                           setShowItemDropdown(true);
                         }}
                         onFocus={() => setShowItemDropdown(true)}
-                        className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 pl-9 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                        className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 pl-9 pr-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500"
                       />
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                      {itemSearch && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setItemSearch('');
+                            setSelectedItemToAdd(null);
+                            setAddPrice(0);
+                            setAddQty(1);
+                            setShowItemDropdown(true);
+                          }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                          title="Clear search"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
                     </div>
 
                     {showItemDropdown && filteredInventoryItems.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 max-h-40 bg-[#0f172a] border border-[#1e293b] rounded-lg shadow-2xl overflow-y-auto z-50 p-1">
+                      <div className="absolute left-0 right-0 top-full mt-1 max-h-56 bg-[#0f172a] border border-[#1e293b] rounded-lg shadow-2xl overflow-y-auto z-50 p-1 divide-y divide-[#1e293b]/60">
                         {filteredInventoryItems.map((item) => (
                           <div
                             key={item.id}
                             onClick={() => handleSelectItem(item)}
-                            className="px-3 py-2 hover:bg-[#1e293b] rounded-lg cursor-pointer transition text-xs flex justify-between items-center"
+                            className="px-3 py-2 hover:bg-[#1e293b] rounded-lg cursor-pointer transition text-xs flex justify-between items-center gap-2"
                           >
-                            <span className="text-white font-medium">{item.productName}</span>
-                            <div className="text-right">
-                              <span className="text-emerald-400 font-mono text-[11px] block">Cost: LKR {item.purchasePrice.toLocaleString()}</span>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-white font-medium block truncate">{item.productName}</span>
+                              {((item as any).category || (item as any).brand) && (
+                                <span className="text-[10px] text-slate-400 truncate block mt-0.5">
+                                  {(item as any).category} {(item as any).brand ? `· ${(item as any).brand}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-emerald-400 font-mono text-[11px] font-bold block">
+                                Cost: LKR {Math.round(item.purchasePrice || 0).toLocaleString()}
+                              </span>
                               <span className="text-slate-500 font-mono text-[10px]">{item.productCode}</span>
                             </div>
                           </div>
@@ -1060,7 +1142,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
           </form>
 
           {/* Footer Actions */}
-          <div className="p-5 border-t border-[#1e293b] bg-[#0b1120] flex justify-end gap-3 flex-shrink-0">
+          <div className="p-5 border-t border-[#1e293b] bg-[#0b1120] flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -1069,15 +1151,46 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
               }}
               className="px-4 py-2 border border-[#334155] hover:bg-[#1e293b] text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
             >
-              Cancel
+              {createdPO || poToEdit ? 'Close' : 'Cancel'}
             </button>
-            <button
-              type="button"
-              onClick={handleFormSubmit}
-              className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-purple-600/20 transition"
-            >
-              {poToEdit ? 'Save Changes' : isConverting ? 'Create Converted PO' : 'Create Purchase Order'}
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Share on WhatsApp */}
+              {(createdPO || poToEdit) && (
+                <button
+                  type="button"
+                  onClick={() => handleShareWhatsApp(createdPO || poToEdit)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
+                  title="Share PO details on WhatsApp"
+                >
+                  <MessageCircle size={14} /> Share on WhatsApp
+                </button>
+              )}
+
+              {/* Convert to Invoice */}
+              <button
+                type="button"
+                onClick={handleConvertToInvoice}
+                disabled={!(createdPO || poToEdit)}
+                title={!(createdPO || poToEdit) ? 'Create the PO first to convert to Invoice' : 'Convert PO to Invoice'}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  createdPO || poToEdit
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20 cursor-pointer'
+                    : 'bg-[#1e293b]/50 border border-[#334155] text-gray-500 cursor-not-allowed opacity-50'
+                }`}
+              >
+                <FileText size={14} /> Convert to Invoice
+              </button>
+
+              {/* Create / Update PO button */}
+              <button
+                type="button"
+                onClick={handleFormSubmit}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-purple-600/20 transition cursor-pointer"
+              >
+                {createdPO || poToEdit ? 'Update Purchase Order' : isConverting ? 'Create Converted PO' : 'Create Purchase Order'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1162,7 +1275,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 };
 

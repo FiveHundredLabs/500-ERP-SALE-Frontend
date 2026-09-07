@@ -13,7 +13,6 @@ import {
   Trash2,
   Copy,
   Check,
-  Share2,
   ShoppingCart,
   ShoppingBag,
   MessageCircle,
@@ -49,6 +48,7 @@ import type { PurchaseOrder } from "../types/purchaseOrders";
 import type { Order } from "../types/orders";
 import CreatePOModal, { type POInitialData, type POConversionItem } from "../components/orders/CreatePOModal";
 import CreateOrderModal from "../components/orders/CreateOrderModal";
+import { generateQuotationWhatsAppMessage, getWhatsAppUrl } from "../utils/whatsapp";
 
 const Quotation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -190,9 +190,18 @@ const Quotation: React.FC = () => {
   }, []);
 
   const handleAddItem = (item: Omit<QuotationItem, 'id' | 'total'> & { total?: number }) => {
-    const existingItemIndex = quotationData.items.findIndex(
-      existing => existing.inventoryItemId === item.inventoryItemId
-    );
+    const existingItemIndex = quotationData.items.findIndex(existing => {
+      const sameProduct =
+        (existing.inventoryItemId && item.inventoryItemId && existing.inventoryItemId === item.inventoryItemId) ||
+        (existing.itemName && item.itemName && existing.itemName.trim().toLowerCase() === item.itemName.trim().toLowerCase());
+      const samePrice = Number(existing.unitPrice) === Number(item.unitPrice);
+      const sameDiscType = (existing.discountType || 'percentage') === (item.discountType || 'percentage');
+      const sameDiscScope = (existing.discountScope || 'per_unit') === (item.discountScope || 'per_unit');
+      const existingDiscVal = Number(existing.discountValue !== undefined ? existing.discountValue : ((existing as any).discount || 0));
+      const itemDiscVal = Number(item.discountValue !== undefined ? item.discountValue : ((item as any).discount || 0));
+      const sameDiscVal = Math.abs(existingDiscVal - itemDiscVal) < 0.0001;
+      return sameProduct && samePrice && sameDiscType && sameDiscScope && sameDiscVal;
+    });
 
     let newItems: QuotationItem[];
     const total = item.total !== undefined ? item.total : (item.quantity * item.unitPrice);
@@ -298,18 +307,6 @@ const Quotation: React.FC = () => {
       setAlert({
         type: 'info',
         message: 'Please add at least one item to preview the quotation'
-      });
-      return;
-    }
-    setShowPreviewModal(true);
-  };
-
-  // Share quotation - show preview modal first so user can review before sharing
-  const handleShareQuotation = () => {
-    if (!quotationData.customer && quotationData.items.length === 0) {
-      setAlert({
-        type: 'error',
-        message: 'Please add customer and items to share quotation'
       });
       return;
     }
@@ -557,7 +554,6 @@ const Quotation: React.FC = () => {
       setIsSaving(true);
 
       const backendData = prepareQuotationForSave(quotationData);
-
       if (quotationData.id) {
         setAlert({
           type: 'info',
@@ -573,10 +569,7 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData };
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
-        setIsCreateDrawerOpen(false);
-        setViewMode('manage');
         fetchAllQuotations();
-        setShowPreviewModal(true);
       } else {
         setAlert({
           type: 'info',
@@ -587,7 +580,8 @@ const Quotation: React.FC = () => {
 
         setQuotationData(prev => ({
           ...prev,
-          id: response.id
+          id: response.id,
+          quotationNumber: (response as any).quotationNumber || prev.quotationNumber,
         }));
 
         setAlert({
@@ -597,10 +591,7 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData, id: response.id } as QuotationData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
-        setIsCreateDrawerOpen(false);
-        setViewMode('manage');
         fetchAllQuotations();
-        setShowPreviewModal(true);
       }
 
       return true;
@@ -613,6 +604,26 @@ const Quotation: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleShareWhatsAppDirect = () => {
+    if (!quotationData.customer && quotationData.items.length === 0) {
+      setAlert({ type: 'error', message: 'Please add customer and items to share' });
+      return;
+    }
+    const customerObj = typeof quotationData.customer === 'object' ? quotationData.customer : quotationData.customerDetails;
+    const phone = customerObj?.phone || '';
+    const custName = customerObj?.fullName || customerObj?.shopName || 'Valued Customer';
+    const text = generateQuotationWhatsAppMessage({
+      quotationNumber: quotationData.quotationNumber || `QUO-${quotationData.id || ''}`,
+      customerName: custName,
+      totalAmount: quotationData.totalAmount,
+      issueDate: quotationData.issueDate ? String(quotationData.issueDate).split('T')[0] : '',
+      itemsCount: quotationData.items.length,
+      remarks: quotationData.notes || '',
+    });
+    const url = getWhatsAppUrl(phone, text);
+    window.open(url, '_blank');
   };
 
   const fetchAllQuotations = async () => {
@@ -1323,7 +1334,6 @@ const Quotation: React.FC = () => {
                     />
                   </ErrorBoundary>
                 )}
-
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1e293b] p-4 rounded-xl border border-[#334155] shadow-lg sticky bottom-4 z-20">
                   <div className="text-xs text-gray-400">
                     {quotationData.items.length > 0 ? (
@@ -1364,6 +1374,17 @@ const Quotation: React.FC = () => {
                         <>
                           <button
                             type="button"
+                            onClick={() => handleConvertQuotationToOrder(quotationData)}
+                            disabled={!isQuotationSaved || isLoading || isSaving}
+                            className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Convert Quotation to Sales Order"}
+                          >
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>Convert to Order</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => handleConvertQuotationToPO(quotationData)}
                             disabled={!isQuotationSaved || isLoading || isSaving}
                             className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -1375,24 +1396,24 @@ const Quotation: React.FC = () => {
 
                           <button
                             type="button"
-                            onClick={handleShareQuotation}
+                            onClick={() => handleConvertQuotationToInvoice(quotationData)}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
+                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Convert Quotation to Invoice"}
                           >
-                            <Share2 className="w-4 h-4" />
-                            <span>Share</span>
+                            <FileText className="w-4 h-4" />
+                            <span>Convert to Invoice</span>
                           </button>
 
                           <button
                             type="button"
-                            onClick={handleOpenPreview}
+                            onClick={handleShareWhatsAppDirect}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            title={!isQuotationSaved ? "Please save quotation first" : "Download PDF via Preview"}
+                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation on WhatsApp"}
                           >
-                            <Download className="w-4 h-4" />
-                            <span>PDF</span>
+                            <MessageCircle className="w-4 h-4" />
+                            <span>Share on WhatsApp</span>
                           </button>
 
                           <button
@@ -1431,7 +1452,7 @@ const Quotation: React.FC = () => {
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          <span>{quotationData.id ? 'Update Quotation' : 'Save Quotation'}</span>
+                          <span>{quotationData.id ? 'Update Quotation' : 'Create Quotation'}</span>
                         </>
                       )}
                     </button>
@@ -1448,7 +1469,6 @@ const Quotation: React.FC = () => {
           quotationData={quotationData}
           onConvertToPO={(q) => handleConvertQuotationToPO(q)}
           onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
-      
         />
 
         {/* Convert to PO Modal */}

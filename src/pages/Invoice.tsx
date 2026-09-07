@@ -653,29 +653,39 @@ const Invoice: React.FC = () => {
   };
 
   const handleAddItem = (item: Omit<InvoiceItem, 'id' | 'total'> & { total?: number }) => {
-    const calculatedDiscount = item.discountAmount || 0;
-    const baseSubtotal = item.quantity * item.unitPrice;
-    const total = item.total !== undefined ? item.total : Math.max(0, baseSubtotal - calculatedDiscount);
+    const existingItemIndex = invoiceData.items.findIndex(existing => {
+      const sameProduct =
+        (existing.inventoryItemId && item.inventoryItemId && existing.inventoryItemId === item.inventoryItemId) ||
+        (existing.itemName && item.itemName && existing.itemName.trim().toLowerCase() === item.itemName.trim().toLowerCase());
+      const samePrice = Number(existing.unitPrice) === Number(item.unitPrice);
+      const sameDiscType = (existing.discountType || 'percentage') === (item.discountType || 'percentage');
+      const sameDiscScope = (existing.discountScope || 'per_unit') === (item.discountScope || 'per_unit');
+      const existingDiscVal = Number(existing.discountValue !== undefined ? existing.discountValue : (existing.discount || 0));
+      const itemDiscVal = Number(item.discountValue !== undefined ? item.discountValue : (item.discount || 0));
+      const sameDiscVal = Math.abs(existingDiscVal - itemDiscVal) < 0.0001;
+      return sameProduct && samePrice && sameDiscType && sameDiscScope && sameDiscVal;
+    });
 
-    const existingItemIndex = invoiceData.items.findIndex(
-      existing => existing.inventoryItemId === item.inventoryItemId
-    );
-
-    let newItems;
+    let newItems: InvoiceItem[];
 
     if (existingItemIndex !== -1) {
       newItems = [...invoiceData.items];
       const existingItem = newItems[existingItemIndex];
       const newQty = existingItem.quantity + item.quantity;
-      let newDiscount = item.discountAmount || existingItem.discountAmount || 0;
-      if (item.discountScope === 'per_unit' && item.discountValue) {
-        if (item.discountType === 'percentage') {
-          newDiscount = (newQty * item.unitPrice) * (Number(item.discountValue) / 100);
+      const unitPrice = item.unitPrice;
+      const discVal = Number(item.discountValue !== undefined ? item.discountValue : (item.discount || 0));
+      const discType = item.discountType || 'percentage';
+      const discScope = item.discountScope || 'per_unit';
+
+      let newDiscount = 0;
+      if (discVal > 0 && unitPrice > 0) {
+        if (discType === 'percentage') {
+          newDiscount = (newQty * unitPrice) * (discVal / 100);
         } else {
-          newDiscount = Math.min(item.unitPrice, Number(item.discountValue)) * newQty;
+          newDiscount = discScope === 'per_unit' ? discVal * newQty : discVal;
         }
       }
-      const newTotal = Math.max(0, (newQty * item.unitPrice) - newDiscount);
+      const newTotal = Math.max(0, (newQty * unitPrice) - newDiscount);
 
       const updatedItem: InvoiceItem = {
         ...existingItem,
@@ -686,6 +696,9 @@ const Invoice: React.FC = () => {
       };
       newItems[existingItemIndex] = updatedItem;
     } else {
+      const calculatedDiscount = item.discountAmount || 0;
+      const baseSubtotal = item.quantity * item.unitPrice;
+      const total = item.total !== undefined ? item.total : Math.max(0, baseSubtotal - calculatedDiscount);
       const newItem: InvoiceItem = {
         ...item,
         id: Date.now().toString(),
