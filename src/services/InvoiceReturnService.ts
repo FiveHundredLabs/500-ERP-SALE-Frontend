@@ -80,4 +80,17 @@ export const invoiceReturnService = {
     }
     return mapInvoiceReturn(await response.json());
   },
+
+  async delete(id: string): Promise<{ message: string }> {
+    const response = await fetch(`${ENDPOINT}/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to delete invoice return: ${response.statusText}`);
+    }
+    return response.json();
+  },
 };

@@ -563,7 +563,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             {/* Sales Officer Selector */}
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer*</span>
+                <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer <span className="text-red-400 font-bold">*</span></span>
               </label>
               <select
                 value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}

@@ -372,6 +372,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!selectedCustomerId) errs.customer = 'Please select a customer';
+    if (!selectedSalesmanId && !selectedSalesman && !salesmanSearch.trim()) {
+      errs.salesman = 'Sales representative is required';
+    }
     if (products.length === 0) errs.products = 'Add at least one product';
 
     // Validate every product line discount against minimum price

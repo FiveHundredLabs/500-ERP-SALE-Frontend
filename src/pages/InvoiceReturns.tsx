@@ -10,13 +10,14 @@ import {
   CheckCircle2, 
   Clock, 
   DollarSign, 
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { invoiceReturnService } from '../services/InvoiceReturnService';
 import type { InvoiceReturn } from '../types/invoice-return';
 import { ReturnStatus } from '../types/invoice-return';
 import { useToast } from '../components/erp/Toast';
-import { FilterBar, DataTable } from '../components/erp';
+import { FilterBar, DataTable, ConfirmDialog } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
 import ReturnViewModal from '../components/invoice/ReturnViewModal';
 import CreateReturnModal from '../components/invoice/CreateReturnModal';
@@ -37,6 +38,8 @@ const InvoiceReturns: React.FC = () => {
   // Modals
   const [selectedReturn, setSelectedReturn] = useState<InvoiceReturn | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [returnToDelete, setReturnToDelete] = useState<InvoiceReturn | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadReturns = async () => {
     try {
@@ -208,6 +211,24 @@ const InvoiceReturns: React.FC = () => {
     }
   };
 
+  const handleDeleteReturn = async () => {
+    if (!returnToDelete) return;
+    try {
+      setIsDeleting(true);
+      await invoiceReturnService.delete(returnToDelete.id);
+      toast.success(`Return ${returnToDelete.returnNumber} deleted successfully`);
+      setReturnToDelete(null);
+      if (selectedReturn?.id === returnToDelete.id) {
+        setSelectedReturn(null);
+      }
+      loadReturns();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete return');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Table Columns Definition
   const columns: Column<InvoiceReturn>[] = [
     {
@@ -340,7 +361,7 @@ const InvoiceReturns: React.FC = () => {
       key: 'actions',
       header: 'Action',
       align: 'center',
-      minWidth: '80px',
+      minWidth: '100px',
       render: (row) => (
         <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
@@ -349,6 +370,13 @@ const InvoiceReturns: React.FC = () => {
             className="p-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 rounded-lg border border-slate-700 transition-colors shadow-sm"
           >
             <Eye size={14} />
+          </button>
+          <button
+            onClick={() => setReturnToDelete(row)}
+            title="Delete Return"
+            className="p-1.5 bg-slate-800 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg border border-slate-700 hover:border-rose-500/30 transition-colors shadow-sm"
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       ),
@@ -515,6 +543,29 @@ const InvoiceReturns: React.FC = () => {
             await handleStatusChange(selectedReturn, status);
           }
         }}
+        onDelete={() => {
+          if (selectedReturn) {
+            const current = selectedReturn;
+            setSelectedReturn(null);
+            setReturnToDelete(current);
+          }
+        }}
+      />
+
+      {/* CONFIRM DELETE RETURN MODAL */}
+      <ConfirmDialog
+        isOpen={!!returnToDelete}
+        title="Delete Sales Return?"
+        message={`Are you sure you want to delete return note "${returnToDelete?.returnNumber}"? ${
+          returnToDelete?.status === ReturnStatus.COMPLETED
+            ? 'This return was completed, so deleting it will restore item quantities to sold stock and remove the refund finance entry.'
+            : 'This will permanently remove the return note.'
+        } This action cannot be undone.`}
+        confirmText={isDeleting ? 'Deleting...' : 'Delete Return'}
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={handleDeleteReturn}
+        onCancel={() => setReturnToDelete(null)}
       />
     </AppLayout>
   );

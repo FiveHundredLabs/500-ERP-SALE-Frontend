@@ -853,6 +853,14 @@ const Invoice: React.FC = () => {
       return false;
     }
 
+    if (!invoiceData.salesman?.id && !invoiceData.salesmanName) {
+      setAlert({
+        type: 'error',
+        message: 'Please select a Sales Officer (Sales Ref) before saving'
+      });
+      return false;
+    }
+
     // Validate each line item discount against minimum price
     for (const item of invoiceData.items) {
       const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
@@ -1108,7 +1116,7 @@ const Invoice: React.FC = () => {
     setConfirmConfig({
       isOpen: true,
       title: "Delete Invoice?",
-      message: `Are you sure you want to delete Invoice "${invoiceNumber}"? This will permanently remove the invoice and any associated payment records. This action cannot be undone.`,
+      message: `Are you sure you want to delete Invoice "${invoiceNumber}"? This will permanently remove the invoice, any associated returns, and payment records. This action cannot be undone.`,
       confirmText: "Delete Invoice",
       cancelText: "Cancel",
       type: "danger",

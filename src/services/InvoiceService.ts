@@ -154,9 +154,11 @@ export const invoiceService = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    if (!res.ok) throw new Error(`Failed to delete invoice`);
-    const value = await res.json();
-    return { ...value, creditLimit: moneyToNumber(value.creditLimit), fullName: value.fullName ?? value.shopName };
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed to delete invoice: ${res.statusText}`);
+    }
+    return res.json();
   },
 
   // Search items

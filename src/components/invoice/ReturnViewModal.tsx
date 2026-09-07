@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { FileText, Printer, ShieldCheck, XCircle } from 'lucide-react';
+import { FileText, Printer, ShieldCheck, XCircle, Trash2 } from 'lucide-react';
 import { Modal, Button } from '../common';
 import ReturnCanvas from './ReturnCanvas';
 import html2canvas from 'html2canvas';
@@ -11,13 +11,15 @@ interface ReturnViewModalProps {
   onClose: () => void;
   returnRecord: InvoiceReturn | null;
   onStatusChange?: (status: ReturnStatus) => Promise<void>;
+  onDelete?: () => void;
 }
 
 export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
   isOpen,
   onClose,
   returnRecord,
-  onStatusChange
+  onStatusChange,
+  onDelete,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -108,6 +110,16 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
                   <XCircle className="w-4 h-4 mr-1" /> Cancel
                 </Button>
               </>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={onDelete}
+                className="text-rose-400 hover:text-rose-300 border-rose-500/30 hover:bg-rose-500/10"
+              >
+                <Trash2 className="w-4 h-4 mr-1" /> Delete
+              </Button>
             )}
           </div>
           <Button
