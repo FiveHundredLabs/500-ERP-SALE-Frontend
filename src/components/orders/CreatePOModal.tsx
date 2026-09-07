@@ -21,6 +21,9 @@ export interface POInitialData {
   sourceOrderId?: string;
   sourceOrderNumber?: string;
   customerName?: string;
+  customerId?: string;
+  salesmanId?: string;
+  salesmanName?: string;
   supplierId?: string;
   supplierName?: string;
   items?: POConversionItem[];
@@ -118,6 +121,19 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     }
   }, [isOpen]);
 
+  // Escape key to close drawer
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        resetState();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Lifecycle to populate data on open / change
   useEffect(() => {
     if (!isOpen) return;
@@ -176,7 +192,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       // Converting from Order / Quotation
       setReferenceOrderNum(initialData.sourceOrderNumber || '');
       setCustomerName(initialData.customerName || '');
-      setNotes(initialData.notes || (initialData.sourceOrderNumber ? `Converted from Order #${initialData.sourceOrderNumber}` : ''));
+      setNotes(initialData.notes || '');
       setPoDate(today);
       setDiscountType('percentage');
       setDiscountValue(0);
@@ -475,6 +491,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       sourceOrderId: initialData?.sourceOrderId,
       sourceOrderNumber: referenceOrderNum || undefined,
       customerName: customerName || (poToEdit ? poToEdit.customerName : undefined),
+      customerId: initialData?.customerId,
       supplierId: supplierInfo.supplierId,
       supplierName: supplierInfo.supplierName,
       supplierContact: supplierInfo.supplierContact,
@@ -508,6 +525,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       `Purchase Order ${newPO.poNumber} has been ${poToEdit ? 'updated' : 'created'}.`
     );
     resetState();
+    onClose();
   };
 
   const resetState = () => {
@@ -543,8 +561,18 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-[#020617]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative animate-fadeIn">
+      <div className="fixed inset-0 z-[900] flex items-start justify-end">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => {
+            resetState();
+            onClose();
+          }}
+        />
+
+        {/* Slide-in panel - 70% width on md+ screens */}
+        <div className="relative w-full md:w-[70vw] lg:w-[70vw] xl:w-[70vw] max-w-none h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-[#1e293b] bg-[#0b1120]">
             <div className="flex items-center gap-2.5">
@@ -567,11 +595,12 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={() => {
                 resetState();
                 onClose();
               }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -953,10 +982,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
             {/* Pricing Summary, Discount, and Notes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-[#1e293b] pt-6">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300">Purchase Terms & Notes</label>
+                <label className="text-xs font-semibold text-slate-300">Remarks / Notes (optional)</label>
                 <textarea
                   rows={4}
-                  placeholder="Enter additional delivery instructions, payment notes, or general terms..."
+                  placeholder="Enter remarks or notes (optional)..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full bg-[#0b1120] border border-[#1e293b] rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
@@ -1038,7 +1067,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                 resetState();
                 onClose();
               }}
-              className="px-4 py-2 border border-[#334155] hover:bg-[#1e293b] text-slate-300 rounded-xl text-xs font-semibold transition"
+              className="px-4 py-2 border border-[#334155] hover:bg-[#1e293b] text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
             >
               Cancel
             </button>

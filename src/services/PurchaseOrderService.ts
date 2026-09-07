@@ -23,10 +23,13 @@ export const purchaseOrderService = {
   },
 
   async getById(id: string): Promise<PurchaseOrder> {
-    const res = await fetch(`${API_BASE}/purchase-orders/${id}`, {
+    let res = await fetch(`${API_BASE}/purchase-orders/${encodeURIComponent(id)}`, {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
+    if (!res.ok && (res.status === 401 || res.status === 403 || res.status === 404)) {
+      res = await fetch(`${API_BASE}/purchase-orders/public/${encodeURIComponent(id)}`);
+    }
     if (!res.ok) throw new Error(`Failed to fetch purchase order ${id}`);
     return mapPurchaseOrder(await res.json());
   },

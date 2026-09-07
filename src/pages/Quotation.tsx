@@ -1,23 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
-import Sidebar from "../components/Sidebar";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import AppLayout from "../components/AppLayout";
+import { PageHeader, FilterBar, DataTable, StatusBadge } from "../components/erp";
+import type { Column } from "../components/erp/DataTable";
 import {
   FileText,
   Download,
   Printer,
-  Menu,
   X,
   Save,
-  List,
   Eye,
   Edit,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Search,
-  AlertTriangle,
   Copy,
   Check,
   Share2,
@@ -25,6 +18,7 @@ import {
   ShoppingBag,
   MessageCircle,
   RotateCcw,
+  Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import QuotationForm from "../components/quotation/QuotationForm";
@@ -49,8 +43,6 @@ import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CustomConfirm from "../components/CustomConfirm";
-import UserProfileDropdown from "../components/UserProfileDropdown";
-import ThemeToggle from "../components/ThemeToggle";
 import { purchaseOrderService } from "../services/PurchaseOrderService";
 import { orderService } from "../services/OrderService";
 import type { PurchaseOrder } from "../types/purchaseOrders";
@@ -59,8 +51,6 @@ import CreatePOModal, { type POInitialData, type POConversionItem } from "../com
 import CreateOrderModal from "../components/orders/CreateOrderModal";
 
 const Quotation: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(true);
-  const [isMobileView, setIsMobileView] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -77,12 +67,59 @@ const Quotation: React.FC = () => {
   const [showPOModal, setShowPOModal] = useState(false);
   const [poModalInitialData, setPoModalInitialData] = useState<POInitialData | null>(null);
 
-  const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
+  const [viewMode, setViewMode] = useState<'edit' | 'manage'>('manage');
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [allQuotations, setAllQuotations] = useState<QuotationResponse[]>([]);
   const [isLoadingQuotations, setIsLoadingQuotations] = useState(false);
+
+  // Filter and pagination states matching Orders page
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [salesmanFilter, setSalesmanFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortColumn, setSortColumn] = useState('issueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [manageSearch, setManageSearch] = useState("");
+
+  const handleCloseDrawer = () => {
+    setIsDirty(false);
+    setIsCreateDrawerOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isCreateDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseDrawer();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateDrawerOpen]);
+
+  const handleNewQuotation = async () => {
+    try {
+      setIsLoading(true);
+      const nextId = await quotationService.getNextId();
+      const freshData: QuotationData = {
+        ...getInitialQuotationData(),
+        quotationNumber: nextId,
+      };
+      setQuotationData(freshData);
+      lastSavedRef.current = null;
+      setIsDirty(false);
+      lastSavedAtRef.current = null;
+      setIsCreateDrawerOpen(true);
+    } catch {
+      setQuotationData(getInitialQuotationData());
+      setIsCreateDrawerOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const [copiedQuotationId, setCopiedQuotationId] = useState<string | null>(null);
 
@@ -120,18 +157,6 @@ const Quotation: React.FC = () => {
 
   const [quotationData, setQuotationData] = useState<QuotationData>(getInitialQuotationData());
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const isMobile = window.innerWidth < 1024;
-      setIsMobileView(isMobile);
-      setIsOpen(!isMobile);
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   const loadInitialData = async () => {
     try {
@@ -161,6 +186,7 @@ const Quotation: React.FC = () => {
 
   useEffect(() => {
     loadInitialData();
+    fetchAllQuotations();
   }, []);
 
   const handleAddItem = (item: Omit<QuotationItem, 'id' | 'total'> & { total?: number }) => {
@@ -239,6 +265,7 @@ const Quotation: React.FC = () => {
         type: "danger",
         onConfirm: async () => {
           await loadInitialData();
+          setIsCreateDrawerOpen(false);
           setViewMode('manage');
         }
       });
@@ -261,31 +288,8 @@ const Quotation: React.FC = () => {
     const saved = await handleSave();
     if (saved) {
       lastSavedRef.current = { ...quotationData };
+      fetchAllQuotations();
     }
-  };
-
-  // copy quotation link to clipboard
-  const handleCopyQuotationLink = (id: string, quotationNumber: string) => {
-    const quotationLink = `${window.location.origin}/quotation/view/${id}`;
-  
-    navigator.clipboard.writeText(quotationLink)
-      .then(() => {
-        setCopiedQuotationId(id);
-        setAlert({
-          type: 'success',
-          message: `Quotation ${quotationNumber} link copied to clipboard!`
-        });
-        
-        setTimeout(() => {
-          setCopiedQuotationId(null);
-        }, 2000);
-      })
-      .catch(() => {
-        setAlert({
-          type: 'error',
-          message: 'Failed to copy link to clipboard'
-        });
-      });
   };
 
   // Preview completed quotation on-demand
@@ -310,28 +314,6 @@ const Quotation: React.FC = () => {
       return;
     }
     setShowPreviewModal(true);
-  };
-
-  const statusBadgeMap: Record<
-    typeof QuotationStatus[keyof typeof QuotationStatus],
-    { cls: string; icon: React.ReactNode }
-  > = {
-    [QuotationStatus.PENDING]: {
-      cls: 'bg-yellow-200 text-yellow-900',
-      icon: <Clock className="w-3 h-3" />,
-    },
-    [QuotationStatus.ACCEPTED]: {
-      cls: 'bg-green-200 text-green-900',
-      icon: <CheckCircle className="w-3 h-3" />,
-    },
-    [QuotationStatus.REJECTED]: {
-      cls: 'bg-red-200 text-red-900',
-      icon: <XCircle className="w-3 h-3" />,
-    },
-    [QuotationStatus.EXPIRED]: {
-      cls: 'bg-gray-200 text-gray-900',
-      icon: <AlertTriangle className="w-3 h-3" />,
-    },
   };
 
   useEffect(() => {
@@ -507,7 +489,7 @@ const Quotation: React.FC = () => {
     setIsDirty(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipPriceWarning = false): Promise<boolean> => {
     if (!quotationData.customer || quotationData.items.length === 0) {
       setAlert({
         type: 'error',
@@ -516,49 +498,59 @@ const Quotation: React.FC = () => {
       return false;
     }
 
-    // Validate each line item discount against minimum price
-    for (const item of quotationData.items) {
-      const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
-      const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
-      const lineCheck = validateLineDiscount({
-        productName: item.itemName,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        discountType: item.discountType || 'percentage',
-        discountScope: item.discountScope || 'per_unit',
-        discountValue: item.discountValue,
-        minPrice,
+    // Check line item discounts & overall discount for below-cost warnings
+    if (!skipPriceWarning) {
+      const priceWarnings: string[] = [];
+      for (const item of quotationData.items) {
+        const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
+        const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
+        const lineCheck = validateLineDiscount({
+          productName: item.itemName,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          discountType: item.discountType || 'percentage',
+          discountScope: item.discountScope || 'per_unit',
+          discountValue: item.discountValue,
+          minPrice,
+        });
+        if (!lineCheck.isValid && lineCheck.error) {
+          priceWarnings.push(lineCheck.error);
+        }
+      }
+
+      const overallCheck = validateOverallDiscount({
+        items: quotationData.items.map(it => {
+          const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
+          return {
+            productName: it.itemName,
+            unitPrice: it.unitPrice,
+            quantity: it.quantity,
+            discountAmount: it.discountAmount,
+            minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
+          };
+        }),
+        totalDiscountType: quotationData.totalDiscountType,
+        totalDiscountValue: quotationData.totalDiscountValue,
       });
-      if (!lineCheck.isValid) {
-        setAlert({
-          type: 'error',
-          message: lineCheck.error || `Discount for item "${item.itemName}" exceeds allowed minimum price floor.`
+      if (!overallCheck.isValid && overallCheck.error) {
+        priceWarnings.push(overallCheck.error);
+      }
+
+      if (priceWarnings.length > 0) {
+        setConfirmConfig({
+          isOpen: true,
+          title: 'Price Below Cost Warning',
+          message: `The following item(s) are priced below cost / minimum allowed price:\n\n${priceWarnings.map(w => '• ' + w).join('\n')}\n\nDo you want to proceed and save this quotation anyway?`,
+          confirmText: 'Proceed & Save',
+          cancelText: 'Review Quotation',
+          type: 'warning',
+          onConfirm: async () => {
+            setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+            await handleSave(true);
+          }
         });
         return false;
       }
-    }
-
-    // Validate overall document discount
-    const overallCheck = validateOverallDiscount({
-      items: quotationData.items.map(it => {
-        const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
-        return {
-          productName: it.itemName,
-          unitPrice: it.unitPrice,
-          quantity: it.quantity,
-          discountAmount: it.discountAmount,
-          minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
-        };
-      }),
-      totalDiscountType: quotationData.totalDiscountType,
-      totalDiscountValue: quotationData.totalDiscountValue,
-    });
-    if (!overallCheck.isValid) {
-      setAlert({
-        type: 'error',
-        message: overallCheck.error || 'Overall discount reduces total below allowed minimum price floor.'
-      });
-      return false;
     }
 
     try {
@@ -581,6 +573,9 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData };
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setIsCreateDrawerOpen(false);
+        setViewMode('manage');
+        fetchAllQuotations();
         setShowPreviewModal(true);
       } else {
         setAlert({
@@ -602,6 +597,9 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData, id: response.id } as QuotationData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setIsCreateDrawerOpen(false);
+        setViewMode('manage');
+        fetchAllQuotations();
         setShowPreviewModal(true);
       }
 
@@ -684,6 +682,7 @@ const Quotation: React.FC = () => {
     if (mode === 'view') {
       setShowPreviewModal(true);
     } else {
+      setIsCreateDrawerOpen(true);
       setViewMode('edit');
     }
   };
@@ -713,10 +712,6 @@ const Quotation: React.FC = () => {
     });
   };
 
-  const handleOpenManageModal = () => {
-    setViewMode('manage');
-    setCurrentPage(1);
-  };
 
   const handleConvertQuotationToPO = (quotation: QuotationResponse | QuotationData) => {
     const customerObj = 'customerDetails' in quotation ? quotation.customerDetails : undefined;
@@ -736,7 +731,7 @@ const Quotation: React.FC = () => {
     setPoModalInitialData({
       sourceOrderNumber: quotation.quotationNumber,
       customerName,
-      notes: `Converted from Quotation #${quotation.quotationNumber}`,
+      notes: quotation.notes || '',
       items: conversionItems,
     });
     setShowPOModal(true);
@@ -782,7 +777,7 @@ const Quotation: React.FC = () => {
       grandTotal: quotation.totalAmount || quotation.subTotal || 0,
       status: 'pending',
       paymentStatus: 'unpaid',
-      notes: `Converted from Quotation #${quotation.quotationNumber}`,
+      notes: quotation.notes || '',
       timeline: [],
     };
 
@@ -812,44 +807,361 @@ const Quotation: React.FC = () => {
     });
   };
 
+  const handleCopyQuotationLink = (id: string, quotationNumber: string) => {
+    const link = `${window.location.origin}/quotation/view/${id}`;
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        setCopiedQuotationId(id);
+        setAlert({
+          type: 'success',
+          message: `Quotation ${quotationNumber} link copied to clipboard!`
+        });
+        setTimeout(() => {
+          setCopiedQuotationId(null);
+        }, 2000);
+      })
+      .catch(() => {
+        setAlert({
+          type: 'error',
+          message: 'Failed to copy link to clipboard'
+        });
+      });
+  };
+
   useEffect(() => {
     if (viewMode === 'manage') {
       fetchAllQuotations();
     }
   }, [viewMode]);
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const getCustomerDisplay = (customer: QuotationResponse['customer']) =>
-    customer.shopName || customer.fullName || '';
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val || 0);
 
-  const filteredQuotations = manageSearch.trim()
-    ? allQuotations.filter(q => {
-      const idMatch = String(q.quotationNumber).toLowerCase().includes(manageSearch.toLowerCase());
-      const customerDisplay = getCustomerDisplay(q.customer);
-      const customerMatch = customerDisplay.toLowerCase().includes(manageSearch.toLowerCase());
-      return idMatch || customerMatch;
-    })
-    : allQuotations;
-  const filteredTotalPages = Math.max(1, Math.ceil(filteredQuotations.length / itemsPerPage));
-  const currentQuotations = filteredQuotations.slice(startIndex, Math.min(endIndex, filteredQuotations.length));
+  const getCustomerDisplay = (q: QuotationResponse) =>
+    q.customer?.shopName || q.customer?.fullName || 'Walk-in Customer';
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+  const getSalesmanDisplay = (q: QuotationResponse) =>
+    q.salesman?.fullName || q.salesman?.name || q.salesmanName || '';
+
+  const salesmenOptions = useMemo(() => {
+    const names = Array.from(new Set(allQuotations.map((q) => getSalesmanDisplay(q)).filter(Boolean))) as string[];
+    return names.map((name) => ({ value: name, label: name }));
+  }, [allQuotations]);
+
+  const statusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'expired', label: 'Expired' },
+  ];
+
+  const paymentOptions = [
+    { value: 'cash', label: 'Cash' },
+    { value: 'credit', label: 'Credit' },
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'cheque', label: 'Cheque' },
+  ];
+
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenCustomers = new Set<string>();
+
+    allQuotations.forEach(q => {
+      const name = getCustomerDisplay(q);
+      if (name && name !== 'Walk-in Customer' && !seenCustomers.has(name)) {
+        seenCustomers.add(name);
+        suggestions.push({
+          id: `cust-${q.customer?.id || name}`,
+          title: name,
+          subtitle: q.customer?.city || q.customer?.phone || '',
+          category: 'Customer',
+          value: name,
+        });
+      }
     });
+
+    return suggestions;
+  }, [allQuotations]);
+
+  const filteredQuotations = useMemo(() => {
+    return allQuotations.filter((q) => {
+      const term = searchQuery.toLowerCase().trim();
+      const custName = getCustomerDisplay(q).toLowerCase();
+      const qNum = (q.quotationNumber || '').toLowerCase();
+      const smName = getSalesmanDisplay(q).toLowerCase();
+      const matchesSearch = term === '' || custName.includes(term) || qNum.includes(term) || smName.includes(term);
+
+      const matchesStatus = statusFilter === '' || q.status === statusFilter;
+      const matchesPayment = paymentFilter === '' || (q.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase();
+      const matchesSalesman = salesmanFilter === '' || getSalesmanDisplay(q) === salesmanFilter;
+
+      const issueDate = q.issueDate ? String(q.issueDate).split('T')[0] : '';
+      const matchesDateFrom = dateFrom === '' || issueDate >= dateFrom;
+      const matchesDateTo = dateTo === '' || issueDate <= dateTo;
+
+      return matchesSearch && matchesStatus && matchesPayment && matchesSalesman && matchesDateFrom && matchesDateTo;
+    });
+  }, [allQuotations, searchQuery, statusFilter, paymentFilter, salesmanFilter, dateFrom, dateTo]);
+
+  const sortedQuotations = useMemo(() => {
+    return [...filteredQuotations].sort((a, b) => {
+      let valA: any = (a as any)[sortColumn];
+      let valB: any = (b as any)[sortColumn];
+      if (sortColumn === 'customer') {
+        valA = getCustomerDisplay(a);
+        valB = getCustomerDisplay(b);
+      } else if (sortColumn === 'salesman') {
+        valA = getSalesmanDisplay(a);
+        valB = getSalesmanDisplay(b);
+      }
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredQuotations, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedQuotations.length / itemsPerPage));
+  const paginatedQuotations = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedQuotations.slice(start, start + itemsPerPage);
+  }, [sortedQuotations, currentPage]);
+
+  const handleSort = (colKey: string) => {
+    if (sortColumn === colKey) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(colKey);
+      setSortDirection('asc');
+    }
   };
 
+  const hasActiveFilters =
+    searchQuery !== '' || statusFilter !== '' || paymentFilter !== '' ||
+    salesmanFilter !== '' || dateFrom !== '' || dateTo !== '';
 
+  const clearAllFilters = () => {
+    setSearchQuery(''); setStatusFilter(''); setPaymentFilter('');
+    setSalesmanFilter(''); setDateFrom(''); setDateTo('');
+    setCurrentPage(1);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Quotation ID', 'Date', 'Customer', 'Salesman', 'Items', 'Total Amount', 'Status'];
+    const rows = sortedQuotations.map((q) => {
+      const custName = getCustomerDisplay(q);
+      const smName = getSalesmanDisplay(q);
+      return [
+        q.quotationNumber,
+        q.issueDate ? String(q.issueDate).split('T')[0] : '',
+        `"${custName}"`,
+        `"${smName || 'Unassigned'}"`,
+        q.items?.length || 0,
+        q.totalAmount || 0,
+        q.status,
+      ];
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const link = document.createElement('a');
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute('download', `quotations_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const columns: Column<QuotationResponse>[] = [
+    {
+      key: 'quotationNumber',
+      header: 'QUOTATION ID',
+      sortable: true,
+      minWidth: '120px',
+      render: (row) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleLoadQuotation(row, 'view');
+          }}
+          className="font-mono text-blue-400 hover:text-blue-300 font-bold text-xs hover:underline cursor-pointer text-left"
+          title="Preview Quotation"
+        >
+          {row.quotationNumber}
+        </button>
+      ),
+    },
+    {
+      key: 'issueDate',
+      header: 'DATE',
+      sortable: true,
+      minWidth: '105px',
+      render: (row) => {
+        const cleanDate = row.issueDate ? String(row.issueDate).split('T')[0] : '—';
+        return <span className="text-gray-300 text-xs font-mono font-medium">{cleanDate}</span>;
+      },
+    },
+    {
+      key: 'customer',
+      header: 'CUSTOMER',
+      sortable: true,
+      minWidth: '180px',
+      render: (row) => {
+        const custName = getCustomerDisplay(row);
+        const fullAddress = row.customer?.address
+          ? `${row.customer.address}, ${row.customer.city || ''}`
+          : row.customer?.city || 'N/A';
+        const tooltip = `Full Name: ${custName}\nPhone: ${row.customer?.phone || 'N/A'}\nAddress: ${fullAddress}`;
+        return (
+          <div className="min-w-0 cursor-help" title={tooltip}>
+            <p className="font-semibold text-gray-200 text-sm leading-tight truncate max-w-[200px]">{custName}</p>
+            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{fullAddress}</p>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'salesman',
+      header: 'SALESMAN',
+      sortable: true,
+      minWidth: '140px',
+      render: (row) => {
+        const salesmanName = getSalesmanDisplay(row);
+        return (
+          <div>
+            <p className="text-xs font-semibold text-gray-300">{salesmanName || '—'}</p>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'items',
+      header: 'ITEMS',
+      align: 'center',
+      minWidth: '60px',
+      render: (row) => (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-[#1e293b] text-gray-200 border border-[#334155]">
+          {row.items?.length || 0}
+        </span>
+      ),
+    },
+    {
+      key: 'totalAmount',
+      header: 'AMOUNT',
+      sortable: true,
+      align: 'right',
+      minWidth: '120px',
+      render: (row) => (
+        <span className="font-bold text-white text-sm font-mono">
+          {formatCurrency(row.totalAmount)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'STATUS',
+      sortable: true,
+      minWidth: '110px',
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      minWidth: '220px',
+      render: (row) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => {
+              const custPhone = row.customer?.phone || '';
+              const custName = getCustomerDisplay(row);
+              const link = `${window.location.origin}/quotation/view/${row.id}`;
+              const cleanPhone = custPhone.replace(/[^0-9]/g, '');
+              const text = encodeURIComponent(
+                `Hello ${custName},\n\nHere is your quotation ${row.quotationNumber} from S & K Enterprises.\n\nTotal: LKR ${Math.round(row.totalAmount).toLocaleString()}/=\n\nView quotation online:\n${link}\n\nThank you for your business!`
+              );
+              const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+              window.open(url, '_blank');
+            }}
+            className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Share on WhatsApp"
+          >
+            <MessageCircle size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleLoadQuotation(row, 'edit')}
+            className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Edit Quotation"
+          >
+            <Edit size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleLoadQuotation(row, 'view')}
+            className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Preview Quotation"
+          >
+            <Eye size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleCopyQuotationLink(row.id, row.quotationNumber)}
+            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700/30 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title={copiedQuotationId === row.id ? "Link Copied!" : "Copy Quotation Link"}
+          >
+            {copiedQuotationId === row.id ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleConvertQuotationToOrder(row)}
+            className="p-1.5 text-purple-400 hover:bg-purple-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Convert to Sales Order"
+          >
+            <ShoppingBag size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleConvertQuotationToInvoice(row)}
+            className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Convert to Invoice"
+          >
+            <FileText size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleConvertQuotationToPO(row)}
+            className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Convert to Purchase Order"
+          >
+            <ShoppingCart size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleDeleteQuotation(row.id, row.quotationNumber)}
+            className="p-1.5 text-rose-400 hover:bg-rose-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Delete Quotation"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
-      <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <>
+      <AppLayout
+        headerIcon={<FileText size={20} className="text-blue-400" />}
+        headerTitle="Quotation Management"
+        headerSubtitle="Sales quotations and customer estimates"
+      >
         {alert && (
           <CustomAlert
             type={alert.type}
@@ -873,372 +1185,126 @@ const Quotation: React.FC = () => {
           onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
         />
 
-        <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 md:px-6 shadow-lg relative z-40 flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {viewMode === 'manage' ? (
-              <button onClick={() => setViewMode('edit')} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
-                <ChevronLeft className="w-5 h-5" />
+        <PageHeader
+          title="Customer Quotations"
+          description="Manage and review quotations sent to customers."
+          breadcrumbs={[
+            { label: 'Dashboard', path: '/dashboard' },
+            { label: 'Sales' },
+            { label: 'Quotations' },
+          ]}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <Download size={15} /> Export CSV
               </button>
-            ) : (
-              isMobileView && (
-                <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
-                  {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
-              )
-            )}
-
-            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
-              <FileText className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={handleNewQuotation}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
+              >
+                <Plus size={15} /> New Quotation
+              </button>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-[1.15rem] font-bold text-gray-100 leading-tight truncate tracking-tight">
-                Quotation Management
-              </h1>
-              <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
-                {viewMode === 'manage'
-                  ? 'View Quotations'
-                  : quotationData.id
-                    ? `Edit Quotation – ${quotationData.quotationNumber}`
-                    : 'Create New Quotation'}
-              </div>
-            </div>
-          </div>
+          }
+        />
 
-          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            {viewMode === "manage" ? (
-              <>
-                <div className="relative">
-                  <input
-                    value={manageSearch}
-                    onChange={(e) => {
-                      setManageSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Search by ID or customer"
-                    className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
-                  />
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                <button
-                  onClick={() => setViewMode('edit')}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>+ New Quotation</span>
-                </button>
-              </>
-            ) : (
-              <>
-                {(() => {
-                  const isQuotationSaved = Boolean(quotationData.id);
-                  return (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleConvertQuotationToOrder(quotationData)}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Sales Order"}
-                      >
-                        <ShoppingBag className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to Order</span>
-                      </button>
+        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
+          <FilterBar
+            searchPlaceholder="Search quotation ID, customer name..."
+            searchValue={searchQuery}
+            onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            suggestions={searchSuggestions}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
+            onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
+            selects={[
+              {
+                value: statusFilter,
+                onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
+                options: statusOptions,
+                placeholder: 'All Statuses',
+                width: 'w-36',
+              },
+              {
+                value: paymentFilter,
+                onChange: (val) => { setPaymentFilter(val); setCurrentPage(1); },
+                options: paymentOptions,
+                placeholder: 'All Payments',
+                width: 'w-32',
+              },
+              {
+                value: salesmanFilter,
+                onChange: (val) => { setSalesmanFilter(val); setCurrentPage(1); },
+                options: salesmenOptions,
+                placeholder: 'All Salesmen',
+                width: 'w-36',
+              },
+            ]}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearAllFilters}
+          />
 
-                      <button
-                        type="button"
-                        onClick={() => handleConvertQuotationToInvoice(quotationData)}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Invoice"}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to Invoice</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleConvertQuotationToPO(quotationData)}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Purchase Order"}
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to PO</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleOpenPreview}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Preview</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleShareQuotation}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
-                      >
-                        <Share2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Share</span>
-                      </button>
-                    </>
-                  );
-                })()}
-
-                <button
-                  type="button"
-                  onClick={handleSaveChanges}
-                  disabled={isLoading || isSaving}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-sm"
-                >
-                  {isSaving ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>{quotationData.id ? 'Update' : 'Save'}</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  title="Clear quotation"
-                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Clear</span>
-                </button>
-
-                <button
-                  onClick={handleOpenManageModal}
-                  title="Manage quotations"
-                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white hover:bg-[#334155] px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">Manage</span>
-                </button>
-              </>
-            )}
-
-            <div className="flex items-center gap-2.5 ml-1">
-              <ThemeToggle />
-              <UserProfileDropdown />
-            </div>
+          <div className="p-4">
+            <DataTable
+              columns={columns}
+              data={paginatedQuotations}
+              loading={isLoadingQuotations}
+              keyExtractor={(item) => item.id || item.quotationNumber}
+              onRowClick={(item) => {
+                handleLoadQuotation(item, 'view');
+              }}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              emptyMessage="No quotations found matching the criteria."
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={sortedQuotations.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
           </div>
         </div>
+      </AppLayout>
 
-        <div className="flex-1 flex overflow-hidden">
-          {viewMode === 'manage' ? (
-            <div className="w-full overflow-auto p-4">
-              <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
-                <div className="flex-1 overflow-auto rounded-lg">
-                  {isLoadingQuotations ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                    </div>
-                  ) : filteredQuotations.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                      <FileText className="w-16 h-16 mb-4 opacity-50" />
-                      <p className="text-lg font-medium">No quotations found</p>
-                      <p className="text-sm mt-2">Try a different search or create a new quotation</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Table */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-sm">
-                          <thead className="sticky top-0 z-10">
-                            <tr className="bg-[#1e293b] border-b border-[#243244]">
-                              <th className="text-left px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Quotation ID
-                              </th>
-                              <th className="text-left px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Customer
-                              </th>
-                              <th className="hidden md:table-cell text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Issue Date
-                              </th>
-                              <th className="hidden sm:table-cell text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Status
-                              </th>
-                              <th className="text-right px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Total
-                              </th>
-                              <th className="text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#243244]">
-                            {currentQuotations.map((quotation: QuotationResponse) => {
-                              const statusConfig = quotation.status ? statusBadgeMap[quotation.status as keyof typeof statusBadgeMap] : null;
-                              return (
-                                <tr
-                                  key={quotation.id}
-                                  className="hover:bg-[#243244]/50 transition"
-                                >
-                                  {/* Quotation ID */}
-                                  <td className="px-2 md:px-4 py-3 font-medium text-blue-400">
-                                    {quotation.quotationNumber}
-                                  </td>
-
-                                  {/* Customer */}
-                                  <td className="px-2 md:px-4 py-3">
-                                    <div className="font-medium text-white">
-                                      {quotation.customer?.fullName || "Walk-in Customer"}
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                      {quotation.customer?.phone || ""}
-                                    </div>
-                                  </td>
-
-                                  {/* Date */}
-                                  <td className="hidden md:table-cell px-2 md:px-4 py-3 text-gray-400">
-                                    {formatDate(quotation.issueDate)}
-                                  </td>
-
-                                  {/* Status */}
-                                  <td className="hidden sm:table-cell px-2 md:px-4 py-3">
-                                    {statusConfig && (
-                                      <span
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.cls}`}
-                                      >
-                                        {statusConfig.icon}
-                                        {quotation.status}
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Amount */}
-                                  <td className="px-2 md:px-4 py-3 text-right font-semibold text-white">
-                                    LKR {quotation.totalAmount.toFixed(2)}
-                                  </td>
-
-                                  {/* Actions */}
-                                  <td className="px-2 md:px-4 py-3">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <button
-                                        onClick={() => handleLoadQuotation(quotation, 'view')}
-                                        title="Preview & Share on WhatsApp"
-                                        className="p-2 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition"
-                                      >
-                                        <MessageCircle className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleLoadQuotation(quotation, 'view')}
-                                        title="View Preview"
-                                        className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition"
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleLoadQuotation(quotation, 'edit')}
-                                        title="Edit"
-                                        className="p-2 rounded-md text-green-400 hover:bg-green-500/20 transition"
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleCopyQuotationLink(quotation.id!, quotation.quotationNumber)}
-                                        title="Copy Quotation Link"
-                                        className={`p-2 rounded-md transition ${copiedQuotationId === quotation.id
-                                          ? 'text-green-400 bg-green-500/20' 
-                                          : 'text-purple-400 hover:bg-purple-500/20'}`}
-                                      >
-                                        {copiedQuotationId === quotation.id ? (
-                                          <Check className="w-4 h-4" />
-                                        ) : (
-                                          <Copy className="w-4 h-4" />
-                                        )}
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleConvertQuotationToOrder(quotation)}
-                                        title="Convert to Sales Order"
-                                        className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition cursor-pointer"
-                                      >
-                                        <ShoppingBag className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleConvertQuotationToInvoice(quotation)}
-                                        title="Convert to Invoice"
-                                        className="p-2 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
-                                      >
-                                        <FileText className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleConvertQuotationToPO(quotation)}
-                                        title="Convert to Purchase Order"
-                                        className="p-2 rounded-md text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
-                                      >
-                                        <ShoppingCart className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => {
-                                          if (quotation.id && quotation.quotationNumber) {
-                                            handleDeleteQuotation(quotation.id, quotation.quotationNumber);
-                                          }
-                                        }}
-                                        title="Delete"
-                                        className="p-2 rounded-md text-red-400 hover:bg-red-500/20 transition"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination */}
-                      {filteredTotalPages > 1 && (
-                        <div className="flex items-center justify-between m-2">
-                          <div className="text-sm text-gray-400">Showing {startIndex + 1} to {Math.min(endIndex, filteredQuotations.length)} of {filteredQuotations.length} quotations</div>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Previous page"><ChevronLeft className="w-4 h-4 text-gray-300" /></button>
-                            <div className="flex items-center gap-1">
-                              {Array.from({ length: filteredTotalPages }, (_, i) => i + 1).map((page) => {
-                                const showPage = page === 1 || page === filteredTotalPages || (page >= currentPage - 1 && page <= currentPage + 1);
-                                const showEllipsis = (page === 2 && currentPage > 3) || (page === filteredTotalPages - 1 && currentPage < filteredTotalPages - 2);
-                                if (!showPage && !showEllipsis) return null;
-                                if (showEllipsis) return <span key={page} className="px-2 text-gray-500">...</span>;
-                                return (
-                                  <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-[#0f172a] text-gray-300 border border-[#334155] hover:bg-[#1e293b]'}`}>
-                                    {page}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <button onClick={() => setCurrentPage(prev => Math.min(filteredTotalPages, prev + 1))} disabled={currentPage === filteredTotalPages} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Next page"><ChevronRight className="w-4 h-4 text-gray-300" /></button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+      {/* Create / Edit Quotation Drawer */}
+        {isCreateDrawerOpen && (
+          <div className="fixed inset-0 z-[900] flex items-start justify-end">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={handleCloseDrawer}
+            />
+            <div className="relative w-full md:w-[70vw] lg:w-[70vw] xl:w-[70vw] max-w-none h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/80 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                    <FileText size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-white">
+                      {quotationData.id ? `Edit Quotation — ${quotationData.quotationNumber}` : 'Create New Quotation'}
+                    </h2>
+                    <p className="text-xs text-gray-400">
+                      {quotationData.id ? 'Modify products, quantities, and discounts for this quotation' : 'Fill in the details below to generate a new quotation'}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleCloseDrawer}
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-[#334155] rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
               </div>
-            </div>
-          ) : (
-            /* Clean Full-Width Form View */
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="w-full space-y-6">
+
+              <div className="flex-1 overflow-y-auto bg-[#0f172a] p-4 md:p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
                 {isLoading ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
@@ -1258,7 +1324,6 @@ const Quotation: React.FC = () => {
                   </ErrorBoundary>
                 )}
 
-                {/* Form Footer Action Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1e293b] p-4 rounded-xl border border-[#334155] shadow-lg sticky bottom-4 z-20">
                   <div className="text-xs text-gray-400">
                     {quotationData.items.length > 0 ? (
@@ -1273,17 +1338,25 @@ const Quotation: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {isDirty && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        disabled={isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Cancel</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleCloseDrawer}
+                      disabled={isLoading || isSaving}
+                      className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Close</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      title="Clear quotation"
+                      className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Clear</span>
+                    </button>
 
                     {(() => {
                       const isQuotationSaved = Boolean(quotationData.id);
@@ -1293,7 +1366,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={() => handleConvertQuotationToPO(quotationData)}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Convert Quotation to Purchase Order"}
                           >
                             <ShoppingCart className="w-4 h-4" />
@@ -1304,7 +1377,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleShareQuotation}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
                           >
                             <Share2 className="w-4 h-4" />
@@ -1315,7 +1388,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Download PDF via Preview"}
                           >
                             <Download className="w-4 h-4" />
@@ -1326,7 +1399,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Print Quotation via Preview"}
                           >
                             <Printer className="w-4 h-4" />
@@ -1337,7 +1410,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
                           >
                             <Eye className="w-4 h-4" />
@@ -1351,7 +1424,7 @@ const Quotation: React.FC = () => {
                       type="button"
                       onClick={handleSaveChanges}
                       disabled={isLoading || isSaving}
-                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md"
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md cursor-pointer"
                     >
                       {isSaving ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1366,16 +1439,16 @@ const Quotation: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Dedicated Quotation Preview Modal */}
         <QuotationViewModal
           isOpen={showPreviewModal}
           onClose={() => setShowPreviewModal(false)}
           quotationData={quotationData}
           onConvertToPO={(q) => handleConvertQuotationToPO(q)}
           onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
+      
         />
 
         {/* Convert to PO Modal */}
@@ -1419,8 +1492,7 @@ const Quotation: React.FC = () => {
             initialOrder={orderModalInitialData}
           />
         )}
-      </div>
-    </div>
+    </>
   );
 };
 

@@ -49,8 +49,8 @@ export const PurchaseOrderViewModal: React.FC<PurchaseOrderViewModalProps> = ({
   const supplierPhone = selectedPO.supplierPhone || '';
   const supplierName = selectedPO.supplierName || 'Valued Supplier';
 
-  const poShareUrl = selectedPO.id
-    ? `${window.location.origin}/purchase-orders/${selectedPO.id}`
+  const poShareUrl = selectedPO.id || selectedPO.poNumber
+    ? `${window.location.origin}/purchase-orders/${selectedPO.id || selectedPO.poNumber}/preview`
     : window.location.href;
 
   const handleCopyLink = async () => {

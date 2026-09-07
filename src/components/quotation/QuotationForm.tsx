@@ -133,7 +133,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       onAddItem(lineItem);
     });
     setImportedOrderId(po.poNumber);
-    onFieldChange('notes', po.notes ? `Ref PO: ${po.poNumber} — ${po.notes}` : `Ref PO: ${po.poNumber}`);
+    onFieldChange('notes', po.notes || '');
   }, [onAddItem, onFieldChange]);
 
   const stockWarning = null;
@@ -480,14 +480,14 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Notes
+              Remarks / Notes (optional)
             </label>
             <textarea
               value={quotationData.notes || ''}
               onChange={(e) => onFieldChange('notes', e.target.value)}
-              placeholder="Additional notes..."
+              placeholder="Enter remarks or notes (optional)..."
               rows={3}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium resize-none"
             />
           </div>
         </div>

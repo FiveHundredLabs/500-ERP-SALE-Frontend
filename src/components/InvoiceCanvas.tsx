@@ -250,30 +250,42 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
             {/* Main Items Table - FIXED HEIGHT */}
             {/* The table area ensures that 20 rows are displayed identically regardless of actual item count */}
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12px' }}>
+              <colgroup>
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '43%' }} />
+                <col style={{ width: '7%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '20%' }} />
+              </colgroup>
               <thead>
-                <tr style={{ backgroundColor: '#1e3a8a', color: '#ffffff' }}>
-                  <th style={{ padding: '6px 5px', textAlign: 'center', border: '1px solid #1e3a8a', width: '5%', fontWeight: '600' }}>#</th>
-                  <th style={{ padding: '6px 10px', textAlign: 'left', border: '1px solid #1e3a8a', width: '43%', fontWeight: '600' }}>DESCRIPTION</th>
-                  <th style={{ padding: '6px 5px', textAlign: 'center', border: '1px solid #1e3a8a', width: '7%', fontWeight: '600' }}>QTY</th>
-                  <th style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid #1e3a8a', width: '15%', fontWeight: '600', whiteSpace: 'nowrap' }}>RATE (Rs.)</th>
-                  <th style={{ padding: '6px 5px', textAlign: 'center', border: '1px solid #1e3a8a', width: '10%', fontWeight: '600' }}>DISC</th>
-                  <th style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid #1e3a8a', width: '20%', fontWeight: '600', whiteSpace: 'nowrap' }}>AMOUNT (Rs.)</th>
+                <tr style={{ backgroundColor: '#1e3a8a', color: '#ffffff', height: '26px' }}>
+                  <th style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>#</th>
+                  <th style={{ padding: '4px 8px', textAlign: 'left', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>DESCRIPTION</th>
+                  <th style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>QTY</th>
+                  <th style={{ padding: '4px 8px', textAlign: 'right', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>RATE (Rs.)</th>
+                  <th style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>DISC</th>
+                  <th style={{ padding: '4px 8px', textAlign: 'right', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>AMOUNT (Rs.)</th>
                 </tr>
               </thead>
               <tbody>
                 {chunk.map((item, index) => {
                   // Fixed row height ensures the table structure never shifts
-                  const rowStyle = { backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc', height: '22px' };
+                  const rowStyle: React.CSSProperties = {
+                    backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                    height: '24px',
+                    boxSizing: 'border-box',
+                  };
                   
                   if (item.isPlaceholder) {
                     return (
                       <tr key={`placeholder-${index}`} style={rowStyle}>
-                        <td style={{ border: '1px solid #e2e8f0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0' }}></td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
                       </tr>
                     );
                   }
@@ -281,14 +293,24 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   const globalIndex = pageIndex * ITEMS_PER_PAGE + index;
                   return (
                     <tr key={item.id || globalIndex} style={rowStyle}>
-                      <td style={{ padding: '2px 5px', border: '1px solid #e2e8f0', color: '#64748b', textAlign: 'center', whiteSpace: 'nowrap' }}>{globalIndex + 1}</td>
-                      <td style={{ padding: '2px 10px', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName || item.inventoryItem?.productName || 'Item'}</td>
-                      <td style={{ padding: '2px 5px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap' }}>{item.quantity}</td>
-                      <td style={{ padding: '2px 10px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap' }}>{Math.round(item.unitPrice).toLocaleString()}</td>
-                      <td style={{ padding: '2px 5px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '0 2px 2px 2px', border: '1px solid #e2e8f0', color: '#64748b', textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                        {globalIndex + 1}
+                      </td>
+                      <td style={{ padding: '0 8px 2px 8px', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                        {item.itemName || item.inventoryItem?.productName || 'Item'}
+                      </td>
+                      <td style={{ padding: '0 2px 2px 2px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                        {item.quantity}
+                      </td>
+                      <td style={{ padding: '0 8px 2px 8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                        {Math.round(item.unitPrice).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '0 2px 2px 2px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
                         {getDiscountDisplay(item)}
                       </td>
-                      <td style={{ padding: '2px 10px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap' }}>{Math.round(item.total).toLocaleString()}</td>
+                      <td style={{ padding: '0 8px 2px 8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                        {Math.round(item.total).toLocaleString()}
+                      </td>
                     </tr>
                   );
                 })}
@@ -298,13 +320,24 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
             {/* Financial Summary & Footer Section */}
             {/* Positioned immediately below the table on the last page. Because the table is exactly 20 rows, this is always vertically consistent. */}
             {isLastPage && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '15px' }}>
                 {/* Left Side: Notes & Terms */}
                 <div style={{ flex: '1.2', paddingRight: '20px' }}>
-                  {invoiceData.notes && (
-                    <div style={{ marginBottom: '10px' }}>
-                      <strong style={{ display: 'block', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>Remarks / Notes</strong>
-                      <div style={{ fontSize: '12px', color: '#475569', fontStyle: 'italic', maxHeight: '40px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{invoiceData.notes}</div>
+                  {Boolean(invoiceData.notes && invoiceData.notes.trim()) && (
+                    <div style={{ 
+                      backgroundColor: '#f8fafc', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '6px', 
+                      padding: '8px 12px', 
+                      minHeight: '60px',
+                      boxSizing: 'border-box'
+                    }}>
+                      <strong style={{ display: 'block', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                        Remarks / Notes
+                      </strong>
+                      <div style={{ fontSize: '12px', color: '#475569', fontStyle: 'italic', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                        {invoiceData.notes}
+                      </div>
                     </div>
                   )}
                 </div>

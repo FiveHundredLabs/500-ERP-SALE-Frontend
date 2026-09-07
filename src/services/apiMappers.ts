@@ -103,6 +103,19 @@ export const mapInvoiceReturn = (value: any): InvoiceReturn => ({
   returnTotal: money(value.returnTotal),
 });
 
+export const mapPOReturn = (value: any): any => ({
+  ...value,
+  purchaseOrder: value.purchaseOrder,
+  supplier: value.supplier ? mapSupplier(value.supplier) : value.supplier,
+  items: (value.items ?? []).map((item: any) => ({
+    ...item,
+    inventoryItem: item.inventoryItem ? mapInventoryItem(item.inventoryItem) : undefined,
+    unitPrice: money(item.unitPrice),
+    total: money(item.total),
+  })),
+  returnTotal: money(value.returnTotal),
+});
+
 export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
   ...value,
   transactionType: (value.transactionType === 'refund' ? 'refund' : 'payment') as 'payment' | 'refund',
@@ -144,4 +157,5 @@ export const mapPurchaseOrder = (value: any): PurchaseOrder => ({
   subTotal: money(value.subTotal), discountValue: money(value.discountValue),
   totalDiscount: money(value.totalDiscount), totalTax: money(value.totalTax),
   shippingCharges: money(value.shippingCharges), totalAmount: money(value.totalAmount),
+  returns: (value.returns ?? []).map(mapPOReturn),
 });

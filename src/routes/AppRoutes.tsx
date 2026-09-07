@@ -10,6 +10,7 @@ import UserManagement from "../pages/UserManagement";
 import ProtectedRoute from "./ProtectedRoute";
 import InvoiceView from "../pages/InvoiceView";
 import QuotationView from "../pages/QuotationView";
+import PurchaseOrderPreview from "../pages/PurchaseOrderPreview";
 import RoleRoute from "./RoleRoute";
 import { ToastProvider } from "../components/erp/Toast";
 
@@ -26,6 +27,7 @@ import SalesOfficers from "../pages/SalesOfficers";
 import Reports from "../pages/Reports";
 import MobileApp from "../pages/MobileApp";
 import InvoiceReturns from "../pages/InvoiceReturns";
+import POReturns from "../pages/POReturns";
 
 const AppRoutes: React.FC = () => {
   return (
@@ -34,9 +36,12 @@ const AppRoutes: React.FC = () => {
         {/* Public auth */}
         <Route path="/login" element={<Login />} />
 
-        {/* Public document view routes (EXISTING - UNTOUCHED) */}
+        {/* Public document view routes */}
         <Route path="/invoice/view/:id" element={<InvoiceView />} />
         <Route path="/quotation/view/:id" element={<QuotationView />} />
+        <Route path="/purchase-orders/:id/preview" element={<PurchaseOrderPreview />} />
+        <Route path="/purchase-orders/view/:id" element={<PurchaseOrderPreview />} />
+        <Route path="/purchase-order/view/:id" element={<PurchaseOrderPreview />} />
 
         {/* DASHBOARD */}
         <Route
@@ -239,13 +244,25 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* INVOICE RETURNS (NEW) */}
+        {/* INVOICE RETURNS */}
         <Route
           path="/invoice-returns"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
                 <InvoiceReturns />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* PO RETURNS */}
+        <Route
+          path="/po-returns"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <POReturns />
               </RoleRoute>
             </ProtectedRoute>
           }

@@ -29,6 +29,8 @@ import {
   Layers,
   RefreshCw,
   BarChart2,
+  RotateCcw,
+  Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { KpiCard, StatusBadge } from "./erp";
@@ -40,6 +42,7 @@ import { supplierService } from "../services/SupplierService";
 import { salesOfficerService } from "../services/SalesOfficerService";
 import { financeService } from "../services/FinanceService";
 import { invoiceReturnService } from "../services/InvoiceReturnService";
+import { poReturnService } from "../services/POReturnService";
 import type { InvoiceResponse } from "../types/invoice";
 import type { Order } from "../types/orders";
 import type { PurchaseOrder } from "../types/purchaseOrders";
@@ -47,6 +50,9 @@ import type { InventoryItem } from "../types/inventory";
 import type { Supplier } from "../types/suppliers";
 import type { SalesOfficer } from "../types/salesOfficer";
 import type { InvoiceReturn } from "../types/invoice-return";
+import type { PurchaseOrderReturn } from "../types/po-return";
+import CreateReturnModal from "./invoice/CreateReturnModal";
+import CreatePOReturnModal from "./orders/CreatePOReturnModal";
 
 // ─── Skeleton Components ──────────────────────────────────────────────────────
 const SkeletonBox = ({ className = "" }: { className?: string }) => (
@@ -77,6 +83,11 @@ const DashboardOverview: React.FC = () => {
   const [salesOfficers, setSalesOfficers] = useState<SalesOfficer[]>([]);
   const [cheques, setCheques] = useState<any[]>([]);
   const [invoiceReturns, setInvoiceReturns] = useState<InvoiceReturn[]>([]);
+  const [poReturns, setPoReturns] = useState<PurchaseOrderReturn[]>([]);
+
+  // Modals for Returns Hub
+  const [isCreateInvoiceReturnOpen, setIsCreateInvoiceReturnOpen] = useState(false);
+  const [isCreatePOReturnOpen, setIsCreatePOReturnOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -96,7 +107,7 @@ const DashboardOverview: React.FC = () => {
       }
     };
 
-    const [invs, ords, pos, invItems, custs, sups, officers, finTransactions, returnsList] = await Promise.all([
+    const [invs, ords, pos, invItems, custs, sups, officers, finTransactions, returnsList, poReturnsList] = await Promise.all([
       safe(invoiceService.getAll(), [], "Invoices"),
       safe(orderService.getAll(), [], "Orders"),
       safe(purchaseOrderService.getAll(), [], "Purchase Orders"),
@@ -105,7 +116,8 @@ const DashboardOverview: React.FC = () => {
       safe(supplierService.getAll(), [], "Suppliers"),
       safe(salesOfficerService.getAll(), [], "Sales Officers"),
       safe(financeService.getAll(), [], "Finance"),
-      safe(invoiceReturnService.getAll(), [], "Returns"),
+      safe(invoiceReturnService.getAll(), [], "Invoice Returns"),
+      safe(poReturnService.getAll(), [], "PO Returns"),
     ]);
 
     setInvoices(invs);
@@ -116,6 +128,7 @@ const DashboardOverview: React.FC = () => {
     setSuppliers(sups);
     setSalesOfficers(officers);
     setInvoiceReturns(returnsList);
+    setPoReturns(poReturnsList);
 
     const chqs = finTransactions.filter(
       (t: any) => t.paymentMethod === "cheque" || t.paymentMethod === "Cheque"
@@ -927,6 +940,185 @@ const DashboardOverview: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ══════════════ 5. RETURNS & INVENTORY ADJUSTMENTS HUB ══════════════ */}
+      <div className="bg-gradient-to-br from-[#1e293b] via-[#0f172a] to-[#111827] border border-[#334155] rounded-2xl p-6 shadow-2xl space-y-5 relative overflow-hidden">
+        {/* Glow ambient decoration */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-wrap items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-2 bg-purple-500/20 text-purple-400 rounded-xl border border-purple-500/30">
+                <RotateCcw size={20} />
+              </span>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-wide">
+                  Returns & Inventory Adjustments Hub
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Manage customer sales returns and supplier purchase returns with real-time stock & balance synchronization
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 relative z-10">
+          {/* Left Card: Customer / Invoice Returns */}
+          <div className="bg-[#0f172a]/90 border border-blue-500/30 hover:border-blue-500/60 rounded-xl p-5 shadow-lg transition-all flex flex-col justify-between space-y-4 group">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 group-hover:scale-105 transition-transform">
+                  <RotateCcw size={22} />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                    Customer / Invoice Returns
+                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 font-semibold">
+                      Sales
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Process returned items from customer invoices, restock items, and adjust credit accounts
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-3 bg-[#1e293b]/60 p-3 rounded-xl border border-[#334155]/60">
+              <div>
+                <span className="text-[11px] text-slate-400 block font-medium">Total Returns</span>
+                <span className="text-lg font-bold font-mono text-white">
+                  {invoiceReturns.length}{" "}
+                  <span className="text-xs text-slate-400 font-normal">
+                    ({invoiceReturns.filter((r) => r.status === "completed").length} completed)
+                  </span>
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[11px] text-slate-400 block font-medium">Total Refund / Credit</span>
+                <span className="text-lg font-bold font-mono text-blue-400">
+                  {formatCurrency(
+                    invoiceReturns
+                      .filter((r) => r.status !== "cancelled")
+                      .reduce((sum, r) => sum + Number(r.returnTotal || 0), 0)
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsCreateInvoiceReturnOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/20 transition-all cursor-pointer"
+              >
+                <Plus size={15} /> New Invoice Return
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/invoice-returns")}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#1e293b] hover:bg-[#334155] text-slate-200 border border-[#334155] font-semibold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                View History <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Right Card: Supplier / PO Returns */}
+          <div className="bg-[#0f172a]/90 border border-purple-500/30 hover:border-purple-500/60 rounded-xl p-5 shadow-lg transition-all flex flex-col justify-between space-y-4 group">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 group-hover:scale-105 transition-transform">
+                  <Truck size={22} />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                    Supplier / Purchase Order Returns
+                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30 font-semibold">
+                      Purchasing
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Return defective or excess stock back to suppliers and generate official debit notes
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-3 bg-[#1e293b]/60 p-3 rounded-xl border border-[#334155]/60">
+              <div>
+                <span className="text-[11px] text-slate-400 block font-medium">Total PO Returns</span>
+                <span className="text-lg font-bold font-mono text-white">
+                  {poReturns.length}{" "}
+                  <span className="text-xs text-slate-400 font-normal">
+                    ({poReturns.filter((r) => r.status === "completed").length} completed)
+                  </span>
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[11px] text-slate-400 block font-medium">Total Debit Amount</span>
+                <span className="text-lg font-bold font-mono text-purple-400">
+                  {formatCurrency(
+                    poReturns
+                      .filter((r) => r.status !== "cancelled")
+                      .reduce((sum, r) => sum + Number(r.returnTotal || 0), 0)
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsCreatePOReturnOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-purple-600/20 transition-all cursor-pointer"
+              >
+                <Plus size={15} /> New PO Return
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/po-returns")}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#1e293b] hover:bg-[#334155] text-slate-200 border border-[#334155] font-semibold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                View History <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CREATE INVOICE RETURN MODAL */}
+      <CreateReturnModal
+        isOpen={isCreateInvoiceReturnOpen}
+        onClose={() => setIsCreateInvoiceReturnOpen(false)}
+        onSuccess={(newReturn) => {
+          if (newReturn) {
+            setInvoiceReturns((prev) => [newReturn, ...prev]);
+          } else {
+            loadDashboardData();
+          }
+        }}
+      />
+
+      {/* CREATE PO RETURN MODAL */}
+      <CreatePOReturnModal
+        isOpen={isCreatePOReturnOpen}
+        onClose={() => setIsCreatePOReturnOpen(false)}
+        onSuccess={(newReturn) => {
+          if (newReturn) {
+            setPoReturns((prev) => [newReturn, ...prev]);
+          } else {
+            loadDashboardData();
+          }
+        }}
+      />
     </div>
   );
 };

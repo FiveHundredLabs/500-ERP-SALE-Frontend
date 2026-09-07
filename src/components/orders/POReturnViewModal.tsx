@@ -1,20 +1,20 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Printer, ShieldCheck, XCircle, Trash2 } from 'lucide-react';
 import { Modal, Button } from '../common';
-import ReturnCanvas from './ReturnCanvas';
+import POReturnCanvas from './POReturnCanvas';
 import html2canvas from 'html2canvas';
-import type { InvoiceReturn } from '../../types/invoice-return';
-import { ReturnStatus } from '../../types/invoice-return';
+import type { PurchaseOrderReturn } from '../../types/po-return';
+import { POReturnStatus } from '../../types/po-return';
 
-interface ReturnViewModalProps {
+interface POReturnViewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  returnRecord: InvoiceReturn | null;
-  onStatusChange?: (status: ReturnStatus) => Promise<void>;
+  returnRecord: PurchaseOrderReturn | null;
+  onStatusChange?: (status: POReturnStatus) => Promise<void>;
   onDelete?: () => void;
 }
 
-export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
+export const POReturnViewModal: React.FC<POReturnViewModalProps> = ({
   isOpen,
   onClose,
   returnRecord,
@@ -43,7 +43,7 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
 
       const { createRoot } = await import('react-dom/client');
       const root = createRoot(tempContainer);
-      root.render(<ReturnCanvas returnData={returnRecord} />);
+      root.render(<POReturnCanvas returnData={returnRecord} />);
 
       await new Promise(resolve => setTimeout(resolve, 500));
       const element = tempContainer.firstChild as HTMLElement;
@@ -59,7 +59,7 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
 
       printWindow.document.write(`
         <html>
-          <head><title>Return ${returnRecord.returnNumber}</title></head>
+          <head><title>PO Return ${returnRecord.returnNumber}</title></head>
           <body style="margin:0;padding:0;"><img style="width:100%;" src="${imageData}"/></body>
           <script>window.onload=()=>{setTimeout(()=>{window.print();setTimeout(()=>{window.close();},500);},300);}</script>
         </html>
@@ -78,8 +78,8 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Sales Return - ${returnRecord.returnNumber}`}
-      icon={<FileText className="w-5 h-5 text-blue-400" />}
+      title={`Purchase Return - ${returnRecord.returnNumber}`}
+      icon={<FileText className="w-5 h-5 text-purple-400" />}
       size="xl"
       className="max-h-[95vh] max-w-[95vw] flex flex-col"
     >
@@ -87,24 +87,24 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
         <div className="flex-shrink-0 flex justify-between items-center gap-3 mb-4 px-2">
           <div className="flex items-center gap-2">
             <span className={`px-2 py-1 rounded text-xs font-semibold ${
-              returnRecord.status === ReturnStatus.COMPLETED ? 'bg-green-500/20 text-green-400' :
-              returnRecord.status === ReturnStatus.PENDING ? 'bg-yellow-500/20 text-yellow-400' :
+              returnRecord.status === POReturnStatus.COMPLETED ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+              returnRecord.status === POReturnStatus.PENDING ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
               'bg-gray-500/20 text-gray-400'
             }`}>
-              STATUS: {returnRecord.status}
+              STATUS: {String(returnRecord.status).toUpperCase()}
             </span>
-            {returnRecord.status === ReturnStatus.PENDING && onStatusChange && (
+            {returnRecord.status === POReturnStatus.PENDING && onStatusChange && (
               <>
                 <Button size="sm" variant="secondary" onClick={async () => {
                   setIsUpdating(true);
-                  await onStatusChange(ReturnStatus.COMPLETED);
+                  await onStatusChange(POReturnStatus.COMPLETED);
                   setIsUpdating(false);
-                }} disabled={isUpdating} className="text-green-400 hover:text-green-300 border-green-500/30">
-                  <ShieldCheck className="w-4 h-4 mr-1" /> Approve & Refund
+                }} disabled={isUpdating} className="text-emerald-400 hover:text-emerald-300 border-emerald-500/30">
+                  <ShieldCheck className="w-4 h-4 mr-1" /> Complete Return
                 </Button>
                 <Button size="sm" variant="secondary" onClick={async () => {
                   setIsUpdating(true);
-                  await onStatusChange(ReturnStatus.CANCELLED);
+                  await onStatusChange(POReturnStatus.CANCELLED);
                   setIsUpdating(false);
                 }} disabled={isUpdating} className="text-red-400 hover:text-red-300 border-red-500/30">
                   <XCircle className="w-4 h-4 mr-1" /> Cancel
@@ -130,7 +130,7 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
             disabled={isPrinting}
             isLoading={isPrinting}
           >
-            Print Note
+            Print Debit Note
           </Button>
         </div>
 
@@ -140,7 +140,7 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
             className="bg-white overflow-hidden shadow-2xl"
             style={{ width: '210mm', minHeight: '297mm', transform: 'scale(0.85)', transformOrigin: 'top center' }}
           >
-            <ReturnCanvas returnData={returnRecord} />
+            <POReturnCanvas returnData={returnRecord} />
           </div>
         </div>
       </div>
@@ -148,4 +148,4 @@ export const ReturnViewModal: React.FC<ReturnViewModalProps> = ({
   );
 };
 
-export default ReturnViewModal;
+export default POReturnViewModal;
