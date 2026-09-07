@@ -27,6 +27,7 @@ import SalesOfficers from "../pages/SalesOfficers";
 import Reports from "../pages/Reports";
 import MobileApp from "../pages/MobileApp";
 import InvoiceReturns from "../pages/InvoiceReturns";
+import POReturns from "../pages/POReturns";
 
 const AppRoutes: React.FC = () => {
   return (
@@ -243,13 +244,25 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* INVOICE RETURNS (NEW) */}
+        {/* INVOICE RETURNS */}
         <Route
           path="/invoice-returns"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={["admin"]}>
                 <InvoiceReturns />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* PO RETURNS */}
+        <Route
+          path="/po-returns"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={["admin", "inventory_manager"]}>
+                <POReturns />
               </RoleRoute>
             </ProtectedRoute>
           }
