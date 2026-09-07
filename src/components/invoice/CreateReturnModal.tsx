@@ -145,32 +145,55 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     });
   }, [allInvoices, invoiceSearchQuery]);
 
-  // Calculate already returned qty for each item
-  const getAlreadyReturned = (itemId: string) => {
-    let sum = 0;
-    pastReturns.forEach((pr) => {
-      const match = pr.items.find((i) => i.inventoryItemId === itemId);
-      if (match) sum += match.quantity;
-    });
-    return sum;
-  };
+  // Process items with unique line keys and past returns deduction
+  const returnableInvoiceItems = useMemo(() => {
+    if (!selectedInvoice || !selectedInvoice.items) return [];
 
-  const handleQuantityChange = (itemId: string, maxQty: number, val: number) => {
+    // Track total past returns per inventoryItemId / itemCode / itemName
+    const pastReturnedMap: Record<string, number> = {};
+    pastReturns.forEach((pr) => {
+      (pr.items || []).forEach((ri) => {
+        const key = ri.inventoryItemId || (ri as any).itemCode || (ri as any).itemName || '';
+        pastReturnedMap[key] = (pastReturnedMap[key] || 0) + (ri.quantity || 0);
+      });
+    });
+
+    const runningPast = { ...pastReturnedMap };
+
+    return (selectedInvoice.items || []).map((item, idx) => {
+      const pKey = item.inventoryItemId || item.itemCode || item.itemName || '';
+      const availablePast = runningPast[pKey] || 0;
+      const alreadyReturned = Math.min(item.quantity, availablePast);
+      runningPast[pKey] = Math.max(0, availablePast - alreadyReturned);
+      const returnable = Math.max(0, item.quantity - alreadyReturned);
+      const lineKey = item.id ? `${item.id}-${idx}` : `item-${idx}-${item.inventoryItemId || ''}`;
+      const itemName = item.itemName || item.inventoryItem?.productName || `Item ${idx + 1}`;
+      const itemCode = item.itemCode || item.inventoryItem?.productCode || '';
+
+      return {
+        ...item,
+        lineKey,
+        itemName,
+        itemCode,
+        alreadyReturned,
+        returnable,
+      };
+    });
+  }, [selectedInvoice, pastReturns]);
+
+  const handleQuantityChange = (lineKey: string, maxQty: number, val: number) => {
     const clamped = Math.max(0, Math.min(val, maxQty));
     setReturnQuantities((prev) => ({
       ...prev,
-      [itemId]: clamped,
+      [lineKey]: clamped,
     }));
   };
 
   const handleReturnAll = () => {
     if (!selectedInvoice) return;
     const allQtys: Record<string, number> = {};
-    selectedInvoice.items.forEach((item, idx) => {
-      const itemId = item.inventoryItemId || item.id || `item-${idx}`;
-      const alreadyReturned = getAlreadyReturned(itemId);
-      const returnable = Math.max(0, item.quantity - alreadyReturned);
-      allQtys[itemId] = returnable;
+    returnableInvoiceItems.forEach((item) => {
+      allQtys[item.lineKey] = item.returnable;
     });
     setReturnQuantities(allQtys);
   };
@@ -194,19 +217,16 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
       total: number;
     }> = [];
 
-    selectedInvoice.items.forEach((item, idx) => {
-      const itemId = item.inventoryItemId || item.id || `item-${idx}`;
-      const itemName =
-        item.itemName || item.inventoryItem?.productName || 'Item ' + (idx + 1);
-      const qty = returnQuantities[itemId] || 0;
+    returnableInvoiceItems.forEach((item) => {
+      const qty = returnQuantities[item.lineKey] || 0;
 
       if (qty > 0) {
         const lineTotal = qty * item.unitPrice;
         totalQty += qty;
         rawTotal += lineTotal;
         itemsToReturn.push({
-          inventoryItemId: itemId,
-          itemName,
+          inventoryItemId: item.inventoryItemId || item.id,
+          itemName: item.itemName,
           quantity: qty,
           unitPrice: item.unitPrice,
           total: lineTotal,
@@ -222,7 +242,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
     }
 
     return { totalQty, totalAmount: finalTotal, itemsToReturn };
-  }, [selectedInvoice, returnQuantities, pastReturns]);
+  }, [selectedInvoice, returnableInvoiceItems, returnQuantities]);
 
   const handleSubmit = async () => {
     if (!selectedInvoice) {
@@ -247,14 +267,33 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
 
     try {
       setIsSubmitting(true);
+
+      // Consolidate returned items by inventoryItemId
+      const consolidatedItemsMap: Record<string, {
+        inventoryItemId: string;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+      }> = {};
+
+      returnSummary.itemsToReturn.forEach((i) => {
+        const key = i.inventoryItemId;
+        if (consolidatedItemsMap[key]) {
+          consolidatedItemsMap[key].quantity += i.quantity;
+          consolidatedItemsMap[key].total += i.total;
+        } else {
+          consolidatedItemsMap[key] = {
+            inventoryItemId: key,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            total: i.total,
+          };
+        }
+      });
+
       const payload = {
         invoiceId: selectedInvoice.id,
-        items: returnSummary.itemsToReturn.map((i) => ({
-          inventoryItemId: i.inventoryItemId,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          total: i.total,
-        })),
+        items: Object.values(consolidatedItemsMap),
         returnReason: finalReason,
         remarks: remarks.trim() || undefined,
         returnTotal: returnSummary.totalAmount,
@@ -497,25 +536,14 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1e293b]">
-                      {selectedInvoice.items.map((item, idx) => {
-                        const itemId = item.inventoryItemId || item.id || `item-${idx}`;
-                        const itemName =
-                          item.itemName ||
-                          item.inventoryItem?.productName ||
-                          'Item ' + (idx + 1);
-                        const itemCode =
-                          item.itemCode ||
-                          item.inventoryItem?.productCode ||
-                          '';
-                        const alreadyReturned = getAlreadyReturned(itemId);
-                        const returnable = Math.max(0, item.quantity - alreadyReturned);
-                        const currentQty = returnQuantities[itemId] || 0;
+                      {returnableInvoiceItems.map((item) => {
+                        const currentQty = returnQuantities[item.lineKey] || 0;
                         const lineTotal = currentQty * item.unitPrice;
-                        const isExhausted = returnable === 0;
+                        const isExhausted = item.returnable === 0;
 
                         return (
                           <tr
-                            key={itemId}
+                            key={item.lineKey}
                             className={`transition-colors ${
                               isExhausted
                                 ? 'bg-[#0a1024]/40 opacity-40'
@@ -525,10 +553,10 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                             }`}
                           >
                             <td className="p-3">
-                              <p className="font-semibold text-slate-200">{itemName}</p>
-                              {itemCode && (
+                              <p className="font-semibold text-slate-200">{item.itemName}</p>
+                              {item.itemCode && (
                                 <p className="text-[10px] text-cyan-400/80 font-mono mt-0.5">
-                                  {itemCode}
+                                  {item.itemCode}
                                 </p>
                               )}
                             </td>
@@ -536,10 +564,10 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                               {item.quantity}
                             </td>
                             <td className="p-3 text-right font-mono text-amber-400">
-                              {alreadyReturned}
+                              {item.alreadyReturned}
                             </td>
                             <td className="p-3 text-right font-mono font-bold text-emerald-400">
-                              {returnable}
+                              {item.returnable}
                             </td>
                             <td className="p-3 text-right font-mono text-slate-300">
                               Rs. {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -552,7 +580,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleQuantityChange(itemId, returnable, currentQty - 1)
+                                      handleQuantityChange(item.lineKey, item.returnable, currentQty - 1)
                                     }
                                     disabled={currentQty <= 0}
                                     className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white flex items-center justify-center transition-colors"
@@ -562,12 +590,12 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                                   <input
                                     type="number"
                                     min="0"
-                                    max={returnable}
+                                    max={item.returnable}
                                     value={currentQty === 0 ? '' : currentQty}
                                     onChange={(e) =>
                                       handleQuantityChange(
-                                        itemId,
-                                        returnable,
+                                        item.lineKey,
+                                        item.returnable,
                                         parseInt(e.target.value) || 0
                                       )
                                     }
@@ -577,9 +605,9 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleQuantityChange(itemId, returnable, currentQty + 1)
+                                      handleQuantityChange(item.lineKey, item.returnable, currentQty + 1)
                                     }
-                                    disabled={currentQty >= returnable}
+                                    disabled={currentQty >= item.returnable}
                                     className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white flex items-center justify-center transition-colors"
                                   >
                                     <Plus size={12} />
@@ -587,7 +615,7 @@ export const CreateReturnModal: React.FC<CreateReturnModalProps> = ({
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleQuantityChange(itemId, returnable, returnable)
+                                      handleQuantityChange(item.lineKey, item.returnable, item.returnable)
                                     }
                                     className="text-[10px] font-bold uppercase text-cyan-400 hover:text-cyan-300 ml-1 px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20"
                                   >

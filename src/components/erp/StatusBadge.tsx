@@ -30,6 +30,11 @@ const STATUS_MAP: Record<string, string> = {
   'partially_received':'badge badge-partial',
   'Partially Delivered':'badge badge-partial',
   'partial':          'badge badge-partial-pay',
+  'return_pending':   'badge badge-pending',
+  'Return Pending':   'badge badge-pending',
+  'partially_returned':'badge badge-partial',
+  'partial_return':   'badge badge-partial',
+  'Partial Return':   'badge badge-partial',
 
   // Goods Received — distinct teal/amber treatment
   'goods_received':   'badge badge-processing',
@@ -41,6 +46,9 @@ const STATUS_MAP: Record<string, string> = {
   'unpaid':           'badge badge-unpaid',
   'Out of Stock':     'badge badge-out-of-stock',
   'overdue':          'badge badge-overdue',
+  'returned':         'badge badge-returned',
+  'full_return':      'badge badge-returned',
+  'Returned':         'badge badge-returned',
 
   // Info Badges
   'converted_to_po':  'badge badge-converted',
@@ -62,6 +70,11 @@ const STATUS_LABELS: Record<string, string> = {
   goods_received:      'Goods Received',
   converted_to_po:     'Converted to PO',
   converted_to_invoice:'Converted to Invoice',
+  return_pending:      'Return Pending',
+  partially_returned:  'Partial Return',
+  partial_return:      'Partial Return',
+  returned:            'Returned',
+  full_return:         'Returned',
 };
 
 interface StatusBadgeProps {

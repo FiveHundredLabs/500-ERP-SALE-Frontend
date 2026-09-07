@@ -161,7 +161,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .badge-cancelled,
 .badge-overdue,
 .badge-out-of-stock,
-.badge-unpaid {
+.badge-unpaid,
+.badge-returned {
   background-color: var(--danger-bg);
   color: var(--danger-text);
   border: 1px solid var(--danger-border);
