@@ -72,6 +72,7 @@ export const mapInvoice = (value: any): InvoiceResponse => ({
   vatAmount: money(value.vatAmount),
   taxRate: money(value.taxRate),
   applyVat: Boolean(value.applyVat),
+  returns: (value.returns ?? []).map(mapInvoiceReturn),
 });
 
 export const mapQuotation = (value: any): QuotationResponse => ({

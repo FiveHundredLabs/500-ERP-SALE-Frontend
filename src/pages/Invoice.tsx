@@ -148,10 +148,69 @@ const Invoice: React.FC = () => {
   });
 
 
-  const isInvoiceEditable = (paymentStatus?: string, status?: string) => {
-    const ps = (paymentStatus || '').toLowerCase();
-    const s = (status || '').toLowerCase();
-    return ps !== 'paid' && ps !== 'completed' && s !== 'rejected' && s !== 'returned' && s !== 'return_completed';
+  const getInvoiceReturnInfo = (invoice: InvoiceResponse) => {
+    const returns = invoice.returns || [];
+    // Only active returns count (pending, approved, completed) - cancelled returns are completely ignored!
+    const activeReturns = returns.filter((r) => r.status !== 'cancelled');
+    const hasPendingReturn = activeReturns.some((r) => r.status === 'pending' || r.status === 'approved');
+    const completedReturns = activeReturns.filter((r) => r.status === 'completed');
+    const hasCompletedReturn = completedReturns.length > 0;
+
+    let isFullReturn = false;
+    let isPartialReturn = false;
+
+    if (hasCompletedReturn) {
+      const completedTotal = completedReturns.reduce((sum, r) => sum + (Number(r.returnTotal) || 0), 0);
+      const invoiceTotal = Number(invoice.totalAmount) || 0;
+
+      // Calculate by returned quantities vs total item quantities
+      const totalInvoiceQty = (invoice.items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+      const totalReturnedQty = completedReturns.reduce((sum, r) => {
+        return sum + (r.items || []).reduce((itemSum, it) => itemSum + (Number(it.quantity) || 0), 0);
+      }, 0);
+
+      if ((invoiceTotal > 0 && completedTotal >= invoiceTotal - 0.01) || (totalInvoiceQty > 0 && totalReturnedQty >= totalInvoiceQty)) {
+        isFullReturn = true;
+      } else {
+        isPartialReturn = true;
+      }
+    }
+
+    const calc = getInvoiceCalculatedStatus(invoice);
+    let displayStatus: string = calc.status;
+    let isEditable = (invoice.paymentStatus || '').toLowerCase() !== 'paid' &&
+      (invoice.paymentStatus || '').toLowerCase() !== 'completed' &&
+      ((invoice as any).status || '').toLowerCase() !== 'rejected';
+    let editDisabledReason = '';
+
+    if (hasPendingReturn) {
+      displayStatus = 'return_pending';
+      isEditable = false;
+      editDisabledReason = 'Cannot edit invoice while return is pending';
+    } else if (isFullReturn) {
+      displayStatus = 'returned';
+      isEditable = false;
+      editDisabledReason = 'Cannot edit invoice after full return has been completed';
+    } else if (isPartialReturn) {
+      displayStatus = 'partially_returned';
+      isEditable = false;
+      editDisabledReason = 'Cannot edit invoice after return has been completed';
+    } else if (!isEditable) {
+      editDisabledReason = 'Invoice cannot be edited (paid or completed)';
+    }
+
+    return {
+      hasActiveReturns: activeReturns.length > 0,
+      hasPendingReturn,
+      hasCompletedReturn,
+      isFullReturn,
+      isPartialReturn,
+      displayStatus,
+      isEditable,
+      editDisabledReason,
+      activeReturns,
+      completedReturns,
+    };
   };
 
   const getInitialInvoiceData = (): InvoiceData => {
@@ -1285,6 +1344,15 @@ const Invoice: React.FC = () => {
       setInvoiceData(loadedData);
 
       if (switchToEdit) {
+        const retInfo = getInvoiceReturnInfo(fullInvoiceData);
+        if (!retInfo.isEditable) {
+          setAlert({
+            type: 'warning',
+            message: retInfo.editDisabledReason || 'This invoice cannot be edited.',
+          });
+          return;
+        }
+
         lastSavedRef.current = loadedData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
@@ -1379,6 +1447,9 @@ const Invoice: React.FC = () => {
     { value: 'overdue', label: 'Overdue' },
     { value: 'due_soon', label: 'Due Soon' },
     { value: 'outstanding', label: 'Outstanding' },
+    { value: 'return_pending', label: 'Return Pending' },
+    { value: 'partially_returned', label: 'Partial Return' },
+    { value: 'returned', label: 'Returned' },
   ];
 
   const paymentOptions = [
@@ -1417,8 +1488,8 @@ const Invoice: React.FC = () => {
       const smName = getSalesmanDisplay(inv).toLowerCase();
       const matchesSearch = q === '' || custName.includes(q) || invNum.includes(q) || smName.includes(q);
 
-      const calc = getInvoiceCalculatedStatus(inv);
-      const matchesStatus = statusFilter === '' || calc.status === statusFilter || (inv as any).status === statusFilter;
+      const retInfo = getInvoiceReturnInfo(inv);
+      const matchesStatus = statusFilter === '' || retInfo.displayStatus === statusFilter || (inv as any).status === statusFilter;
       const matchesPayment = paymentFilter === '' || (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase();
       const matchesSalesman = salesmanFilter === '' || getSalesmanDisplay(inv) === salesmanFilter;
 
@@ -1441,8 +1512,8 @@ const Invoice: React.FC = () => {
         valA = getSalesmanDisplay(a);
         valB = getSalesmanDisplay(b);
       } else if (sortColumn === 'status') {
-        valA = getInvoiceCalculatedStatus(a).status;
-        valB = getInvoiceCalculatedStatus(b).status;
+        valA = getInvoiceReturnInfo(a).displayStatus;
+        valB = getInvoiceReturnInfo(b).displayStatus;
       }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
@@ -1479,6 +1550,7 @@ const Invoice: React.FC = () => {
     const headers = ['Invoice ID', 'Date', 'Customer', 'Salesman', 'Items', 'Total Amount', 'Paid Amount', 'Remaining', 'Status'];
     const rows = sortedInvoices.map((inv) => {
       const calc = getInvoiceCalculatedStatus(inv);
+      const retInfo = getInvoiceReturnInfo(inv);
       const custName = getCustomerDisplay(inv);
       const smName = getSalesmanDisplay(inv);
       return [
@@ -1490,7 +1562,7 @@ const Invoice: React.FC = () => {
         inv.totalAmount || 0,
         calc.paidAmount,
         calc.remainingAmount,
-        calc.status,
+        retInfo.displayStatus,
       ];
     });
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -1605,16 +1677,17 @@ const Invoice: React.FC = () => {
       sortable: true,
       minWidth: '110px',
       render: (row) => {
+        const retInfo = getInvoiceReturnInfo(row);
         const calc = getInvoiceCalculatedStatus(row);
         return (
           <PaymentBreakdownTooltip
             totalAmount={row.totalAmount || 0}
             paidAmount={calc.paidAmount}
             remainingAmount={calc.remainingAmount}
-            statusText={calc.status}
+            statusText={retInfo.displayStatus}
           >
             <span className="cursor-help">
-              <StatusBadge status={calc.status} />
+              <StatusBadge status={retInfo.displayStatus} />
             </span>
           </PaymentBreakdownTooltip>
         );
@@ -1639,25 +1712,28 @@ const Invoice: React.FC = () => {
             <MessageCircle size={15} />
           </button>
 
-          {isInvoiceEditable(row.paymentStatus, (row as any).status) ? (
-            <button
-              type="button"
-              onClick={() => handleLoadInvoice(row, true)}
-              className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
-              title="Edit Invoice"
-            >
-              <Edit size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="p-1.5 text-gray-600 rounded-lg inline-flex items-center gap-1 text-xs cursor-not-allowed opacity-40"
-              title="Invoice cannot be edited"
-            >
-              <Edit size={15} />
-            </button>
-          )}
+          {(() => {
+            const retInfo = getInvoiceReturnInfo(row);
+            return retInfo.isEditable ? (
+              <button
+                type="button"
+                onClick={() => handleLoadInvoice(row, true)}
+                className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+                title="Edit Invoice"
+              >
+                <Edit size={15} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="p-1.5 text-gray-600 rounded-lg inline-flex items-center gap-1 text-xs cursor-not-allowed opacity-40"
+                title={retInfo.editDisabledReason || "Invoice cannot be edited"}
+              >
+                <Edit size={15} />
+              </button>
+            );
+          })()}
 
           <button
             type="button"

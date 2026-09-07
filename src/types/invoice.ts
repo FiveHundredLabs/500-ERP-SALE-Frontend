@@ -1,4 +1,5 @@
 import type { InventoryItem } from './inventory';
+import type { InvoiceReturn } from './invoice-return';
 
 export const PaymentMethod = {
   CASH: 'cash',
@@ -146,6 +147,7 @@ export interface InvoiceResponse {
   applyVat: boolean;
   vatAmount: number;
   taxRate: number;
+  returns?: InvoiceReturn[];
   createdAt: string;
   updatedAt: string;
 }

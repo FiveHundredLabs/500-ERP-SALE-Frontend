@@ -227,9 +227,9 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
     ) || null;
   };
 
-  // Get returns for a specific invoice by id
+  // Get returns for a specific invoice by id (excluding cancelled)
   const getReturnsForInvoice = (invoiceId: string) => {
-    return invoiceReturns.filter(r => r.invoiceId === invoiceId);
+    return invoiceReturns.filter(r => r.invoiceId === invoiceId && r.status !== 'cancelled');
   };
 
   // Compute completed return total for an invoice (for partial return adjustment)
@@ -431,9 +431,8 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                   const hasTransaction = invoice.calculatedStatus === "paid" && transaction;
                   const sName = invoice.salesman?.fullName || invoice.salesmanName || '';
 
-                  // Return awareness
+                  // Return awareness (only active non-cancelled returns)
                   const invoiceReturnsForThis = getReturnsForInvoice(invoice.id);
-                  const hasAnyReturn = invoiceReturnsForThis.length > 0;
                   const pendingReturnCount = invoiceReturnsForThis.filter(r => r.status === 'pending' || r.status === 'approved').length;
                   const completedReturnTotal = getCompletedReturnTotal(invoice.id);
 
@@ -443,6 +442,7 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                   const adjustedRemaining = Math.max(0, invoice.effectiveRemainingAmount - completedReturnTotal);
                   const isPartiallyReturned = completedReturnTotal > 0 && completedReturnTotal < invoice.totalAmount;
                   const isFullyReturned = completedReturnTotal >= invoice.totalAmount;
+                  const hasActiveReturn = pendingReturnCount > 0 || isPartiallyReturned;
 
                   return (
                     <tr
@@ -552,13 +552,11 @@ const FinanceTable: React.FC<FinanceTableProps> = ({
                           </PaymentBreakdownTooltip>
 
                           {/* Return Indicator Badge */}
-                          {hasAnyReturn && !isFullyReturned && (
+                          {hasActiveReturn && !isFullyReturned && (
                             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${
                               pendingReturnCount > 0
                                 ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
-                                : isPartiallyReturned
-                                ? 'bg-red-500/15 text-red-300 border-red-500/25'
-                                : 'bg-gray-700 text-gray-400 border-gray-600'
+                                : 'bg-red-500/15 text-red-300 border-red-500/25'
                             }`}>
                               <RotateCcw size={8} />
                               {pendingReturnCount > 0
