@@ -530,6 +530,9 @@ const OrderDetails: React.FC = () => {
             sourceOrderId: order.id,
             sourceOrderNumber: order.orderNumber,
             customerName: order.customerName,
+            customerId: order.customerId,
+            salesmanId: order.salesmanId || undefined,
+            salesmanName: order.salesmanName || undefined,
             notes: `Converted from Customer Order #${order.orderNumber}`,
             items: order.items.map((p) => ({
               sku: p.sku,

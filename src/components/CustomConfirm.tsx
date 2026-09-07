@@ -46,7 +46,7 @@ const CustomConfirm: React.FC<CustomConfirmProps> = ({
   const styles = typeStyles[type];
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center animate-fade-in">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"

@@ -105,6 +105,7 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
       discountScope,
       discountValue,
       discountAmount: discAmount,
+      discount: discAmount,
       total: newTotal,
     });
   };
@@ -142,8 +143,8 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
           <tbody className="divide-y divide-[#334155]/60 text-xs">
             {items.map((item, idx) => {
               const inventoryItem = inventoryItems.find((inv) => inv.id === item.inventoryItemId);
-              const discVal = Number(item.discountValue) || 0;
-              const discAmt = Number(item.discountAmount) || 0;
+              const discVal = item.discountValue !== undefined && item.discountValue !== null ? Number(item.discountValue) : (Number(item.discount) || 0);
+              const discAmt = item.discountAmount !== undefined && item.discountAmount !== null ? Number(item.discountAmount) : (Number(item.discount) || 0);
               const discountType = item.discountType || 'percentage';
               const discountScope = item.discountScope || 'per_unit';
 
@@ -229,6 +230,7 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                           <input
                             type="number"
                             min="0"
+                            step={discountType === 'percentage' ? '0.1' : 'any'}
                             max={discountType === 'amount' ? undefined : 100}
                             value={
                               editingValues[item.id]?.discount !== undefined

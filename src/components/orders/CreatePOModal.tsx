@@ -21,6 +21,9 @@ export interface POInitialData {
   sourceOrderId?: string;
   sourceOrderNumber?: string;
   customerName?: string;
+  customerId?: string;
+  salesmanId?: string;
+  salesmanName?: string;
   supplierId?: string;
   supplierName?: string;
   items?: POConversionItem[];
@@ -117,6 +120,19 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
     }
   }, [isOpen]);
+
+  // Escape key to close drawer
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        resetState();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Lifecycle to populate data on open / change
   useEffect(() => {
@@ -475,6 +491,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       sourceOrderId: initialData?.sourceOrderId,
       sourceOrderNumber: referenceOrderNum || undefined,
       customerName: customerName || (poToEdit ? poToEdit.customerName : undefined),
+      customerId: initialData?.customerId,
       supplierId: supplierInfo.supplierId,
       supplierName: supplierInfo.supplierName,
       supplierContact: supplierInfo.supplierContact,
@@ -577,11 +594,12 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={() => {
                 resetState();
                 onClose();
               }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1e293b] transition cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -1048,7 +1066,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                 resetState();
                 onClose();
               }}
-              className="px-4 py-2 border border-[#334155] hover:bg-[#1e293b] text-slate-300 rounded-xl text-xs font-semibold transition"
+              className="px-4 py-2 border border-[#334155] hover:bg-[#1e293b] text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
             >
               Cancel
             </button>

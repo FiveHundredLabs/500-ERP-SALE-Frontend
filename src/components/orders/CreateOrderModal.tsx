@@ -13,6 +13,7 @@ import { useToast } from '../erp/Toast';
 import { generateOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import CreatePOModal from './CreatePOModal';
 import ConnectedOrderEditModal, { type ConnectedDocsInfo } from './ConnectedOrderEditModal';
+import CustomConfirm from '../CustomConfirm';
 import { orderService } from '../../services/OrderService';
 
 import {
@@ -78,6 +79,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const [connectedDocs, setConnectedDocs] = useState<ConnectedDocsInfo>({});
   const [pendingOrderToSave, setPendingOrderToSave] = useState<Order | null>(null);
   const [isProcessingConnected, setIsProcessingConnected] = useState(false);
+  const [priceWarningModal, setPriceWarningModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void }>({ isOpen: false, message: '', onConfirm: () => {} });
 
   const [allCustomers, setAllCustomers] = useState<any[]>([]);
   const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
@@ -368,8 +370,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, skipPriceWarning = false) => {
+    if (e) e.preventDefault();
     const errs: Record<string, string> = {};
     if (!selectedCustomerId) errs.customer = 'Please select a customer';
     if (!selectedSalesmanId && !selectedSalesman && !salesmanSearch.trim()) {
@@ -377,31 +379,39 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     }
     if (products.length === 0) errs.products = 'Add at least one product';
 
-    // Validate every product line discount against minimum price
-    for (const p of products) {
-      const lineRes = validateLineDiscount(p);
-      if (!lineRes.isValid) {
-        errs.products = lineRes.error || 'One or more items have discounts exceeding the allowed minimum price';
-        toast.error('Invalid Discount', lineRes.error || 'Discount exceeds minimum price floor');
-        setErrors(errs);
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+
+    // Check line item discounts & overall discount for below-cost warnings
+    if (!skipPriceWarning) {
+      const priceWarnings: string[] = [];
+      for (const p of products) {
+        const lineRes = validateLineDiscount(p);
+        if (!lineRes.isValid && lineRes.error) {
+          priceWarnings.push(lineRes.error);
+        }
+      }
+
+      const overallRes = validateOverallDiscount({
+        items: products,
+        totalDiscountType,
+        totalDiscountValue,
+      });
+      if (!overallRes.isValid && overallRes.error) {
+        priceWarnings.push(overallRes.error);
+      }
+
+      if (priceWarnings.length > 0) {
+        setPriceWarningModal({
+          isOpen: true,
+          message: `The following item(s) are priced below cost / minimum allowed price:\n\n${priceWarnings.map(w => '• ' + w).join('\n')}\n\nDo you want to proceed and ${initialOrder ? 'update' : 'create'} this order anyway?`,
+          onConfirm: () => {
+            setPriceWarningModal(prev => ({ ...prev, isOpen: false }));
+            handleSubmit(undefined, true);
+          }
+        });
         return;
       }
     }
-
-    // Validate overall document discount
-    const overallRes = validateOverallDiscount({
-      items: products,
-      totalDiscountType,
-      totalDiscountValue,
-    });
-    if (!overallRes.isValid) {
-      errs.totalDiscount = overallRes.error || 'Overall discount is too high';
-      toast.error('Invalid Overall Discount', overallRes.error || 'Overall discount reduces price below allowed minimum');
-      setErrors(errs);
-      return;
-    }
-
-    if (Object.keys(errs).length) { setErrors(errs); return; }
 
     const orderProducts: OrderProduct[] = products.map(p => {
       const { subtotal, discAmt, total } = calcProductLine(p);
@@ -1201,6 +1211,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                                       <input
                                         type="number"
                                         min="0"
+                                        step={p.discountType === 'percentage' ? '0.1' : 'any'}
                                         max={p.discountType === 'percentage' ? 100 : undefined}
                                         value={p.discount !== undefined && p.discount > 0 ? p.discount : ''}
                                         placeholder="0"
@@ -1622,6 +1633,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
             sourceOrderId: createdOrder.id,
             sourceOrderNumber: createdOrder.orderNumber,
             customerName: createdOrder.customerName,
+            customerId: createdOrder.customerId,
+            salesmanId: createdOrder.salesmanId || undefined,
+            salesmanName: createdOrder.salesmanName || undefined,
             notes: `Converted from Sales Order #${createdOrder.orderNumber}`,
             items: createdOrder.items.map((p) => ({
               sku: p.sku,
@@ -1647,6 +1661,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
           isProcessing={isProcessingConnected}
         />
       )}
+
+      {/* Price Below Cost Warning Modal */}
+      <CustomConfirm
+        isOpen={priceWarningModal.isOpen}
+        title="Price Below Cost Warning"
+        message={priceWarningModal.message}
+        confirmText={`Proceed & ${initialOrder ? 'Update Order' : 'Create Order'}`}
+        cancelText="Review Order"
+        type="warning"
+        onConfirm={priceWarningModal.onConfirm}
+        onCancel={() => setPriceWarningModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

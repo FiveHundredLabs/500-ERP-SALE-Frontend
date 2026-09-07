@@ -159,25 +159,35 @@ const PurchaseOrderDetails: React.FC = () => {
     });
   };
 
-  const getSalesmanFromPO = (_po: PurchaseOrder) => undefined;
+  const getSalesmanFromPO = (po: PurchaseOrder): { id: string; name: string } | undefined => {
+    if (po.sourceOrder?.salesmanId || po.sourceOrder?.salesmanName) {
+      return {
+        id: po.sourceOrder.salesmanId || po.sourceOrder.salesman?.id || '',
+        name: po.sourceOrder.salesmanName || po.sourceOrder.salesman?.fullName || '',
+      };
+    }
+    return undefined;
+  };
 
   const handleConvertToInvoice = async () => {
     if (!po) return;
     // If this PO was created from an order, fetch the original order
     // so the Invoice form can pre-fill the customer, selling prices and discounts.
     let sourceOrder = null;
-    if (po.sourceOrderId) {
+    const orderId = po.sourceOrderId || po.sourceOrder?.id;
+    if (orderId) {
       try {
-        sourceOrder = await orderService.getById(po.sourceOrderId);
+        sourceOrder = await orderService.getById(orderId);
       } catch {
         // sourceOrder stays null — will fall back to PO data
       }
     }
+    const salesman = (sourceOrder?.salesmanId ? { id: sourceOrder.salesmanId, name: sourceOrder.salesmanName || '' } : undefined) || getSalesmanFromPO(po);
     navigate('/invoice', {
       state: {
         convertFromPO: po,
-        convertFromOrder: sourceOrder,   // null if no source order — Invoice.tsx handles both
-        salesman: getSalesmanFromPO(po),
+        convertFromOrder: sourceOrder,
+        salesman,
       },
     });
   };

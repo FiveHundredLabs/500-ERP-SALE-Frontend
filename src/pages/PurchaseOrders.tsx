@@ -86,7 +86,13 @@ const PurchaseOrders: React.FC = () => {
   };
 
   // Returns the salesman from the original order if the PO was converted from one
-  const getSalesmanFromPO = (_po: PurchaseOrder): { id: string; name: string } | undefined => {
+  const getSalesmanFromPO = (po: PurchaseOrder): { id: string; name: string } | undefined => {
+    if (po.sourceOrder?.salesmanId || po.sourceOrder?.salesmanName) {
+      return {
+        id: po.sourceOrder.salesmanId || po.sourceOrder.salesman?.id || '',
+        name: po.sourceOrder.salesmanName || po.sourceOrder.salesman?.fullName || '',
+      };
+    }
     return undefined;
   };
 
@@ -372,18 +378,20 @@ const PurchaseOrders: React.FC = () => {
             <button
               onClick={async () => {
                 let sourceOrder = null;
-                if (row.sourceOrderId) {
+                const orderId = row.sourceOrderId || row.sourceOrder?.id;
+                if (orderId) {
                   try {
-                    sourceOrder = await orderService.getById(row.sourceOrderId);
+                    sourceOrder = await orderService.getById(orderId);
                   } catch {
                     // fall back
                   }
                 }
+                const salesman = (sourceOrder?.salesmanId ? { id: sourceOrder.salesmanId, name: sourceOrder.salesmanName || '' } : undefined) || getSalesmanFromPO(row);
                 navigate('/invoice', {
                   state: {
                     convertFromPO: row,
                     convertFromOrder: sourceOrder,
-                    salesman: getSalesmanFromPO(row),
+                    salesman,
                   },
                 });
               }}

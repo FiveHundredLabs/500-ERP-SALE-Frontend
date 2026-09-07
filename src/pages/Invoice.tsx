@@ -1,31 +1,25 @@
-import React, { useState, useRef, useEffect } from "react";
-import Sidebar from "../components/Sidebar";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import AppLayout from "../components/AppLayout";
+import { PageHeader, FilterBar, DataTable, StatusBadge } from "../components/erp";
+import type { Column } from "../components/erp/DataTable";
 import {
   FileText,
   Download,
   Printer,
-  Menu,
   X,
   Save,
   Eye,
   Edit,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  CheckCircle,
-  XCircle,
-  Clock,
+  Plus,
+  RotateCcw,
+  MessageCircle,
+  Share2,
   Copy,
   Check,
-  Share2,
-  MessageCircle,
-  RotateCcw,
-  UserCheck
 } from "lucide-react";
 import InvoiceForm from "../components/InvoiceForm";
 import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
-import { ActionMenu } from "../components/erp";
 import { CreateReturnModal } from "../components/invoice/CreateReturnModal";
 import PaymentModal from "../components/PaymentModal";
 import PaymentBreakdownTooltip from "../components/invoice/PaymentBreakdownTooltip";
@@ -47,18 +41,17 @@ import { invoiceService } from "../services/InvoiceService";
 import { financeService } from "../services/FinanceService";
 import type { FinancePaymentData } from "../types/finance";
 import { inventoryService } from "../services/InventoryService";
+import { quotationService } from "../services/QuotationService";
+import { orderService } from "../services/OrderService";
 import CustomAlert from "../components/CustomAlert";
 import type { AlertType } from "../components/CustomAlert";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CustomConfirm from "../components/CustomConfirm";
-import UserProfileDropdown from "../components/UserProfileDropdown";
-import ThemeToggle from "../components/ThemeToggle";
 import { useLocation } from "react-router-dom";
 import type { PurchaseOrder } from "../types/purchaseOrders";
 
 const Invoice: React.FC = () => {
   const location = useLocation();
-  const [isOpen, setIsOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -66,20 +59,6 @@ const Invoice: React.FC = () => {
   const [inventoryItems, setInventoryItems] = useState<InvoiceInventoryItem[]>([]);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsOpen(false);
-      } else {
-        setIsOpen(true);
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedRef = useRef<InvoiceData | null>(null);
   const lastSavedAtRef = useRef<string | null>(null);
@@ -88,28 +67,34 @@ const Invoice: React.FC = () => {
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
+
+  // Filter and pagination states matching Orders page
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [salesmanFilter, setSalesmanFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortColumn, setSortColumn] = useState('issueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [manageSearch, setManageSearch] = useState("");
 
   const handleCloseDrawer = () => {
-    if (isDirty) {
-      setConfirmConfig({
-        isOpen: true,
-        title: "Discard Changes?",
-        message: "You have unsaved changes. Are you sure you want to close this panel?",
-        confirmText: "Discard & Close",
-        cancelText: "Keep Editing",
-        type: "warning",
-        onConfirm: () => {
-          setIsDirty(false);
-          setIsCreateDrawerOpen(false);
-        }
-      });
-    } else {
-      setIsCreateDrawerOpen(false);
-    }
+    setIsDirty(false);
+    setIsCreateDrawerOpen(false);
   };
+
+  useEffect(() => {
+    if (!isCreateDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseDrawer();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateDrawerOpen]);
 
   const handleNewInvoice = async () => {
     try {
@@ -203,16 +188,31 @@ const Invoice: React.FC = () => {
     try {
       setIsLoading(true);
 
-      const items = await inventoryService.getAll();
+      const [items, nextId, allCustomers] = await Promise.all([
+        inventoryService.getAll(),
+        invoiceService.getNextId(),
+        quotationService.getAllCustomers().catch(() => []),
+      ]);
       setInventoryItems(items as InvoiceInventoryItem[]);
-
-      const nextId = await invoiceService.getNextId();
 
       const convertFromPO = location.state?.convertFromPO as PurchaseOrder | undefined;
       // salesman can be explicitly passed in location.state, e.g. from an order conversion
       const convertFromSalesman = location.state?.salesman as { id: string; name: string } | undefined;
       // convertFromOrder: direct Order → Invoice conversion
       const convertFromOrder = location.state?.convertFromOrder as import('../types/orders').Order | undefined;
+
+      let resolvedSourceOrder: any = convertFromOrder || convertFromPO?.sourceOrder || null;
+      const orderIdToFetch = resolvedSourceOrder?.id || convertFromPO?.sourceOrderId || (convertFromPO?.sourceOrder as any)?.id;
+      if (orderIdToFetch && (!resolvedSourceOrder || !resolvedSourceOrder.items || resolvedSourceOrder.items.length === 0)) {
+        try {
+          const fullOrder = await orderService.getById(orderIdToFetch);
+          if (fullOrder) {
+            resolvedSourceOrder = fullOrder;
+          }
+        } catch {
+          // fall back
+        }
+      }
 
       let initialInvoiceItems: InvoiceItem[] = [];
       let initialNotes = "";
@@ -230,11 +230,11 @@ const Invoice: React.FC = () => {
       if (convertFromPO) {
         initialSourcePoId = convertFromPO.id || null;
         if (!initialSourceOrderId) {
-          initialSourceOrderId = convertFromOrder?.id || convertFromPO.sourceOrderId || null;
+          initialSourceOrderId = convertFromOrder?.id || convertFromPO.sourceOrderId || resolvedSourceOrder?.id || null;
         }
       }
 
-      if (convertFromOrder && convertFromOrder.items && convertFromOrder.items.length > 0) {
+      if (convertFromOrder && !convertFromPO && convertFromOrder.items && convertFromOrder.items.length > 0) {
         // Build customer object from order fields
         initialCustomer = {
           id: convertFromOrder.customerId,
@@ -254,7 +254,7 @@ const Invoice: React.FC = () => {
           const subtotalBeforeDiscount = qty * unitPrice;
           const discType = p.discountType || 'percentage';
           const discScope = p.discountScope || 'per_unit';
-          const discVal = p.discountValue !== undefined ? Number(p.discountValue) : (Number(p.discount) || 0);
+          const discVal = p.discountValue !== undefined && p.discountValue !== null ? Number(p.discountValue) : (Number(p.discount) || 0);
 
           let calculatedDiscountAmount = 0;
           if (discVal > 0 && unitPrice > 0 && qty > 0) {
@@ -276,7 +276,7 @@ const Invoice: React.FC = () => {
 
           const lineTotal = p.total !== undefined ? p.total : Math.max(0, subtotalBeforeDiscount - calculatedDiscountAmount);
 
-          const normalizedScope = discScope === 'total' ? 'total_qty' : (discScope as 'per_unit' | 'total_qty');
+          const normalizedScope = (discScope === 'total' || discScope === 'total_qty') ? 'total_qty' : 'per_unit';
 
           return {
             id: `inv-item-${Date.now()}-${idx}`,
@@ -300,7 +300,9 @@ const Invoice: React.FC = () => {
         const subTotalAfterLineDiscounts = Math.max(0, itemsSubtotal - lineDiscountTotal);
 
         const orderDiscountType = convertFromOrder.totalDiscountType || 'percentage';
-        const orderDiscountVal = convertFromOrder.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0;
+        const orderDiscountVal = convertFromOrder.totalDiscountValue !== undefined && convertFromOrder.totalDiscountValue !== null
+          ? Number(convertFromOrder.totalDiscountValue)
+          : (Number(convertFromOrder.totalDiscount) || 0);
         let calculatedOrderDiscount = 0;
 
         if (orderDiscountVal > 0) {
@@ -325,24 +327,129 @@ const Invoice: React.FC = () => {
         }
 
       } else if (convertFromPO && convertFromPO.items && convertFromPO.items.length > 0) {
-        initialInvoiceItems = convertFromPO.items.map((p, idx) => ({
-          id: `inv-item-${Date.now()}-${idx}`,
-          inventoryItemId: p.inventoryItemId || p.id,
-          itemName: p.productName,
-          productCode: p.sku,
-          quantity: p.quantityOrdered,
-          unitPrice: p.unitPrice, // PO Cost Price automatically becomes Invoice Selling Price!
-          costPrice: p.unitPrice,
-          discountType: 'percentage' as const,
-          discountScope: 'per_unit' as const,
-          discountValue: 0,
-          discountAmount: 0,
-          discount: 0,
-          total: p.quantityOrdered * p.unitPrice,
-        }));
+        const orderItems = resolvedSourceOrder?.items || [];
+        initialInvoiceItems = convertFromPO.items.map((p, idx) => {
+          const matchedOrderItem = orderItems.find(
+            (oi: any) =>
+              (oi.inventoryItemId && p.inventoryItemId && oi.inventoryItemId === p.inventoryItemId) ||
+              (oi.sku && p.sku && oi.sku.trim().toLowerCase() === p.sku.trim().toLowerCase()) ||
+              (oi.productName && p.productName && oi.productName.trim().toLowerCase() === p.productName.trim().toLowerCase())
+          ) || (orderItems.length === convertFromPO.items.length ? orderItems[idx] : undefined);
+
+          const qty = p.quantityOrdered || (p as any).quantity || 1;
+          const unitPrice = matchedOrderItem?.unitPrice !== undefined ? Number(matchedOrderItem.unitPrice) : ((p as any).sellingPrice || p.unitPrice || 0);
+          const discType = (matchedOrderItem?.discountType || 'percentage') as 'percentage' | 'amount';
+          const rawScope = matchedOrderItem?.discountScope || 'per_unit';
+          const discScope = (rawScope === 'total' || rawScope === 'total_qty') ? 'total_qty' : 'per_unit';
+          const discVal = matchedOrderItem?.discountValue !== undefined && matchedOrderItem?.discountValue !== null
+            ? Number(matchedOrderItem.discountValue)
+            : (Number(matchedOrderItem?.discount) || 0);
+
+          let calculatedDiscountAmount = 0;
+          if (discVal > 0 && unitPrice > 0 && qty > 0) {
+            if (discType === 'percentage') {
+              const pct = Math.min(100, Math.max(0, discVal));
+              calculatedDiscountAmount = discScope === 'per_unit'
+                ? unitPrice * (pct / 100) * qty
+                : (unitPrice * qty) * (pct / 100);
+            } else {
+              calculatedDiscountAmount = discScope === 'per_unit'
+                ? Math.min(unitPrice, discVal) * qty
+                : Math.min(unitPrice * qty, discVal);
+            }
+          }
+
+          const lineTotal = matchedOrderItem?.total !== undefined && matchedOrderItem?.quantity === qty
+            ? Number(matchedOrderItem.total)
+            : Math.max(0, (qty * unitPrice) - calculatedDiscountAmount);
+
+          return {
+            id: `inv-item-${Date.now()}-${idx}`,
+            inventoryItemId: p.inventoryItemId || p.id,
+            itemName: p.productName,
+            itemCode: p.sku,
+            productCode: p.sku,
+            quantity: qty,
+            unitPrice: unitPrice,
+            costPrice: p.unitPrice,
+            discountType: discType,
+            discountScope: discScope,
+            discountValue: discVal,
+            discountAmount: calculatedDiscountAmount,
+            discount: calculatedDiscountAmount,
+            total: lineTotal,
+          };
+        });
+
+        const itemsSubtotal = initialInvoiceItems.reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        const lineDiscountTotal = initialInvoiceItems.reduce((s, i) => s + (i.discountAmount || 0), 0);
+        const subTotalAfterLineDiscounts = Math.max(0, itemsSubtotal - lineDiscountTotal);
+
+        let orderDiscount = 0;
+        const orderDiscountType = (resolvedSourceOrder?.totalDiscountType || 'percentage') as 'percentage' | 'amount';
+        const orderDiscountVal = resolvedSourceOrder?.totalDiscountValue !== undefined && resolvedSourceOrder?.totalDiscountValue !== null
+          ? Number(resolvedSourceOrder.totalDiscountValue)
+          : (Number(resolvedSourceOrder?.totalDiscount) || 0);
+
+        if (orderDiscountVal > 0) {
+          if (orderDiscountType === 'percentage') {
+            orderDiscount = subTotalAfterLineDiscounts * (Math.min(100, orderDiscountVal) / 100);
+          } else {
+            orderDiscount = Math.min(subTotalAfterLineDiscounts, orderDiscountVal);
+          }
+        }
+
         initialNotes = `Converted from Purchase Order #${convertFromPO.poNumber}`;
-        initialSubTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
-        initialTotalAmount = initialSubTotal;
+        initialSubTotal = subTotalAfterLineDiscounts;
+        initialDiscount = orderDiscount;
+        initialTotalAmount = Math.max(0, subTotalAfterLineDiscounts - orderDiscount);
+
+        // Auto-fill customer and salesman from source order or PO
+        const linkedOrder = resolvedSourceOrder;
+        if (linkedOrder && (linkedOrder.customerId || linkedOrder.customerName)) {
+          const matched = allCustomers.find((c: any) => c.id === linkedOrder.customerId) ||
+            allCustomers.find((c: any) => c.fullName?.toLowerCase() === linkedOrder.customerName?.toLowerCase() || c.shopName?.toLowerCase() === linkedOrder.customerName?.toLowerCase());
+          if (matched) {
+            initialCustomer = matched;
+          } else {
+            initialCustomer = {
+              id: linkedOrder.customerId || '',
+              customerCode: linkedOrder.customerId || '',
+              shopName: linkedOrder.customerName || '',
+              fullName: linkedOrder.customerName || '',
+              contactPerson: linkedOrder.contactPerson || '',
+              phone: linkedOrder.contactPhone || '',
+              address: (linkedOrder as any).customerAddress || '',
+              city: (linkedOrder as any).customerCity || '',
+            };
+          }
+
+          if (!initialSalesman && (linkedOrder.salesmanId || (linkedOrder as any).salesmanName)) {
+            initialSalesman = {
+              id: linkedOrder.salesmanId || (linkedOrder as any).salesman?.id || '',
+              name: (linkedOrder as any).salesmanName || (linkedOrder as any).salesman?.fullName || '',
+            };
+          }
+        } else if (convertFromPO.customerName) {
+          const matched = allCustomers.find((c: any) => 
+            c.fullName?.toLowerCase() === convertFromPO.customerName?.toLowerCase() || 
+            c.shopName?.toLowerCase() === convertFromPO.customerName?.toLowerCase()
+          );
+          if (matched) {
+            initialCustomer = matched;
+          }
+        }
+
+        if (!initialSalesman && typeof initialCustomer === 'object' && initialCustomer) {
+          const repId = (initialCustomer as any).salesRepId;
+          const repName = (initialCustomer as any).salesRepName;
+          if (repId || repName) {
+            initialSalesman = {
+              id: repId || '',
+              name: repName || '',
+            };
+          }
+        }
       } else if (location.state?.convertFromQuotation) {
         const quot = location.state.convertFromQuotation;
         initialCustomer = typeof quot.customer === 'object' && quot.customer ? quot.customer : (quot.customerDetails || '');
@@ -379,9 +486,15 @@ const Invoice: React.FC = () => {
         items: initialInvoiceItems,
         subTotal: initialSubTotal || subTotal,
         discount: initialDiscount,
-        totalDiscountType: convertFromOrder?.totalDiscountType || 'percentage',
-        totalDiscountValue: convertFromOrder?.totalDiscountValue !== undefined ? Number(convertFromOrder.totalDiscountValue) : 0,
-        discountPercentage: convertFromOrder?.totalDiscountType === 'percentage' ? (convertFromOrder.totalDiscountValue || 0) : 0,
+        totalDiscountType: (resolvedSourceOrder?.totalDiscountType || convertFromOrder?.totalDiscountType || 'percentage') as any,
+        totalDiscountValue: resolvedSourceOrder?.totalDiscountValue !== undefined && resolvedSourceOrder?.totalDiscountValue !== null
+          ? Number(resolvedSourceOrder.totalDiscountValue)
+          : (convertFromOrder?.totalDiscountValue !== undefined && convertFromOrder?.totalDiscountValue !== null
+              ? Number(convertFromOrder.totalDiscountValue)
+              : (Number(resolvedSourceOrder?.totalDiscount) || Number(convertFromOrder?.totalDiscount) || 0)),
+        discountPercentage: (resolvedSourceOrder?.totalDiscountType || convertFromOrder?.totalDiscountType) === 'percentage'
+          ? Number(resolvedSourceOrder?.totalDiscountValue ?? convertFromOrder?.totalDiscountValue ?? resolvedSourceOrder?.totalDiscount ?? convertFromOrder?.totalDiscount ?? 0)
+          : 0,
         totalAmount: initialTotalAmount || subTotal,
         paymentStatus: PaymentStatus.PENDING,
         paymentMethod: PaymentMethod.CREDIT,
@@ -412,10 +525,12 @@ const Invoice: React.FC = () => {
             message: `Converted from Order #${convertFromOrder.orderNumber}: ${initialInvoiceItems.length} products loaded. Customer, quantities and discounts pre-filled. Review and save the invoice.`,
           });
         } else if (convertFromPO) {
-          const salesmanNote = convertFromSalesman ? ` Salesman: ${convertFromSalesman.name}.` : '';
+          const custName = typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer.fullName || initialCustomer.shopName) : '';
+          const custNote = custName ? ` Customer: ${custName} pre-filled.` : ' Please select customer.';
+          const salesmanNote = initialSalesman ? ` Salesman: ${initialSalesman.name}.` : '';
           setAlert({
             type: 'info',
-            message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded with PO cost as selling price. Please select customer and payment details.${salesmanNote}`,
+            message: `Converted from PO #${convertFromPO?.poNumber}: ${initialInvoiceItems.length} products loaded.${custNote}${salesmanNote}`,
           });
         }
       }
@@ -793,6 +908,7 @@ const Invoice: React.FC = () => {
         }
 
         updatedItem.discountAmount = discAmount;
+        updatedItem.discount = discAmount;
         updatedItem.total = updates.total !== undefined ? updates.total : Math.max(0, (qty * price) - discAmount);
         return updatedItem;
       }
@@ -879,7 +995,7 @@ const Invoice: React.FC = () => {
     setIsDirty(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipPriceWarning = false): Promise<boolean> => {
     // Validate required fields
     if (!invoiceData.customer) {
       setAlert({
@@ -905,49 +1021,64 @@ const Invoice: React.FC = () => {
       return false;
     }
 
-    // Validate each line item discount against minimum price
-    for (const item of invoiceData.items) {
-      const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
-      const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
-      const lineCheck = validateLineDiscount({
-        productName: item.itemName,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        discountType: item.discountType || 'percentage',
-        discountScope: item.discountScope || 'per_unit',
-        discountValue: item.discountValue,
-        minPrice,
+    // Check line item discounts & overall discount for below-cost warnings
+    if (!skipPriceWarning) {
+      const priceWarnings: string[] = [];
+      for (const item of invoiceData.items) {
+        const inv = inventoryItems.find(i => i.id === item.inventoryItemId || i.productCode === item.productCode);
+        const minPrice = resolveMinPrice(inv || { costPrice: (item as any).costPrice });
+        const lineCheck = validateLineDiscount({
+          productName: item.itemName,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          discountType: item.discountType || 'percentage',
+          discountScope: item.discountScope || 'per_unit',
+          discountValue: item.discountValue,
+          minPrice,
+        });
+        if (!lineCheck.isValid && lineCheck.error) {
+          priceWarnings.push(lineCheck.error);
+        }
+      }
+
+      const overallCheck = validateOverallDiscount({
+        items: invoiceData.items.map(it => {
+          const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
+          return {
+            productName: it.itemName,
+            unitPrice: it.unitPrice,
+            quantity: it.quantity,
+            discountAmount: it.discountAmount,
+            minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
+          };
+        }),
+        totalDiscountType: invoiceData.totalDiscountType,
+        totalDiscountValue: invoiceData.totalDiscountValue,
       });
-      if (!lineCheck.isValid) {
-        setAlert({
-          type: 'error',
-          message: lineCheck.error || `Discount for item "${item.itemName}" exceeds allowed minimum price floor.`
+      if (!overallCheck.isValid && overallCheck.error) {
+        priceWarnings.push(overallCheck.error);
+      }
+
+      if (priceWarnings.length > 0) {
+        setConfirmConfig({
+          isOpen: true,
+          title: 'Price Below Cost Warning',
+          message: `The following item(s) are priced below cost / minimum allowed price:\n\n${priceWarnings.map(w => '• ' + w).join('\n')}\n\nDo you want to proceed and save this invoice anyway?`,
+          confirmText: 'Proceed & Save',
+          cancelText: 'Review Invoice',
+          type: 'warning',
+          onConfirm: async () => {
+            setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+            const saved = await handleSave(true);
+            if (saved) {
+              lastSavedRef.current = { ...invoiceData };
+              fetchAllInvoices();
+              setShowPreviewModal(true);
+            }
+          }
         });
         return false;
       }
-    }
-
-    // Validate overall document discount
-    const overallCheck = validateOverallDiscount({
-      items: invoiceData.items.map(it => {
-        const inv = inventoryItems.find(i => i.id === it.inventoryItemId || i.productCode === it.productCode);
-        return {
-          productName: it.itemName,
-          unitPrice: it.unitPrice,
-          quantity: it.quantity,
-          discountAmount: it.discountAmount,
-          minPrice: resolveMinPrice(inv || { costPrice: (it as any).costPrice }),
-        };
-      }),
-      totalDiscountType: invoiceData.totalDiscountType,
-      totalDiscountValue: invoiceData.totalDiscountValue,
-    });
-    if (!overallCheck.isValid) {
-      setAlert({
-        type: 'error',
-        message: overallCheck.error || 'Overall discount reduces invoice total below allowed minimum price floor.'
-      });
-      return false;
     }
 
     try {
@@ -1219,41 +1350,355 @@ const Invoice: React.FC = () => {
     }
   }, [viewMode]);
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(val);
 
-  const filteredInvoices = manageSearch.trim()
-    ? allInvoices.filter(q => {
-      const idMatch = String(q.invoiceNumber).toLowerCase().includes(manageSearch.toLowerCase());
-      const customerName = getCustomerDisplay(q);
-      const customerMatch = customerName.toLowerCase().includes(manageSearch.toLowerCase());
-      const salesmanName = getSalesmanDisplay(q);
-      const salesmanMatch = salesmanName.toLowerCase().includes(manageSearch.toLowerCase());
-      return idMatch || customerMatch || salesmanMatch;
-    })
-    : allInvoices;
+  const salesmenOptions = useMemo(() => {
+    const names = Array.from(new Set(allInvoices.map((inv) => getSalesmanDisplay(inv)).filter(Boolean))) as string[];
+    return names.map((name) => ({ value: name, label: name }));
+  }, [allInvoices]);
 
-  const filteredTotalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
-  const currentInvoices = filteredInvoices.slice(startIndex, Math.min(endIndex, filteredInvoices.length));
+  const statusOptions = [
+    { value: 'paid', label: 'Paid' },
+    { value: 'partially_paid', label: 'Partially Paid' },
+    { value: 'overdue', label: 'Overdue' },
+    { value: 'due_soon', label: 'Due Soon' },
+    { value: 'outstanding', label: 'Outstanding' },
+  ];
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch {
-      return dateString;
+  const paymentOptions = [
+    { value: 'cash', label: 'Cash' },
+    { value: 'credit', label: 'Credit' },
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'cheque', label: 'Cheque' },
+  ];
+
+  const searchSuggestions = useMemo(() => {
+    const suggestions: Array<{ id: string; title: string; subtitle?: string; category: string; value: string }> = [];
+    const seenCustomers = new Set<string>();
+
+    allInvoices.forEach(inv => {
+      const name = getCustomerDisplay(inv);
+      if (name && name !== 'Unknown Customer' && !seenCustomers.has(name)) {
+        seenCustomers.add(name);
+        suggestions.push({
+          id: `cust-${inv.customer?.id || name}`,
+          title: name,
+          subtitle: inv.customer?.city || inv.customer?.phone || '',
+          category: 'Customer',
+          value: name,
+        });
+      }
+    });
+
+    return suggestions;
+  }, [allInvoices]);
+
+  const filteredInvoices = useMemo(() => {
+    return allInvoices.filter((inv) => {
+      const q = searchQuery.toLowerCase().trim();
+      const custName = getCustomerDisplay(inv).toLowerCase();
+      const invNum = (inv.invoiceNumber || '').toLowerCase();
+      const smName = getSalesmanDisplay(inv).toLowerCase();
+      const matchesSearch = q === '' || custName.includes(q) || invNum.includes(q) || smName.includes(q);
+
+      const calc = getInvoiceCalculatedStatus(inv);
+      const matchesStatus = statusFilter === '' || calc.status === statusFilter || (inv as any).status === statusFilter;
+      const matchesPayment = paymentFilter === '' || (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase();
+      const matchesSalesman = salesmanFilter === '' || getSalesmanDisplay(inv) === salesmanFilter;
+
+      const issueDate = inv.issueDate ? String(inv.issueDate).split('T')[0] : '';
+      const matchesDateFrom = dateFrom === '' || issueDate >= dateFrom;
+      const matchesDateTo = dateTo === '' || issueDate <= dateTo;
+
+      return matchesSearch && matchesStatus && matchesPayment && matchesSalesman && matchesDateFrom && matchesDateTo;
+    });
+  }, [allInvoices, searchQuery, statusFilter, paymentFilter, salesmanFilter, dateFrom, dateTo]);
+
+  const sortedInvoices = useMemo(() => {
+    return [...filteredInvoices].sort((a, b) => {
+      let valA: any = (a as any)[sortColumn];
+      let valB: any = (b as any)[sortColumn];
+      if (sortColumn === 'customer') {
+        valA = getCustomerDisplay(a);
+        valB = getCustomerDisplay(b);
+      } else if (sortColumn === 'salesman') {
+        valA = getSalesmanDisplay(a);
+        valB = getSalesmanDisplay(b);
+      } else if (sortColumn === 'status') {
+        valA = getInvoiceCalculatedStatus(a).status;
+        valB = getInvoiceCalculatedStatus(b).status;
+      }
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredInvoices, sortColumn, sortDirection]);
+
+  const totalPages = Math.ceil(sortedInvoices.length / itemsPerPage);
+  const paginatedInvoices = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedInvoices.slice(start, start + itemsPerPage);
+  }, [sortedInvoices, currentPage]);
+
+  const handleSort = (colKey: string) => {
+    if (sortColumn === colKey) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(colKey);
+      setSortDirection('asc');
     }
   };
 
-  return (
-    <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
-      <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} />
+  const hasActiveFilters =
+    searchQuery !== '' || statusFilter !== '' || paymentFilter !== '' ||
+    salesmanFilter !== '' || dateFrom !== '' || dateTo !== '';
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+  const clearAllFilters = () => {
+    setSearchQuery(''); setStatusFilter(''); setPaymentFilter('');
+    setSalesmanFilter(''); setDateFrom(''); setDateTo('');
+    setCurrentPage(1);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Invoice ID', 'Date', 'Customer', 'Salesman', 'Items', 'Total Amount', 'Paid Amount', 'Remaining', 'Status'];
+    const rows = sortedInvoices.map((inv) => {
+      const calc = getInvoiceCalculatedStatus(inv);
+      const custName = getCustomerDisplay(inv);
+      const smName = getSalesmanDisplay(inv);
+      return [
+        inv.invoiceNumber,
+        inv.issueDate ? String(inv.issueDate).split('T')[0] : '',
+        `"${custName}"`,
+        `"${smName || 'Unassigned'}"`,
+        inv.items?.length || 0,
+        inv.totalAmount || 0,
+        calc.paidAmount,
+        calc.remainingAmount,
+        calc.status,
+      ];
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const link = document.createElement('a');
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute('download', `invoices_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const columns: Column<InvoiceResponse>[] = [
+    {
+      key: 'invoiceNumber',
+      header: 'INVOICE ID',
+      sortable: true,
+      minWidth: '110px',
+      render: (row) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleLoadInvoice(row, false);
+            setShowPreviewModal(true);
+          }}
+          className="font-mono text-blue-400 hover:text-blue-300 font-bold text-xs hover:underline cursor-pointer text-left"
+          title="Preview Invoice"
+        >
+          {row.invoiceNumber}
+        </button>
+      ),
+    },
+    {
+      key: 'issueDate',
+      header: 'DATE',
+      sortable: true,
+      minWidth: '105px',
+      render: (row) => {
+        const cleanDate = row.issueDate ? String(row.issueDate).split('T')[0] : '—';
+        return <span className="text-gray-300 text-xs font-mono font-medium">{cleanDate}</span>;
+      },
+    },
+    {
+      key: 'customer',
+      header: 'CUSTOMER',
+      sortable: true,
+      minWidth: '180px',
+      render: (row) => {
+        const custName = getCustomerDisplay(row);
+        const fullAddress = row.customer?.address
+          ? `${row.customer.address}, ${row.customer.city || ''}`
+          : row.customer?.city || 'N/A';
+        const tooltip = `Full Name: ${custName}\nPhone: ${row.customer?.phone || 'N/A'}\nAddress: ${fullAddress}`;
+        return (
+          <div className="min-w-0 cursor-help" title={tooltip}>
+            <p className="font-semibold text-gray-200 text-sm leading-tight truncate max-w-[200px]">{custName}</p>
+            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{fullAddress}</p>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'salesman',
+      header: 'SALESMAN',
+      sortable: true,
+      minWidth: '140px',
+      render: (row) => {
+        const salesmanName = getSalesmanDisplay(row);
+        const area = (row.salesman as any)?.area || 'All Regions';
+        return (
+          <div>
+            <p className="text-xs font-semibold text-gray-300">{salesmanName || '—'}</p>
+            {salesmanName && <p className="text-[11px] text-gray-400">{area}</p>}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'items',
+      header: 'ITEMS',
+      align: 'center',
+      minWidth: '60px',
+      render: (row) => (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-[#1e293b] text-gray-200 border border-[#334155]">
+          {row.items?.length || 0}
+        </span>
+      ),
+    },
+    {
+      key: 'totalAmount',
+      header: 'AMOUNT',
+      sortable: true,
+      align: 'right',
+      minWidth: '120px',
+      render: (row) => {
+        const calc = getInvoiceCalculatedStatus(row);
+        return (
+          <PaymentBreakdownTooltip
+            totalAmount={row.totalAmount || 0}
+            paidAmount={calc.paidAmount}
+            remainingAmount={calc.remainingAmount}
+            statusText={calc.status}
+          >
+            <span className="font-bold text-white text-sm font-mono cursor-help">
+              {formatCurrency(row.totalAmount)}
+            </span>
+          </PaymentBreakdownTooltip>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'STATUS',
+      sortable: true,
+      minWidth: '110px',
+      render: (row) => {
+        const calc = getInvoiceCalculatedStatus(row);
+        return (
+          <PaymentBreakdownTooltip
+            totalAmount={row.totalAmount || 0}
+            paidAmount={calc.paidAmount}
+            remainingAmount={calc.remainingAmount}
+            statusText={calc.status}
+          >
+            <span className="cursor-help">
+              <StatusBadge status={calc.status} />
+            </span>
+          </PaymentBreakdownTooltip>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      minWidth: '160px',
+      render: (row) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={async () => {
+              await handleLoadInvoice(row, false);
+              setShowPreviewModal(true);
+            }}
+            className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Share on WhatsApp"
+          >
+            <MessageCircle size={15} />
+          </button>
+
+          {isInvoiceEditable(row.paymentStatus, (row as any).status) ? (
+            <button
+              type="button"
+              onClick={() => handleLoadInvoice(row, true)}
+              className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+              title="Edit Invoice"
+            >
+              <Edit size={15} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="p-1.5 text-gray-600 rounded-lg inline-flex items-center gap-1 text-xs cursor-not-allowed opacity-40"
+              title="Invoice cannot be edited"
+            >
+              <Edit size={15} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={async () => {
+              await handleLoadInvoice(row, false);
+              setShowPreviewModal(true);
+            }}
+            className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Preview & PDF"
+          >
+            <Eye size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleCopyInvoiceLink(row.id, row.invoiceNumber)}
+            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700/30 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title={copiedInvoiceId === row.id ? "Link Copied!" : "Copy Link"}
+          >
+            {copiedInvoiceId === row.id ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              await handleLoadInvoice(row, false);
+              setShowReturnModal(true);
+            }}
+            className="p-1.5 text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Return Invoice"
+          >
+            <RotateCcw size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleDeleteInvoice(row.id, row.invoiceNumber)}
+            className="p-1.5 text-rose-400 hover:bg-rose-400/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs cursor-pointer"
+            title="Delete Invoice"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <AppLayout
+        headerIcon={<FileText size={20} className="text-blue-400" />}
+        headerTitle="Invoice Management"
+        headerSubtitle="Invoices and customer billing"
+      >
         {alert && (
           <CustomAlert
             type={alert.type}
@@ -1263,21 +1708,103 @@ const Invoice: React.FC = () => {
           />
         )}
 
-        <CustomConfirm
-          isOpen={confirmConfig.isOpen}
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-          confirmText={confirmConfig.confirmText}
-          cancelText={confirmConfig.cancelText}
-          type={confirmConfig.type}
-          onConfirm={() => {
-            confirmConfig.onConfirm();
-            setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
-          }}
-          onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+        <PageHeader
+          title="Customer Invoices"
+          description="Manage and review customer invoices, payments, and billing."
+          breadcrumbs={[
+            { label: 'Dashboard', path: '/dashboard' },
+            { label: 'Sales' },
+            { label: 'Invoices' },
+          ]}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-4 py-2 border border-[#334155] bg-[#1e293b] hover:bg-[#334155] text-gray-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <Download size={15} /> Export CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReturnModal(true)}
+                className="px-4 py-2 border border-amber-500/30 bg-amber-600/10 hover:bg-amber-600/20 text-amber-300 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <RotateCcw size={15} /> Return Invoice
+              </button>
+              <button
+                type="button"
+                onClick={handleNewInvoice}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
+              >
+                <Plus size={15} /> New Invoice
+              </button>
+            </div>
+          }
         />
 
-        {/* Payment Modal */}
+        <div className="bg-[#1e293b]/70 border border-[#334155] rounded-xl shadow-lg overflow-hidden">
+          <FilterBar
+            searchPlaceholder="Search invoice ID, customer name..."
+            searchValue={searchQuery}
+            onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            suggestions={searchSuggestions}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
+            onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
+            selects={[
+              {
+                value: statusFilter,
+                onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
+                options: statusOptions,
+                placeholder: 'All Statuses',
+                width: 'w-36',
+              },
+              {
+                value: paymentFilter,
+                onChange: (val) => { setPaymentFilter(val); setCurrentPage(1); },
+                options: paymentOptions,
+                placeholder: 'All Payments',
+                width: 'w-32',
+              },
+              {
+                value: salesmanFilter,
+                onChange: (val) => { setSalesmanFilter(val); setCurrentPage(1); },
+                options: salesmenOptions,
+                placeholder: 'All Salesmen',
+                width: 'w-36',
+              },
+            ]}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearAllFilters}
+          />
+
+          <div className="p-4">
+            <DataTable
+              columns={columns}
+              data={paginatedInvoices}
+              loading={isLoadingInvoices}
+              keyExtractor={(item) => item.id || item.invoiceNumber}
+              onRowClick={(item) => {
+                handleLoadInvoice(item, false);
+                setShowPreviewModal(true);
+              }}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              emptyMessage="No invoices found matching the criteria."
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={sortedInvoices.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
+      </AppLayout>
+
+      {/* Payment Modal */}
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => {
@@ -1328,282 +1855,6 @@ const Invoice: React.FC = () => {
           onSubmit={handlePaymentSubmit}
           isProcessing={isProcessingPayment}
         />
-
-        {/* Top Header Bar */}
-        <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 md:px-6 shadow-lg relative z-40 flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0 lg:hidden">
-              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-
-            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-[1.15rem] font-bold text-gray-100 leading-tight truncate tracking-tight">
-                Invoice Management
-              </h1>
-              <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
-                View Invoices
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            <div className="relative">
-              <input
-                value={manageSearch}
-                onChange={(e) => {
-                  setManageSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search by ID or customer"
-                className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
-              />
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-            <button
-              onClick={handleNewInvoice}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
-            >
-              <FileText className="w-4 h-4" />
-              <span>+ New Invoice</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowReturnModal(true);
-              }}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">Return Invoice</span>
-            </button>
-
-            <div className="flex items-center gap-2.5 ml-1">
-              <ThemeToggle />
-              <UserProfileDropdown />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 flex overflow-hidden">
-          <div className="w-full overflow-auto p-4">
-              <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
-                <div className="flex-1 overflow-auto rounded-lg">
-                  {isLoadingInvoices ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                    </div>
-                  ) : filteredInvoices.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                      <FileText className="w-16 h-16 mb-4 opacity-50" />
-                      <p className="text-lg font-medium">No invoices found</p>
-                      <p className="text-sm mt-2">Try a different search or create a new invoice</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead className="bg-[#0f172a] text-gray-400 text-xs uppercase sticky top-0 z-10 border-b border-[#334155]">
-                            <tr>
-                              <th className="p-3">Invoice ID</th>
-                              <th className="p-3">Customer</th>
-                              <th className="p-3">Sales Officer</th>
-                              <th className="p-3 text-right">Invoice Total</th>
-                              <th className="p-3 text-right">Remaining</th>
-                              <th className="p-3 text-center">Status</th>
-                              <th className="p-3">Date</th>
-                              <th className="p-3 text-right w-12"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#334155] text-sm">
-                            {currentInvoices.map((inv) => {
-                              const calc = getInvoiceCalculatedStatus(inv);
-                              const salesmanName = getSalesmanDisplay(inv);
-
-                              return (
-                                <tr key={inv.id || inv.invoiceNumber} className="hover:bg-[#0f172a]/50 transition">
-                                  <td className="p-3 font-mono font-bold text-blue-400 text-xs">
-                                    {inv.invoiceNumber}
-                                  </td>
-                                  <td className="p-3 font-medium text-white text-xs">
-                                    {getCustomerDisplay(inv)}
-                                  </td>
-                                  <td className="p-3">
-                                    {salesmanName ? (
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium truncate max-w-[130px]">
-                                        <UserCheck size={11} className="text-purple-400 shrink-0" />
-                                        <span className="truncate">{salesmanName}</span>
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-500 text-xs font-mono">—</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-right">
-                                    <PaymentBreakdownTooltip
-                                      totalAmount={inv.totalAmount || 0}
-                                      paidAmount={calc.paidAmount}
-                                      remainingAmount={calc.remainingAmount}
-                                      statusText={calc.status}
-                                    >
-                                      <span className="font-mono text-emerald-400 font-bold text-xs cursor-help underline decoration-emerald-500/30 underline-offset-2">
-                                        {Math.round(inv.totalAmount || 0).toLocaleString()}/=
-                                      </span>
-                                    </PaymentBreakdownTooltip>
-                                  </td>
-                                  <td className="p-3 text-right">
-                                    <PaymentBreakdownTooltip
-                                      totalAmount={inv.totalAmount || 0}
-                                      paidAmount={calc.paidAmount}
-                                      remainingAmount={calc.remainingAmount}
-                                      statusText={calc.status}
-                                    >
-                                      <span className={`font-mono font-bold text-xs cursor-help ${calc.remainingAmount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
-                                        {Math.round(calc.remainingAmount).toLocaleString()}/=
-                                      </span>
-                                    </PaymentBreakdownTooltip>
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <PaymentBreakdownTooltip
-                                      totalAmount={inv.totalAmount || 0}
-                                      paidAmount={calc.paidAmount}
-                                      remainingAmount={calc.remainingAmount}
-                                      statusText={calc.status}
-                                    >
-                                      {calc.status === 'paid' && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                          <CheckCircle className="w-3 h-3" /> Paid
-                                        </span>
-                                      )}
-                                      {calc.status === 'partially_paid' && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                                          <Clock className="w-3 h-3" /> Partially Paid
-                                        </span>
-                                      )}
-                                      {calc.status === 'overdue' && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
-                                          <XCircle className="w-3 h-3" /> Overdue
-                                        </span>
-                                      )}
-                                      {calc.status === 'due_soon' && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                          <Clock className="w-3 h-3" /> Due Soon
-                                        </span>
-                                      )}
-                                      {calc.status === 'outstanding' && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                                          Outstanding
-                                        </span>
-                                      )}
-                                    </PaymentBreakdownTooltip>
-                                  </td>
-                                  <td className="p-3 text-gray-400 text-xs font-mono">
-                                    {formatDate(inv.issueDate)}
-                                  </td>
-                                  <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                                     <div className="flex justify-end">
-                                       <ActionMenu
-                                         title="Actions"
-                                         items={[
-                                           {
-                                             items: [
-                                               {
-                                                 label: 'Preview & PDF',
-                                                 icon: <Eye size={13} />,
-                                                 variant: 'blue',
-                                                 onClick: async () => {
-                                                   await handleLoadInvoice(inv, false);
-                                                   setShowPreviewModal(true);
-                                                 },
-                                               },
-                                               {
-                                                 label: isInvoiceEditable(inv.paymentStatus, (inv as any).status) ? 'Edit Invoice' : 'View Invoice',
-                                                 icon: <Edit size={13} />,
-                                                 variant: 'purple',
-                                                 onClick: () => {
-                                                   handleLoadInvoice(inv, true);
-                                                 },
-                                               },
-                                               {
-                                                 label: 'Share on WhatsApp',
-                                                 icon: <MessageCircle size={13} />,
-                                                 variant: 'emerald',
-                                                 onClick: async () => {
-                                                   await handleLoadInvoice(inv, false);
-                                                   setShowPreviewModal(true);
-                                                 },
-                                               },
-                                               {
-                                                 label: 'Return Invoice',
-                                                 icon: <RotateCcw size={13} />,
-                                                 variant: 'amber',
-                                                 onClick: async () => {
-                                                   await handleLoadInvoice(inv, false);
-                                                   setShowReturnModal(true);
-                                                 },
-                                               },
-                                             ],
-                                           },
-                                           {
-                                             items: [
-                                               {
-                                                 label: copiedInvoiceId === inv.id ? 'Copied!' : 'Copy Link',
-                                                 icon: copiedInvoiceId === inv.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />,
-                                                 variant: 'default',
-                                                 onClick: () => {
-                                                   handleCopyInvoiceLink(inv.id || '', inv.invoiceNumber);
-                                                 },
-                                               },
-                                               {
-                                                 label: 'Delete Invoice',
-                                                 icon: <Trash2 size={13} />,
-                                                 variant: 'danger',
-                                                 onClick: () => {
-                                                   handleDeleteInvoice(inv.id || '', inv.invoiceNumber);
-                                                 },
-                                               },
-                                             ],
-                                           },
-                                         ]}
-                                       />
-                                     </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination */}
-                      {filteredTotalPages > 1 && (
-                        <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#334155] p-4">
-                          <div className="text-sm text-gray-400">Showing {startIndex + 1} to {Math.min(endIndex, filteredInvoices.length)} of {filteredInvoices.length} invoices</div>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Previous page"><ChevronLeft className="w-4 h-4 text-gray-300" /></button>
-                            <div className="flex items-center gap-1">
-                              {Array.from({ length: filteredTotalPages }, (_, i) => i + 1).map((page) => {
-                                const showPage = page === 1 || page === filteredTotalPages || (page >= currentPage - 1 && page <= currentPage + 1);
-                                const showEllipsis = (page === 2 && currentPage > 3) || (page === filteredTotalPages - 1 && currentPage < filteredTotalPages - 2);
-                                if (!showPage && !showEllipsis) return null;
-                                if (showEllipsis) return <span key={page} className="px-2 text-gray-500">...</span>;
-                                return (
-                                  <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-[#0f172a] text-gray-300 border border-[#334155] hover:bg-[#1e293b]'}`}>
-                                    {page}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <button onClick={() => setCurrentPage(prev => Math.min(filteredTotalPages, prev + 1))} disabled={currentPage === filteredTotalPages} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Next page"><ChevronRight className="w-4 h-4 text-gray-300" /></button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
 
         {/* Slide-in Drawer for New/Edit Invoice */}
         {isCreateDrawerOpen && (
@@ -1793,8 +2044,22 @@ const Invoice: React.FC = () => {
             fetchAllInvoices();
           }}
         />
-      </div>
-    </div>
+
+        {/* Custom Confirm Modal */}
+        <CustomConfirm
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmText={confirmConfig.confirmText}
+          cancelText={confirmConfig.cancelText}
+          type={confirmConfig.type}
+          onConfirm={() => {
+            confirmConfig.onConfirm();
+            setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+          }}
+          onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+        />
+    </>
   );
 };
 

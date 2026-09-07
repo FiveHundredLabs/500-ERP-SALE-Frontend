@@ -29,8 +29,26 @@ export interface PurchaseOrder {
   id: string;
   poNumber: string;
   sourceOrderId?: string | null;
-  sourceOrder?: { id: string; orderNumber: string } | null;
+  sourceOrder?: {
+    id: string;
+    orderNumber: string;
+    customerId?: string;
+    customerName?: string;
+    contactPerson?: string;
+    contactPhone?: string;
+    customerAddress?: string;
+    customerCity?: string;
+    salesmanId?: string;
+    salesmanName?: string;
+    customer?: any;
+    salesman?: { id: string; fullName: string; email?: string; role?: string } | null;
+    totalDiscountType?: string | null;
+    totalDiscountValue?: any;
+    totalDiscount?: any;
+    items?: any[];
+  } | null;
   sourceOrderNumber?: string;
+  customerId?: string;
   supplierId: string;
   supplierName: string;
   supplierContact: string;
