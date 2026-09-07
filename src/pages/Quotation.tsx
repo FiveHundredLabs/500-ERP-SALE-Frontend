@@ -7,7 +7,6 @@ import {
   Menu,
   X,
   Save,
-  List,
   Eye,
   Edit,
   Trash2,
@@ -77,12 +76,53 @@ const Quotation: React.FC = () => {
   const [showPOModal, setShowPOModal] = useState(false);
   const [poModalInitialData, setPoModalInitialData] = useState<POInitialData | null>(null);
 
-  const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
+  const [viewMode, setViewMode] = useState<'edit' | 'manage'>('manage');
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [allQuotations, setAllQuotations] = useState<QuotationResponse[]>([]);
   const [isLoadingQuotations, setIsLoadingQuotations] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [manageSearch, setManageSearch] = useState("");
+
+  const handleCloseDrawer = () => {
+    if (isDirty) {
+      setConfirmConfig({
+        isOpen: true,
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Are you sure you want to close this panel?",
+        confirmText: "Discard & Close",
+        cancelText: "Keep Editing",
+        type: "warning",
+        onConfirm: () => {
+          setIsDirty(false);
+          setIsCreateDrawerOpen(false);
+        }
+      });
+    } else {
+      setIsCreateDrawerOpen(false);
+    }
+  };
+
+  const handleNewQuotation = async () => {
+    try {
+      setIsLoading(true);
+      const nextId = await quotationService.getNextId();
+      const freshData: QuotationData = {
+        ...getInitialQuotationData(),
+        quotationNumber: nextId,
+      };
+      setQuotationData(freshData);
+      lastSavedRef.current = null;
+      setIsDirty(false);
+      lastSavedAtRef.current = null;
+      setIsCreateDrawerOpen(true);
+    } catch {
+      setQuotationData(getInitialQuotationData());
+      setIsCreateDrawerOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const [copiedQuotationId, setCopiedQuotationId] = useState<string | null>(null);
 
@@ -161,6 +201,7 @@ const Quotation: React.FC = () => {
 
   useEffect(() => {
     loadInitialData();
+    fetchAllQuotations();
   }, []);
 
   const handleAddItem = (item: Omit<QuotationItem, 'id' | 'total'> & { total?: number }) => {
@@ -239,6 +280,7 @@ const Quotation: React.FC = () => {
         type: "danger",
         onConfirm: async () => {
           await loadInitialData();
+          setIsCreateDrawerOpen(false);
           setViewMode('manage');
         }
       });
@@ -261,6 +303,7 @@ const Quotation: React.FC = () => {
     const saved = await handleSave();
     if (saved) {
       lastSavedRef.current = { ...quotationData };
+      fetchAllQuotations();
     }
   };
 
@@ -684,6 +727,7 @@ const Quotation: React.FC = () => {
     if (mode === 'view') {
       setShowPreviewModal(true);
     } else {
+      setIsCreateDrawerOpen(true);
       setViewMode('edit');
     }
   };
@@ -713,10 +757,6 @@ const Quotation: React.FC = () => {
     });
   };
 
-  const handleOpenManageModal = () => {
-    setViewMode('manage');
-    setCurrentPage(1);
-  };
 
   const handleConvertQuotationToPO = (quotation: QuotationResponse | QuotationData) => {
     const customerObj = 'customerDetails' in quotation ? quotation.customerDetails : undefined;
@@ -875,16 +915,10 @@ const Quotation: React.FC = () => {
 
         <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 md:px-6 shadow-lg relative z-40 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            {viewMode === 'manage' ? (
-              <button onClick={() => setViewMode('edit')} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
-                <ChevronLeft className="w-5 h-5" />
+            {isMobileView && (
+              <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
+                {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
-            ) : (
-              isMobileView && (
-                <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
-                  {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
-              )
             )}
 
             <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
@@ -895,138 +929,31 @@ const Quotation: React.FC = () => {
                 Quotation Management
               </h1>
               <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
-                {viewMode === 'manage'
-                  ? 'View Quotations'
-                  : quotationData.id
-                    ? `Edit Quotation – ${quotationData.quotationNumber}`
-                    : 'Create New Quotation'}
+                View Quotations
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            {viewMode === "manage" ? (
-              <>
-                <div className="relative">
-                  <input
-                    value={manageSearch}
-                    onChange={(e) => {
-                      setManageSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Search by ID or customer"
-                    className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
-                  />
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                <button
-                  onClick={() => setViewMode('edit')}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>+ New Quotation</span>
-                </button>
-              </>
-            ) : (
-              <>
-                {(() => {
-                  const isQuotationSaved = Boolean(quotationData.id);
-                  return (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleConvertQuotationToOrder(quotationData)}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Sales Order"}
-                      >
-                        <ShoppingBag className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to Order</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleConvertQuotationToInvoice(quotationData)}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Invoice"}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to Invoice</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleConvertQuotationToPO(quotationData)}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Convert to Purchase Order"}
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        <span className="hidden sm:inline">Convert to PO</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleOpenPreview}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Preview</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleShareQuotation}
-                        disabled={!isQuotationSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
-                      >
-                        <Share2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Share</span>
-                      </button>
-                    </>
-                  );
-                })()}
-
-                <button
-                  type="button"
-                  onClick={handleSaveChanges}
-                  disabled={isLoading || isSaving}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-sm"
-                >
-                  {isSaving ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>{quotationData.id ? 'Update' : 'Save'}</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  title="Clear quotation"
-                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Clear</span>
-                </button>
-
-                <button
-                  onClick={handleOpenManageModal}
-                  title="Manage quotations"
-                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white hover:bg-[#334155] px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">Manage</span>
-                </button>
-              </>
-            )}
+            <div className="relative">
+              <input
+                value={manageSearch}
+                onChange={(e) => {
+                  setManageSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search by ID or customer"
+                className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
+              />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            <button
+              onClick={handleNewQuotation}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
+            >
+              <FileText className="w-4 h-4" />
+              <span>+ New Quotation</span>
+            </button>
 
             <div className="flex items-center gap-2.5 ml-1">
               <ThemeToggle />
@@ -1035,210 +962,228 @@ const Quotation: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-          {viewMode === 'manage' ? (
-            <div className="w-full overflow-auto p-4">
-              <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
-                <div className="flex-1 overflow-auto rounded-lg">
-                  {isLoadingQuotations ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                    </div>
-                  ) : filteredQuotations.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                      <FileText className="w-16 h-16 mb-4 opacity-50" />
-                      <p className="text-lg font-medium">No quotations found</p>
-                      <p className="text-sm mt-2">Try a different search or create a new quotation</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Table */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-sm">
-                          <thead className="sticky top-0 z-10">
-                            <tr className="bg-[#1e293b] border-b border-[#243244]">
-                              <th className="text-left px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Quotation ID
-                              </th>
-                              <th className="text-left px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Customer
-                              </th>
-                              <th className="hidden md:table-cell text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Issue Date
-                              </th>
-                              <th className="hidden sm:table-cell text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Status
-                              </th>
-                              <th className="text-right px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Total
-                              </th>
-                              <th className="text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#243244]">
-                            {currentQuotations.map((quotation: QuotationResponse) => {
-                              const statusConfig = quotation.status ? statusBadgeMap[quotation.status as keyof typeof statusBadgeMap] : null;
-                              return (
-                                <tr
-                                  key={quotation.id}
-                                  className="hover:bg-[#243244]/50 transition"
-                                >
-                                  {/* Quotation ID */}
-                                  <td className="px-2 md:px-4 py-3 font-medium text-blue-400">
-                                    {quotation.quotationNumber}
-                                  </td>
-
-                                  {/* Customer */}
-                                  <td className="px-2 md:px-4 py-3">
-                                    <div className="font-medium text-white">
-                                      {quotation.customer?.fullName || "Walk-in Customer"}
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                      {quotation.customer?.phone || ""}
-                                    </div>
-                                  </td>
-
-                                  {/* Date */}
-                                  <td className="hidden md:table-cell px-2 md:px-4 py-3 text-gray-400">
-                                    {formatDate(quotation.issueDate)}
-                                  </td>
-
-                                  {/* Status */}
-                                  <td className="hidden sm:table-cell px-2 md:px-4 py-3">
-                                    {statusConfig && (
-                                      <span
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.cls}`}
-                                      >
-                                        {statusConfig.icon}
-                                        {quotation.status}
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Amount */}
-                                  <td className="px-2 md:px-4 py-3 text-right font-semibold text-white">
-                                    LKR {quotation.totalAmount.toFixed(2)}
-                                  </td>
-
-                                  {/* Actions */}
-                                  <td className="px-2 md:px-4 py-3">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <button
-                                        onClick={() => handleLoadQuotation(quotation, 'view')}
-                                        title="Preview & Share on WhatsApp"
-                                        className="p-2 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition"
-                                      >
-                                        <MessageCircle className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleLoadQuotation(quotation, 'view')}
-                                        title="View Preview"
-                                        className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition"
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleLoadQuotation(quotation, 'edit')}
-                                        title="Edit"
-                                        className="p-2 rounded-md text-green-400 hover:bg-green-500/20 transition"
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleCopyQuotationLink(quotation.id!, quotation.quotationNumber)}
-                                        title="Copy Quotation Link"
-                                        className={`p-2 rounded-md transition ${copiedQuotationId === quotation.id
-                                          ? 'text-green-400 bg-green-500/20' 
-                                          : 'text-purple-400 hover:bg-purple-500/20'}`}
-                                      >
-                                        {copiedQuotationId === quotation.id ? (
-                                          <Check className="w-4 h-4" />
-                                        ) : (
-                                          <Copy className="w-4 h-4" />
-                                        )}
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleConvertQuotationToOrder(quotation)}
-                                        title="Convert to Sales Order"
-                                        className="p-2 rounded-md text-blue-400 hover:bg-blue-500/20 transition cursor-pointer"
-                                      >
-                                        <ShoppingBag className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleConvertQuotationToInvoice(quotation)}
-                                        title="Convert to Invoice"
-                                        className="p-2 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
-                                      >
-                                        <FileText className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => handleConvertQuotationToPO(quotation)}
-                                        title="Convert to Purchase Order"
-                                        className="p-2 rounded-md text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
-                                      >
-                                        <ShoppingCart className="w-4 h-4" />
-                                      </button>
-
-                                      <button
-                                        onClick={() => {
-                                          if (quotation.id && quotation.quotationNumber) {
-                                            handleDeleteQuotation(quotation.id, quotation.quotationNumber);
-                                          }
-                                        }}
-                                        title="Delete"
-                                        className="p-2 rounded-md text-red-400 hover:bg-red-500/20 transition"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination */}
-                      {filteredTotalPages > 1 && (
-                        <div className="flex items-center justify-between m-2">
-                          <div className="text-sm text-gray-400">Showing {startIndex + 1} to {Math.min(endIndex, filteredQuotations.length)} of {filteredQuotations.length} quotations</div>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Previous page"><ChevronLeft className="w-4 h-4 text-gray-300" /></button>
-                            <div className="flex items-center gap-1">
-                              {Array.from({ length: filteredTotalPages }, (_, i) => i + 1).map((page) => {
-                                const showPage = page === 1 || page === filteredTotalPages || (page >= currentPage - 1 && page <= currentPage + 1);
-                                const showEllipsis = (page === 2 && currentPage > 3) || (page === filteredTotalPages - 1 && currentPage < filteredTotalPages - 2);
-                                if (!showPage && !showEllipsis) return null;
-                                if (showEllipsis) return <span key={page} className="px-2 text-gray-500">...</span>;
-                                return (
-                                  <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-[#0f172a] text-gray-300 border border-[#334155] hover:bg-[#1e293b]'}`}>
-                                    {page}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <button onClick={() => setCurrentPage(prev => Math.min(filteredTotalPages, prev + 1))} disabled={currentPage === filteredTotalPages} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Next page"><ChevronRight className="w-4 h-4 text-gray-300" /></button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+        <div className="flex-1 overflow-auto p-4">
+          <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
+            <div className="flex-1 overflow-auto rounded-lg">
+              {isLoadingQuotations ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
                 </div>
-              </div>
+              ) : filteredQuotations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                  <FileText className="w-16 h-16 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No quotations found</p>
+                  <p className="text-sm mt-2">Try a different search or create a new quotation</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-[#1e293b] border-b border-[#243244]">
+                          <th className="text-left px-2 md:px-4 py-3 font-semibold text-gray-300">
+                            Quotation ID
+                          </th>
+                          <th className="text-left px-2 md:px-4 py-3 font-semibold text-gray-300">
+                            Customer
+                          </th>
+                          <th className="hidden md:table-cell text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
+                            Issue Date
+                          </th>
+                          <th className="hidden sm:table-cell text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
+                            Status
+                          </th>
+                          <th className="text-right px-2 md:px-4 py-3 font-semibold text-gray-300">
+                            Total
+                          </th>
+                          <th className="text-center px-2 md:px-4 py-3 font-semibold text-gray-300">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#243244]">
+                        {currentQuotations.map((quotation: QuotationResponse) => {
+                          const statusConfig = quotation.status ? statusBadgeMap[quotation.status as keyof typeof statusBadgeMap] : null;
+                          return (
+                            <tr
+                              key={quotation.id}
+                              className="hover:bg-[#243244]/50 transition"
+                            >
+                              <td className="px-2 md:px-4 py-3 font-medium text-blue-400">
+                                {quotation.quotationNumber}
+                              </td>
+                              <td className="px-2 md:px-4 py-3">
+                                <div className="font-medium text-white">
+                                  {quotation.customer?.fullName || "Walk-in Customer"}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {quotation.customer?.phone || ""}
+                                </div>
+                              </td>
+                              <td className="hidden md:table-cell text-center px-2 md:px-4 py-3 text-gray-300 text-xs">
+                                {formatDate(quotation.issueDate)}
+                              </td>
+                              <td className="hidden sm:table-cell text-center px-2 md:px-4 py-3">
+                                {statusConfig ? (
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${statusConfig.cls}`}>
+                                    {statusConfig.icon}
+                                    {quotation.status}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="text-right px-2 md:px-4 py-3 font-medium text-white">
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(quotation.totalAmount)}
+                              </td>
+                              <td className="text-center px-2 md:px-4 py-3">
+                                <div className="flex items-center justify-center gap-1 md:gap-2">
+                                  <button
+                                    onClick={() => handleLoadQuotation(quotation, 'view')}
+                                    className="p-1.5 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 rounded transition"
+                                    title="Preview Quotation"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleLoadQuotation(quotation, 'edit')}
+                                    className="p-1.5 hover:bg-amber-600/20 text-amber-400 hover:text-amber-300 rounded transition"
+                                    title="Edit Quotation"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleCopyQuotationLink(quotation.id, quotation.quotationNumber)}
+                                    className="p-1.5 hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 rounded transition"
+                                    title={copiedQuotationId === quotation.id ? "Link Copied!" : "Copy Quotation Link"}
+                                  >
+                                    {copiedQuotationId === quotation.id ? (
+                                      <Check className="w-4 h-4 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const custPhone = quotation.customer?.phone || '';
+                                      const custName = quotation.customer?.fullName || 'Valued Customer';
+                                      const link = `${window.location.origin}/quotation/view/${quotation.id}`;
+                                      const cleanPhone = custPhone.replace(/[^0-9]/g, '');
+                                      const text = encodeURIComponent(
+                                        `Hello ${custName},\n\nHere is your quotation ${quotation.quotationNumber} from S & K Enterprises.\n\nTotal: LKR ${Math.round(quotation.totalAmount).toLocaleString()}/=\n\nView quotation online:\n${link}\n\nThank you for your business!`
+                                      );
+                                      const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+                                      window.open(url, '_blank');
+                                    }}
+                                    className="p-1.5 hover:bg-green-600/20 text-green-400 hover:text-green-300 rounded transition"
+                                    title="Share on WhatsApp"
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleConvertQuotationToOrder(quotation)}
+                                    className="p-1.5 hover:bg-purple-600/20 text-purple-400 hover:text-purple-300 rounded transition"
+                                    title="Convert to Sales Order"
+                                  >
+                                    <ShoppingBag className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleConvertQuotationToInvoice(quotation)}
+                                    className="p-1.5 hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 rounded transition"
+                                    title="Convert to Invoice"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleConvertQuotationToPO(quotation)}
+                                    className="p-1.5 hover:bg-amber-600/20 text-amber-400 hover:text-amber-300 rounded transition"
+                                    title="Convert to Purchase Order"
+                                  >
+                                    <ShoppingCart className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteQuotation(quotation.id, quotation.quotationNumber)}
+                                    className="p-1.5 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 rounded transition"
+                                    title="Delete Quotation"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {filteredTotalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#243244] p-4">
+                      <div className="text-sm text-gray-400">
+                        Showing {startIndex + 1} to {Math.min(endIndex, filteredQuotations.length)} of {filteredQuotations.length} quotations
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Previous page"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-gray-300" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: filteredTotalPages }, (_, i) => i + 1).map((page) => {
+                            const showPage = page === 1 || page === filteredTotalPages || (page >= currentPage - 1 && page <= currentPage + 1);
+                            const showEllipsis = (page === 2 && currentPage > 3) || (page === filteredTotalPages - 1 && currentPage < filteredTotalPages - 2);
+                            if (!showPage && !showEllipsis) return null;
+                            if (showEllipsis) return <span key={page} className="px-2 text-gray-500">...</span>;
+                            return (
+                              <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-[#0f172a] text-gray-300 border border-[#334155] hover:bg-[#1e293b]'}`}>
+                                {page}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button onClick={() => setCurrentPage(prev => Math.min(filteredTotalPages, prev + 1))} disabled={currentPage === filteredTotalPages} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] hover:bg-[#1e293b] transition disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Next page"><ChevronRight className="w-4 h-4 text-gray-300" /></button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          ) : (
-            /* Clean Full-Width Form View */
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="w-full space-y-6">
+          </div>
+        </div>
+
+        {isCreateDrawerOpen && (
+          <div className="fixed inset-0 z-[900] flex items-start justify-end">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={handleCloseDrawer}
+            />
+            <div className="relative w-full md:w-[70vw] lg:w-[70vw] xl:w-[70vw] max-w-none h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/80 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                    <FileText size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-white">
+                      {quotationData.id ? `Edit Quotation — ${quotationData.quotationNumber}` : 'Create New Quotation'}
+                    </h2>
+                    <p className="text-xs text-gray-400">
+                      {quotationData.id ? 'Modify products, quantities, and discounts for this quotation' : 'Fill in the details below to generate a new quotation'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseDrawer}
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-[#334155] rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto bg-[#0f172a] p-4 md:p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
                 {isLoading ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
@@ -1258,7 +1203,6 @@ const Quotation: React.FC = () => {
                   </ErrorBoundary>
                 )}
 
-                {/* Form Footer Action Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1e293b] p-4 rounded-xl border border-[#334155] shadow-lg sticky bottom-4 z-20">
                   <div className="text-xs text-gray-400">
                     {quotationData.items.length > 0 ? (
@@ -1273,17 +1217,25 @@ const Quotation: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {isDirty && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        disabled={isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Cancel</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleCloseDrawer}
+                      disabled={isLoading || isSaving}
+                      className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Close</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      title="Clear quotation"
+                      className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Clear</span>
+                    </button>
 
                     {(() => {
                       const isQuotationSaved = Boolean(quotationData.id);
@@ -1293,7 +1245,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={() => handleConvertQuotationToPO(quotationData)}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Convert Quotation to Purchase Order"}
                           >
                             <ShoppingCart className="w-4 h-4" />
@@ -1304,7 +1256,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleShareQuotation}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Share Quotation"}
                           >
                             <Share2 className="w-4 h-4" />
@@ -1315,7 +1267,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Download PDF via Preview"}
                           >
                             <Download className="w-4 h-4" />
@@ -1326,7 +1278,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Print Quotation via Preview"}
                           >
                             <Printer className="w-4 h-4" />
@@ -1337,7 +1289,7 @@ const Quotation: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isQuotationSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isQuotationSaved ? "Please save quotation first" : "Preview Quotation"}
                           >
                             <Eye className="w-4 h-4" />
@@ -1351,7 +1303,7 @@ const Quotation: React.FC = () => {
                       type="button"
                       onClick={handleSaveChanges}
                       disabled={isLoading || isSaving}
-                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md"
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md cursor-pointer"
                     >
                       {isSaving ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1366,10 +1318,9 @@ const Quotation: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Dedicated Quotation Preview Modal */}
         <QuotationViewModal
           isOpen={showPreviewModal}
           onClose={() => setShowPreviewModal(false)}

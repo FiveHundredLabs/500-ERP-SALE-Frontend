@@ -7,7 +7,6 @@ import {
   Menu,
   X,
   Save,
-  List,
   Eye,
   Edit,
   Trash2,
@@ -85,12 +84,53 @@ const Invoice: React.FC = () => {
   const lastSavedRef = useRef<InvoiceData | null>(null);
   const lastSavedAtRef = useRef<string | null>(null);
 
-  const [viewMode, setViewMode] = useState<'edit' | 'manage'>('edit');
+  const [viewMode, setViewMode] = useState<'edit' | 'manage'>('manage');
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [manageSearch, setManageSearch] = useState("");
+
+  const handleCloseDrawer = () => {
+    if (isDirty) {
+      setConfirmConfig({
+        isOpen: true,
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Are you sure you want to close this panel?",
+        confirmText: "Discard & Close",
+        cancelText: "Keep Editing",
+        type: "warning",
+        onConfirm: () => {
+          setIsDirty(false);
+          setIsCreateDrawerOpen(false);
+        }
+      });
+    } else {
+      setIsCreateDrawerOpen(false);
+    }
+  };
+
+  const handleNewInvoice = async () => {
+    try {
+      setIsLoading(true);
+      const nextId = await invoiceService.getNextId();
+      const freshData: InvoiceData = {
+        ...getInitialInvoiceData(),
+        invoiceNumber: nextId,
+      };
+      setInvoiceData(freshData);
+      lastSavedRef.current = null;
+      setIsDirty(false);
+      lastSavedAtRef.current = null;
+      setIsCreateDrawerOpen(true);
+    } catch {
+      setInvoiceData(getInitialInvoiceData());
+      setIsCreateDrawerOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Payment modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -364,6 +404,7 @@ const Invoice: React.FC = () => {
       }));
 
       if (initialInvoiceItems.length > 0) {
+        setIsCreateDrawerOpen(true);
         setViewMode('edit');
         if (convertFromOrder) {
           setAlert({
@@ -391,6 +432,7 @@ const Invoice: React.FC = () => {
 
   useEffect(() => {
     loadInitialData();
+    fetchAllInvoices();
   }, []);
 
   // Update paymentDetails when invoiceData changes
@@ -573,6 +615,7 @@ const Invoice: React.FC = () => {
         type: "danger",
         onConfirm: async () => {
           await loadInitialData();
+          setIsCreateDrawerOpen(false);
           setViewMode('manage');
         }
       });
@@ -595,6 +638,7 @@ const Invoice: React.FC = () => {
     const saved = await handleSave();
     if (saved) {
       lastSavedRef.current = { ...invoiceData };
+      fetchAllInvoices();
       setShowPreviewModal(true);
     }
   };
@@ -946,6 +990,7 @@ const Invoice: React.FC = () => {
       lastSavedRef.current = { ...invoiceData, id: response.id } as InvoiceData;
       setIsDirty(false);
       lastSavedAtRef.current = new Date().toISOString();
+      fetchAllInvoices();
 
       return true;
     } catch (error: any) {
@@ -1097,6 +1142,7 @@ const Invoice: React.FC = () => {
         lastSavedRef.current = loadedData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setIsCreateDrawerOpen(true);
         setViewMode('edit');
 
         setAlert({
@@ -1162,10 +1208,6 @@ const Invoice: React.FC = () => {
       });
   };
 
-  const handleOpenManageModal = () => {
-    setViewMode('manage');
-    setCurrentPage(1);
-  };
 
   const handleShareInvoice = () => {
     setShowPreviewModal(true);
@@ -1290,15 +1332,9 @@ const Invoice: React.FC = () => {
         {/* Top Header Bar */}
         <div className="h-[68px] bg-[#1e293b]/90 backdrop-blur-xl border-b border-[#334155] flex items-center justify-between px-4 md:px-6 shadow-lg relative z-40 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            {viewMode === 'manage' ? (
-              <button onClick={() => setViewMode('edit')} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            ) : (
-              <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0 lg:hidden">
-                {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            )}
+            <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#334155] transition-colors cursor-pointer flex-shrink-0 lg:hidden">
+              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
 
             <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
               <FileText className="w-5 h-5" />
@@ -1308,114 +1344,40 @@ const Invoice: React.FC = () => {
                 Invoice Management
               </h1>
               <div className="text-[0.8rem] text-gray-400 truncate mt-0.5">
-                {viewMode === 'manage'
-                  ? 'View Invoices'
-                  : invoiceData.id
-                    ? `Edit Invoice – ${invoiceData.invoiceNumber}`
-                    : 'Create New Invoice'}
+                View Invoices
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            {viewMode === "manage" ? (
-              <>
-                <div className="relative">
-                  <input
-                    value={manageSearch}
-                    onChange={(e) => {
-                      setManageSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Search by ID or customer"
-                    className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
-                  />
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                <button
-                  onClick={() => setViewMode('edit')}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>+ New Invoice</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowReturnModal(true);
-                  }}
-                  className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span className="hidden sm:inline">Return Invoice</span>
-                </button>
-              </>
-            ) : (
-              <>
-                {(() => {
-                  const isInvoiceSaved = Boolean(invoiceData.id);
-                  return (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleOpenPreview}
-                        disabled={!isInvoiceSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isInvoiceSaved ? "Please save invoice first" : "Preview Invoice"}
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Preview</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleShareInvoice}
-                        disabled={!isInvoiceSaved || isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        title={!isInvoiceSaved ? "Please save invoice first" : "Share Invoice"}
-                      >
-                        <Share2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Share</span>
-                      </button>
-                    </>
-                  );
-                })()}
-
-                <button
-                  type="button"
-                  onClick={handleSaveChanges}
-                  disabled={isLoading || isSaving}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-sm"
-                >
-                  {isSaving ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>{invoiceData.id ? 'Update' : 'Save'}</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  title="Clear invoice"
-                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Clear</span>
-                </button>
-
-                <button
-                  onClick={handleOpenManageModal}
-                  title="Manage invoices"
-                  className="flex items-center gap-1.5 bg-[#1e293b] border border-[#334155] text-gray-300 hover:text-white hover:bg-[#334155] px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">Manage</span>
-                </button>
-              </>
-            )}
+            <div className="relative">
+              <input
+                value={manageSearch}
+                onChange={(e) => {
+                  setManageSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search by ID or customer"
+                className="pl-9 pr-3 py-2 rounded-lg bg-[#0f172a] text-sm placeholder:text-gray-400 text-gray-200 border border-[#334155] focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-48 sm:w-56"
+              />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            <button
+              onClick={handleNewInvoice}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
+            >
+              <FileText className="w-4 h-4" />
+              <span>+ New Invoice</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowReturnModal(true);
+              }}
+              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span className="hidden sm:inline">Return Invoice</span>
+            </button>
 
             <div className="flex items-center gap-2.5 ml-1">
               <ThemeToggle />
@@ -1425,8 +1387,7 @@ const Invoice: React.FC = () => {
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {viewMode === 'manage' ? (
-            <div className="w-full overflow-auto p-4">
+          <div className="w-full overflow-auto p-4">
               <div className="bg-[#1e293b] rounded-lg w-full h-full flex flex-col border border-[#334155] shadow-2xl">
                 <div className="flex-1 overflow-auto rounded-lg">
                   {isLoadingInvoices ? (
@@ -1642,9 +1603,45 @@ const Invoice: React.FC = () => {
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto bg-[#0f172a] p-4 sm:p-6">
-              <div className="w-full space-y-6">
+          </div>
+
+        {/* Slide-in Drawer for New/Edit Invoice */}
+        {isCreateDrawerOpen && (
+          <div className="fixed inset-0 z-[900] flex items-start justify-end">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={handleCloseDrawer}
+            />
+
+            {/* Slide-in panel - 70% width on md+ screens */}
+            <div className="relative w-full md:w-[70vw] lg:w-[70vw] xl:w-[70vw] max-w-none h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/80 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                    <FileText size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-white">
+                      {invoiceData.id ? `Edit Invoice — ${invoiceData.invoiceNumber}` : 'Create New Invoice'}
+                    </h2>
+                    <p className="text-xs text-gray-400">
+                      {invoiceData.id ? 'Modify products, quantities, and discounts for this invoice' : 'Fill in the details below to generate a new sales invoice'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseDrawer}
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-[#334155] rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Drawer Body */}
+              <div className="flex-1 overflow-y-auto bg-[#0f172a] p-4 sm:p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
                 {isLoading ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
@@ -1682,17 +1679,25 @@ const Invoice: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {isDirty && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        disabled={isLoading || isSaving}
-                        className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Cancel</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleCloseDrawer}
+                      disabled={isLoading || isSaving}
+                      className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Close</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      title="Clear invoice"
+                      className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Clear</span>
+                    </button>
 
                     {(() => {
                       const isInvoiceSaved = Boolean(invoiceData.id);
@@ -1702,7 +1707,7 @@ const Invoice: React.FC = () => {
                             type="button"
                             onClick={handleShareInvoice}
                             disabled={!isInvoiceSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isInvoiceSaved ? "Please save invoice first" : "Share Invoice"}
                           >
                             <Share2 className="w-4 h-4" />
@@ -1713,7 +1718,7 @@ const Invoice: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isInvoiceSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isInvoiceSaved ? "Please save invoice first" : "Download PDF via Preview"}
                           >
                             <Download className="w-4 h-4" />
@@ -1724,7 +1729,7 @@ const Invoice: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isInvoiceSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isInvoiceSaved ? "Please save invoice first" : "Print Invoice via Preview"}
                           >
                             <Printer className="w-4 h-4" />
@@ -1735,7 +1740,7 @@ const Invoice: React.FC = () => {
                             type="button"
                             onClick={handleOpenPreview}
                             disabled={!isInvoiceSaved || isLoading || isSaving}
-                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-3.5 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             title={!isInvoiceSaved ? "Please save invoice first" : "Preview Invoice"}
                           >
                             <Eye className="w-4 h-4" />
@@ -1749,7 +1754,7 @@ const Invoice: React.FC = () => {
                       type="button"
                       onClick={handleSaveChanges}
                       disabled={isLoading || isSaving}
-                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md"
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-semibold transition shadow-md cursor-pointer"
                     >
                       {isSaving ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1764,8 +1769,8 @@ const Invoice: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Invoice Preview Modal */}
         <InvoiceViewModal

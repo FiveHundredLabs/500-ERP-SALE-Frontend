@@ -543,8 +543,18 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-[#020617]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative animate-fadeIn">
+      <div className="fixed inset-0 z-[900] flex items-start justify-end">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => {
+            resetState();
+            onClose();
+          }}
+        />
+
+        {/* Slide-in panel - 70% width on md+ screens */}
+        <div className="relative w-full md:w-[70vw] lg:w-[70vw] xl:w-[70vw] max-w-none h-screen bg-[#0f172a] border-l border-[#334155] shadow-2xl flex flex-col overflow-hidden animate-slideIn">
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-[#1e293b] bg-[#0b1120]">
             <div className="flex items-center gap-2.5">
