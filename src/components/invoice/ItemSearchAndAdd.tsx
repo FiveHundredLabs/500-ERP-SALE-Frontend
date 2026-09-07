@@ -1,9 +1,10 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Search, Plus, X, AlertCircle } from 'lucide-react';
 import type { InventoryItem } from '../../types/inventory';
 import type { InvoiceItem } from '../../types/invoice';
 import { useClickOutside } from '../../hooks/useClickOutside';
-import { validateLineDiscount, resolveMinPrice } from '../../utils/discountValidator';
+import { validateLineDiscount, resolveMinPrice, checkDiscountBelowCost } from '../../utils/discountValidator';
+import CustomConfirm from '../CustomConfirm';
 
 interface ItemSearchAndAddProps {
   searchTerm: string;
@@ -63,6 +64,23 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   invoiceItems,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }>({
+    isOpen: false,
+    title: 'Discount Below Cost',
+    message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+    confirmText: 'Allow / Continue',
+    cancelText: 'Cancel',
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   const discountType = newItem.discountType || 'percentage';
   const discountScope = newItem.discountScope || 'per_unit';
@@ -104,17 +122,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   const profitPerUnit = unitPrice - costPrice;
   const marginPct = unitPrice > 0 ? ((profitPerUnit / unitPrice) * 100).toFixed(1) : '0.0';
 
-  const handleAddClick = () => {
-    if (!newItem.inventoryItemId || qty <= 0 || unitPrice <= 0) {
-      alert('Please select a product from search.');
-      return;
-    }
-
-    if (!lineDiscountValidation.isValid) {
-      alert(lineDiscountValidation.error || 'Discount reduces price below allowed minimum price.');
-      return;
-    }
-
+  const commitAddItem = () => {
     onAddItem({
       inventoryItemId: newItem.inventoryItemId,
       itemName: newItem.itemName,
@@ -128,6 +136,60 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
       discountAmount: calculatedDiscountAmount,
       total: finalLineTotal,
     });
+  };
+
+  const handleAddClick = () => {
+    if (!newItem.inventoryItemId || qty <= 0 || unitPrice <= 0) {
+      alert('Please select a product from search.');
+      return;
+    }
+
+    const belowCostCheck = checkDiscountBelowCost({
+      productName: newItem.itemName,
+      unitPrice,
+      quantity: qty,
+      discountType,
+      discountScope,
+      discountValue: discVal,
+      costPrice,
+      minPrice,
+    });
+
+    if (belowCostCheck.isBelowCostOrZero) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Discount Below Cost',
+        message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+        confirmText: 'Allow / Continue',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          setConfirmModal({
+            isOpen: false,
+            title: 'Discount Below Cost',
+            message: '',
+            confirmText: 'Allow / Continue',
+            cancelText: 'Cancel',
+            onConfirm: () => {},
+            onCancel: () => {},
+          });
+          commitAddItem();
+        },
+        onCancel: () => {
+          setConfirmModal({
+            isOpen: false,
+            title: 'Discount Below Cost',
+            message: '',
+            confirmText: 'Allow / Continue',
+            cancelText: 'Cancel',
+            onConfirm: () => {},
+            onCancel: () => {},
+          });
+        },
+      });
+      return;
+    }
+
+    commitAddItem();
   };
 
   return (
@@ -406,6 +468,19 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           )}
         </div>
       </div>
+
+      <CustomConfirm
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        type="warning"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={confirmModal.onCancel}
+      />
     </div>
   );
 };
+
+export default ItemSearchAndAdd;

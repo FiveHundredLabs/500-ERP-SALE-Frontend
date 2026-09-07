@@ -573,6 +573,9 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData };
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setIsCreateDrawerOpen(false);
+        setViewMode('manage');
+        fetchAllQuotations();
         setShowPreviewModal(true);
       } else {
         setAlert({
@@ -594,6 +597,9 @@ const Quotation: React.FC = () => {
         lastSavedRef.current = { ...quotationData, id: response.id } as QuotationData;
         setIsDirty(false);
         lastSavedAtRef.current = new Date().toISOString();
+        setIsCreateDrawerOpen(false);
+        setViewMode('manage');
+        fetchAllQuotations();
         setShowPreviewModal(true);
       }
 

@@ -78,7 +78,7 @@ const CustomConfirm: React.FC<CustomConfirmProps> = ({
         </div>
 
         <div className="p-5 text-gray-300">
-          <p>{message}</p>
+          <p className="whitespace-pre-line leading-relaxed">{message}</p>
         </div>
 
         <div className="flex justify-end gap-3 p-5 border-t border-[#334155]">

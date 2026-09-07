@@ -525,6 +525,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       `Purchase Order ${newPO.poNumber} has been ${poToEdit ? 'updated' : 'created'}.`
     );
     resetState();
+    onClose();
   };
 
   const resetState = () => {

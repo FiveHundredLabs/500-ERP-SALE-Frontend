@@ -20,6 +20,7 @@ import {
   validateLineDiscount,
   validateOverallDiscount,
   resolveMinPrice,
+  checkDiscountBelowCost,
 } from '../../utils/discountValidator';
 
 interface CreateOrderModalProps {
@@ -80,6 +81,24 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const [pendingOrderToSave, setPendingOrderToSave] = useState<Order | null>(null);
   const [isProcessingConnected, setIsProcessingConnected] = useState(false);
   const [priceWarningModal, setPriceWarningModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void }>({ isOpen: false, message: '', onConfirm: () => {} });
+  const [discountWarningModal, setDiscountWarningModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }>({
+    isOpen: false,
+    title: 'Discount Below Cost',
+    message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+    confirmText: 'Allow / Continue',
+    cancelText: 'Cancel',
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
+  const [editingDiscounts, setEditingDiscounts] = useState<Record<string, string>>({});
 
   const [allCustomers, setAllCustomers] = useState<any[]>([]);
   const [allSalesmen, setAllSalesmen] = useState<any[]>([]);
@@ -336,30 +355,55 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (newProduct.quantity <= 0) errs.quantity = 'Qty must be > 0';
     if (newProduct.unitPrice <= 0) errs.unitPrice = 'Selling price required';
 
-    const discCheck = validateLineDiscount(newProduct);
-    if (!discCheck.isValid) {
-      errs.discount = discCheck.error || 'Discount reduces price below allowed minimum';
-    }
-
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    setProducts(prev => [...prev, { ...newProduct, id: newProduct.id || Date.now().toString() }]);
-    setNewProduct({
-      id: '',
-      productName: '',
-      quantity: 0,
-      unit: 'PCS',
-      unitPrice: 0,
-      discount: 0,
-      discountType: 'percentage',
-      discountScope: 'per_unit',
-      minPrice: 0,
-    });
-    setProductSearch('');
-    setErrors({});
+    const commitAdd = () => {
+      setProducts(prev => [...prev, { ...newProduct, id: newProduct.id || Date.now().toString() }]);
+      setNewProduct({
+        id: '',
+        productName: '',
+        quantity: 0,
+        unit: 'PCS',
+        unitPrice: 0,
+        discount: 0,
+        discountType: 'percentage',
+        discountScope: 'per_unit',
+        minPrice: 0,
+      });
+      setProductSearch('');
+      setErrors({});
+    };
+
+    const belowCostCheck = checkDiscountBelowCost(newProduct);
+    if (belowCostCheck.isBelowCostOrZero) {
+      setDiscountWarningModal({
+        isOpen: true,
+        title: 'Discount Below Cost',
+        message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+        confirmText: 'Allow / Continue',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+          commitAdd();
+        },
+        onCancel: () => {
+          setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+        },
+      });
+      return;
+    }
+
+    commitAdd();
   };
 
-  const handleRemoveProduct = (id: string) => setProducts(prev => prev.filter(p => p.id !== id));
+  const handleRemoveProduct = (id: string) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+    setEditingDiscounts(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
 
   const handleUpdateProduct = (id: string, updates: Partial<DraftProduct>) => {
     setProducts(prev =>
@@ -368,6 +412,46 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         return { ...p, ...updates };
       })
     );
+  };
+
+  const handleRequestUpdateProduct = (id: string, updates: Partial<DraftProduct>, skipWarning = false) => {
+    const current = products.find(p => p.id === id);
+    if (!current) return;
+    const simulated = { ...current, ...updates };
+
+    if (!skipWarning && (
+      updates.discount !== undefined ||
+      updates.discountType !== undefined ||
+      updates.discountScope !== undefined ||
+      updates.quantity !== undefined ||
+      updates.unitPrice !== undefined
+    )) {
+      const belowCostCheck = checkDiscountBelowCost(simulated);
+      if (belowCostCheck.isBelowCostOrZero) {
+        setDiscountWarningModal({
+          isOpen: true,
+          title: 'Discount Below Cost',
+          message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+          confirmText: 'Allow / Continue',
+          cancelText: 'Cancel',
+          onConfirm: () => {
+            setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+            handleUpdateProduct(id, updates);
+          },
+          onCancel: () => {
+            setDiscountWarningModal(prev => ({ ...prev, isOpen: false }));
+            setEditingDiscounts(prev => {
+              const next = { ...prev };
+              delete next[id];
+              return next;
+            });
+          },
+        });
+        return;
+      }
+    }
+
+    handleUpdateProduct(id, updates);
   };
 
   const handleSubmit = async (e?: React.FormEvent, skipPriceWarning = false) => {
@@ -515,8 +599,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     if (initialOrder) {
       toast.success('Order Updated', `Order ${createdResult.orderNumber} updated successfully!`);
     } else {
-      toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully! You can now share on WhatsApp, or convert to PO / Invoice.`);
+      toast.success('Order Created', `Order ${createdResult.orderNumber} created successfully!`);
     }
+    handleReset();
+    onClose();
   };
 
   const handleDisconnectAndSave = async () => {
@@ -1186,7 +1272,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                                     <div className="flex bg-[#1e293b] p-0.5 rounded border border-[#334155] shrink-0">
                                       <button
                                         type="button"
-                                        onClick={() => handleUpdateProduct(p.id, { discountType: 'percentage' })}
+                                        onClick={() => handleRequestUpdateProduct(p.id, { discountType: 'percentage' })}
                                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
                                           p.discountType === 'percentage'
                                             ? 'bg-blue-600 text-white shadow-sm'
@@ -1197,7 +1283,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleUpdateProduct(p.id, { discountType: 'amount' })}
+                                        onClick={() => handleRequestUpdateProduct(p.id, { discountType: 'amount' })}
                                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
                                           p.discountType === 'amount'
                                             ? 'bg-blue-600 text-white shadow-sm'
@@ -1213,11 +1299,24 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                                         min="0"
                                         step={p.discountType === 'percentage' ? '0.1' : 'any'}
                                         max={p.discountType === 'percentage' ? 100 : undefined}
-                                        value={p.discount !== undefined && p.discount > 0 ? p.discount : ''}
+                                        value={
+                                          editingDiscounts[p.id] !== undefined
+                                            ? editingDiscounts[p.id]
+                                            : p.discount !== undefined && p.discount > 0
+                                            ? p.discount
+                                            : ''
+                                        }
                                         placeholder="0"
                                         onChange={(e) => {
-                                          const val = parseFloat(e.target.value) || 0;
-                                          handleUpdateProduct(p.id, { discount: val });
+                                          const strVal = e.target.value;
+                                          setEditingDiscounts(prev => ({ ...prev, [p.id]: strVal }));
+                                        }}
+                                        onBlur={() => {
+                                          const strVal = editingDiscounts[p.id];
+                                          if (strVal !== undefined) {
+                                            const val = Math.max(0, parseFloat(strVal) || 0);
+                                            handleRequestUpdateProduct(p.id, { discount: val });
+                                          }
                                         }}
                                         className={`w-full bg-[#1e293b] border rounded-lg px-2 py-1 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-6 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                                           isInvalid ? 'border-red-500' : 'border-[#334155]'
@@ -1234,7 +1333,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                                     <div className="inline-flex bg-[#1e293b] p-0.5 border border-[#334155] rounded-lg items-center gap-0.5">
                                       <button
                                         type="button"
-                                        onClick={() => handleUpdateProduct(p.id, { discountScope: 'per_unit' })}
+                                        onClick={() => handleRequestUpdateProduct(p.id, { discountScope: 'per_unit' })}
                                         className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
                                           (p.discountScope || 'per_unit') === 'per_unit'
                                             ? 'bg-purple-600 text-white shadow'
@@ -1245,7 +1344,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleUpdateProduct(p.id, { discountScope: 'total' })}
+                                        onClick={() => handleRequestUpdateProduct(p.id, { discountScope: 'total' })}
                                         className={`px-2 py-0.5 text-[10px] rounded font-semibold whitespace-nowrap transition ${
                                           p.discountScope === 'total'
                                             ? 'bg-purple-600 text-white shadow'
@@ -1662,7 +1761,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         />
       )}
 
-      {/* Price Below Cost Warning Modal */}
+      {/* Price Below Cost Warning Modal on Submit */}
       <CustomConfirm
         isOpen={priceWarningModal.isOpen}
         title="Price Below Cost Warning"
@@ -1672,6 +1771,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         type="warning"
         onConfirm={priceWarningModal.onConfirm}
         onCancel={() => setPriceWarningModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Per-product Discount Below Cost Confirmation Modal */}
+      <CustomConfirm
+        isOpen={discountWarningModal.isOpen}
+        title={discountWarningModal.title || "Discount Below Cost"}
+        message={discountWarningModal.message}
+        confirmText={discountWarningModal.confirmText || "Allow / Continue"}
+        cancelText={discountWarningModal.cancelText || "Cancel"}
+        type="warning"
+        onConfirm={discountWarningModal.onConfirm}
+        onCancel={discountWarningModal.onCancel}
       />
     </div>
   );

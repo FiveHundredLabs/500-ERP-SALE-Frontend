@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Trash2, AlertCircle } from 'lucide-react';
 import type { InvoiceItem } from '../../types/invoice';
 import type { InventoryItem } from '../../types/inventory';
-import { validateLineDiscount, resolveMinPrice } from '../../utils/discountValidator';
+import { validateLineDiscount, resolveMinPrice, checkDiscountBelowCost } from '../../utils/discountValidator';
+import CustomConfirm from '../CustomConfirm';
 
 interface InvoiceItemsListProps {
   items: InvoiceItem[];
@@ -21,6 +22,23 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
   onRemoveItem,
 }) => {
   const [editingValues, setEditingValues] = useState<Record<string, { quantity?: string; discount?: string }>>({});
+  const [discountModal, setDiscountModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }>({
+    isOpen: false,
+    title: 'Discount Below Cost',
+    message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+    confirmText: 'Allow / Continue',
+    cancelText: 'Cancel',
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   if (items.length === 0) {
     return null;
@@ -68,7 +86,8 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
       discountType?: 'percentage' | 'amount';
       discountScope?: 'per_unit' | 'total_qty';
       discountValue?: number;
-    }
+    },
+    skipWarning = false
   ) => {
     const currentItem = items.find((it) => it.id === id);
     if (!currentItem || !onUpdateItem) return;
@@ -79,6 +98,47 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
 
     const qty = currentItem.quantity;
     const price = currentItem.unitPrice;
+    const inventoryItem = inventoryItems.find((inv) => inv.id === currentItem.inventoryItemId);
+    const costPrice = resolveMinPrice(inventoryItem || { costPrice: (currentItem as any).costPrice, purchasePrice: (currentItem as any).purchasePrice });
+
+    if (!skipWarning) {
+      const belowCostCheck = checkDiscountBelowCost({
+        productName: currentItem.itemName,
+        unitPrice: price,
+        quantity: qty,
+        discountType,
+        discountScope,
+        discountValue,
+        costPrice,
+      });
+
+      if (belowCostCheck.isBelowCostOrZero) {
+        setDiscountModal({
+          isOpen: true,
+          title: 'Discount Below Cost',
+          message: "This discount will reduce the selling price below the product's cost price. This may result in a loss on this sale.\n\nDo you want to continue?",
+          confirmText: 'Allow / Continue',
+          cancelText: 'Cancel',
+          onConfirm: () => {
+            setDiscountModal(prev => ({ ...prev, isOpen: false }));
+            handleItemDiscountChange(id, updates, true);
+          },
+          onCancel: () => {
+            setDiscountModal(prev => ({ ...prev, isOpen: false }));
+            setEditingValues((prev) => {
+              const next = { ...prev };
+              if (next[id]) {
+                delete next[id].discount;
+                if (Object.keys(next[id]).length === 0) delete next[id];
+              }
+              return next;
+            });
+          }
+        });
+        return;
+      }
+    }
+
     let discAmount = 0;
 
     if (discountValue > 0 && price > 0) {
@@ -246,18 +306,13 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
                                 ...prev,
                                 [item.id]: { ...prev[item.id], discount: strVal },
                               }));
-                              const val = Math.max(0, parseFloat(strVal) || 0);
-                              handleItemDiscountChange(item.id, { discountValue: val });
                             }}
                             onBlur={() => {
-                              setEditingValues((prev) => {
-                                const next = { ...prev };
-                                if (next[item.id]) {
-                                  delete next[item.id].discount;
-                                  if (Object.keys(next[item.id]).length === 0) delete next[item.id];
-                                }
-                                return next;
-                              });
+                              const strVal = editingValues[item.id]?.discount;
+                              if (strVal !== undefined) {
+                                const val = Math.max(0, parseFloat(strVal) || 0);
+                                handleItemDiscountChange(item.id, { discountValue: val });
+                              }
                             }}
                             className={`w-full bg-[#1e293b] border rounded-lg px-2.5 py-1.5 text-xs font-mono text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500 pr-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                               isInvalid ? 'border-red-500' : 'border-[#334155]'
@@ -343,6 +398,17 @@ export const InvoiceItemsList: React.FC<InvoiceItemsListProps> = ({
           </tbody>
         </table>
       </div>
+
+      <CustomConfirm
+        isOpen={discountModal.isOpen}
+        title={discountModal.title}
+        message={discountModal.message}
+        confirmText={discountModal.confirmText}
+        cancelText={discountModal.cancelText}
+        type="warning"
+        onConfirm={discountModal.onConfirm}
+        onCancel={discountModal.onCancel}
+      />
     </div>
   );
 };

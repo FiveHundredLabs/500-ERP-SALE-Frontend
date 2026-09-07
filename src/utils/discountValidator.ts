@@ -44,6 +44,14 @@ export interface OverallDiscountValidationResult {
   maxAllowedOverallPercentage: number;
 }
 
+export interface BelowCostCheckResult {
+  isBelowCostOrZero: boolean;
+  finalUnitPrice: number;
+  productCostPrice: number;
+  effectiveDiscountPerUnit: number;
+  message?: string;
+}
+
 /**
  * Resolves the minimum allowed price floor for an item.
  * Uses actualSoldPrice if set and > 0, otherwise purchasePrice/costPrice, or 0.
@@ -67,6 +75,43 @@ export function resolveMinPrice(item: {
     return Number(item.costPrice);
   }
   return 0;
+}
+
+/**
+ * Checks whether a product line discount reduces the final selling price
+ * to <= 0 OR below the product's cost/purchase price.
+ */
+export function checkDiscountBelowCost(params: LineDiscountParams): BelowCostCheckResult {
+  const qty = Math.max(1, Number(params.quantity) || 1);
+  const unitSellingPrice = Number(params.unitPrice) || 0;
+  const discType = params.discountType || 'percentage';
+  const discScope = (params.discountScope === 'total' || params.discountScope === 'total_qty') ? 'total' : 'per_unit';
+  const discVal = Math.max(0, Number(params.discountValue) || 0);
+  const productCostPrice = resolveMinPrice(params);
+
+  let effectiveDiscountPerUnit = 0;
+  if (discVal > 0 && unitSellingPrice > 0) {
+    if (discType === 'percentage') {
+      const pct = Math.min(100, Math.max(0, discVal));
+      effectiveDiscountPerUnit = unitSellingPrice * (pct / 100);
+    } else {
+      if (discScope === 'per_unit') {
+        effectiveDiscountPerUnit = discVal;
+      } else {
+        effectiveDiscountPerUnit = discVal / qty;
+      }
+    }
+  }
+
+  const finalUnitPrice = unitSellingPrice - effectiveDiscountPerUnit;
+  const isBelowCostOrZero = discVal > 0 && (finalUnitPrice <= 0 || (productCostPrice > 0 && finalUnitPrice < productCostPrice - 0.009));
+
+  return {
+    isBelowCostOrZero,
+    finalUnitPrice,
+    productCostPrice,
+    effectiveDiscountPerUnit,
+  };
 }
 
 /**

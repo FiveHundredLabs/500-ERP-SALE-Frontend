@@ -1121,6 +1121,8 @@ const Invoice: React.FC = () => {
       lastSavedRef.current = { ...invoiceData, id: response.id } as InvoiceData;
       setIsDirty(false);
       lastSavedAtRef.current = new Date().toISOString();
+      setIsCreateDrawerOpen(false);
+      setViewMode('manage');
       fetchAllInvoices();
 
       return true;
