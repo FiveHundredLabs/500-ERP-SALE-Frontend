@@ -133,18 +133,27 @@ export const CreatePOReturnModal: React.FC<CreatePOReturnModalProps> = ({
   const returnableItems = useMemo(() => {
     if (!selectedPO || !selectedPO.items) return [];
 
-    return selectedPO.items.map((item: any) => {
-      const alreadyReturned = pastReturns.reduce((sum, ret) => {
-        const match = ret.items.find((ri: any) => 
-          (item.inventoryItemId && ri.inventoryItemId === item.inventoryItemId) ||
-          (item.sku && ri.sku?.toLowerCase() === item.sku?.toLowerCase()) ||
-          (item.productName && ri.productName?.toLowerCase() === item.productName?.toLowerCase())
-        );
-        return sum + (match ? match.quantity : 0);
-      }, 0);
+    // Track total past returns per inventoryItemId / sku / productName
+    const pastReturnedMap: Record<string, number> = {};
+    pastReturns.forEach((ret) => {
+      (ret.items || []).forEach((ri: any) => {
+        const key = ri.inventoryItemId || (ri.sku ? ri.sku.toLowerCase() : '') || (ri.productName ? ri.productName.toLowerCase() : '');
+        if (key) {
+          pastReturnedMap[key] = (pastReturnedMap[key] || 0) + (ri.quantity || 0);
+        }
+      });
+    });
 
+    const runningPast = { ...pastReturnedMap };
+
+    return selectedPO.items.map((item: any, idx: number) => {
+      const pKey = item.inventoryItemId || (item.sku ? item.sku.toLowerCase() : '') || (item.productName ? item.productName.toLowerCase() : '');
+      const availablePast = runningPast[pKey] || 0;
       const maxQty = (item.quantityReceived || 0) > 0 ? item.quantityReceived : (item.quantityOrdered || 0);
+      const alreadyReturned = Math.min(maxQty, availablePast);
+      runningPast[pKey] = Math.max(0, availablePast - alreadyReturned);
       const remainingQty = Math.max(0, maxQty - alreadyReturned);
+      const itemKey = item.id ? `${item.id}-${idx}` : `po-item-${idx}-${item.inventoryItemId || item.sku || ''}`;
 
       return {
         ...item,
@@ -152,7 +161,7 @@ export const CreatePOReturnModal: React.FC<CreatePOReturnModalProps> = ({
         receivedQty: item.quantityReceived,
         alreadyReturned,
         remainingQty,
-        itemKey: item.inventoryItemId || item.id || item.sku,
+        itemKey,
       };
     });
   }, [selectedPO, pastReturns]);
@@ -187,16 +196,39 @@ export const CreatePOReturnModal: React.FC<CreatePOReturnModalProps> = ({
       return;
     }
 
-    const itemsToReturn = returnableItems
-      .filter((item: any) => (returnQuantities[item.itemKey] || 0) > 0)
-      .map((item: any) => ({
-        inventoryItemId: item.inventoryItemId,
-        sku: item.sku,
-        productName: item.productName,
-        quantity: returnQuantities[item.itemKey],
-        unitPrice: Number(item.unitPrice || 0),
-        total: returnQuantities[item.itemKey] * Number(item.unitPrice || 0),
-      }));
+    const rawItemsToReturn = returnableItems
+      .filter((item: any) => (returnQuantities[item.itemKey] || 0) > 0);
+
+    const consolidatedMap: Record<string, {
+      inventoryItemId?: string;
+      sku: string;
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }> = {};
+
+    rawItemsToReturn.forEach((item: any) => {
+      const pKey = item.inventoryItemId || (item.sku ? item.sku.toLowerCase() : '') || item.productName;
+      const qty = returnQuantities[item.itemKey];
+      const lineTotal = qty * Number(item.unitPrice || 0);
+
+      if (consolidatedMap[pKey]) {
+        consolidatedMap[pKey].quantity += qty;
+        consolidatedMap[pKey].total += lineTotal;
+      } else {
+        consolidatedMap[pKey] = {
+          inventoryItemId: item.inventoryItemId,
+          sku: item.sku,
+          productName: item.productName,
+          quantity: qty,
+          unitPrice: Number(item.unitPrice || 0),
+          total: lineTotal,
+        };
+      }
+    });
+
+    const itemsToReturn = Object.values(consolidatedMap);
 
     if (itemsToReturn.length === 0) {
       toast.error('Please specify return quantity for at least one item');
