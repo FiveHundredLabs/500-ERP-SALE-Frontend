@@ -116,17 +116,27 @@ export const mapPOReturn = (value: any): any => ({
   returnTotal: money(value.returnTotal),
 });
 
-export const mapFinanceTransaction = (value: any): FinanceTransaction => ({
-  ...value,
-  transactionType: (value.transactionType === 'refund' ? 'refund' : 'payment') as 'payment' | 'refund',
-  paymentMethod: ({
-    Cash: 'cash', Credit: 'credit', Card: 'card', 'Bank Deposit': 'bank_deposit',
-    'Bank Transfer': 'bank_transfer', Cheque: 'cheque',
-  } as Record<string, string>)[value.paymentMethod] ?? value.paymentMethod,
-  invoice: value.invoice?.id ? value.invoice : null,
-  invoiceNumber: value.invoiceNumber ?? value.invoice?.invoiceNumber ?? '',
-  amount: money(value.amount),
-});
+export const mapFinanceTransaction = (value: any): FinanceTransaction => {
+  const methodMap: Record<string, string> = {
+    Cash: 'cash', CASH: 'cash', cash: 'cash',
+    Credit: 'credit', CREDIT: 'credit', credit: 'credit',
+    Card: 'card', CARD: 'card', card: 'card',
+    'Bank Deposit': 'bank_deposit', BANK_DEPOSIT: 'bank_deposit', bank_deposit: 'bank_deposit',
+    'Bank Transfer': 'bank_transfer', BANK_TRANSFER: 'bank_transfer', bank_transfer: 'bank_transfer',
+    Cheque: 'cheque', CHEQUE: 'cheque', cheque: 'cheque',
+  };
+  const rawMethod = String(value.paymentMethod || '').trim();
+  const paymentMethod = (methodMap[rawMethod] ?? (rawMethod ? rawMethod.toLowerCase().replace(/\s+/g, '_') : 'cash')) as any;
+
+  return {
+    ...value,
+    transactionType: (value.transactionType === 'refund' ? 'refund' : 'payment') as 'payment' | 'refund',
+    paymentMethod,
+    invoice: value.invoice?.id ? value.invoice : null,
+    invoiceNumber: value.invoiceNumber ?? value.invoice?.invoiceNumber ?? '',
+    amount: money(value.amount),
+  };
+};
 
 export const mapOrder = (value: any): Order => ({
   ...value,
