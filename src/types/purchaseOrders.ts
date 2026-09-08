@@ -52,6 +52,17 @@ export interface PurchaseOrder {
   sourceOrderNumber?: string;
   customerId?: string;
   supplierId: string;
+  supplier?: {
+    id?: string;
+    supplierCode?: string;
+    companyName?: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    city?: string;
+    status?: string;
+  } | null;
   supplierName: string;
   supplierContact: string;
   supplierPhone: string;

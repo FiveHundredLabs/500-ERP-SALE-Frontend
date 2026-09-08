@@ -56,7 +56,14 @@ const PurchaseOrders: React.FC = () => {
     setLoading(true);
     try {
       const data = await purchaseOrderService.getAll();
-      setPurchaseOrders(data || []);
+      const resolved = (data || []).map((po) => ({
+        ...po,
+        supplierName: (po.supplierName && po.supplierName !== 'Vendor') ? po.supplierName : (po.supplier?.companyName || po.supplierName || 'Vendor'),
+        supplierCity: po.supplierCity || po.supplier?.city || '',
+        supplierContact: (po.supplierContact && po.supplierContact !== 'Vendor Contact') ? po.supplierContact : (po.supplier?.contactPerson || po.supplierContact || ''),
+        supplierPhone: (po.supplierPhone && po.supplierPhone !== '0000000000') ? po.supplierPhone : (po.supplier?.phone || po.supplierPhone || ''),
+      }));
+      setPurchaseOrders(resolved);
     } catch {
       setPurchaseOrders([]);
     } finally {
@@ -253,17 +260,23 @@ const PurchaseOrders: React.FC = () => {
       header: 'Supplier',
       sortable: true,
       minWidth: '170px',
-      render: (row) => (
-        <div>
-          <p className="font-semibold text-[#F8FAFC] text-sm truncate max-w-[180px]">{row.supplierName}</p>
-          <p
-            className="text-[11px] text-[#94A3B8] cursor-help hover:text-purple-400 transition-colors"
-            title={`Full Address: ${row.supplierAddress || 'N/A'}, ${row.supplierCity || 'N/A'}`}
-          >
-            {row.supplierCity}
-          </p>
-        </div>
-      ),
+      render: (row) => {
+        const displayName = (row.supplierName && row.supplierName !== 'Vendor') ? row.supplierName : (row.supplier?.companyName || row.supplierName || '—');
+        const displayCity = row.supplierCity || row.supplier?.city || '';
+        return (
+          <div>
+            <p className="font-semibold text-[#F8FAFC] text-sm truncate max-w-[180px]">{displayName}</p>
+            {displayCity && (
+              <p
+                className="text-[11px] text-[#94A3B8] cursor-help hover:text-purple-400 transition-colors"
+                title={`Full Address: ${row.supplierAddress || row.supplier?.address || 'N/A'}, ${displayCity}`}
+              >
+                {displayCity}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'poDate',

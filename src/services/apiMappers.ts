@@ -157,16 +157,33 @@ export const mapOrder = (value: any): Order => ({
   totalTax: money(value.totalTax), grandTotal: money(value.grandTotal),
 });
 
-export const mapPurchaseOrder = (value: any): PurchaseOrder => ({
-  ...value,
-  sourceOrderNumber: value.sourceOrder?.orderNumber ?? value.sourceOrderNumber ?? value.referenceOrderNum,
-  items: (value.items ?? []).map((item: any) => ({
-    ...item,
-    unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),
-    subTotal: money(item.subTotal), totalPrice: money(item.totalPrice),
-  })),
-  subTotal: money(value.subTotal), discountValue: money(value.discountValue),
-  totalDiscount: money(value.totalDiscount), totalTax: money(value.totalTax),
-  shippingCharges: money(value.shippingCharges), totalAmount: money(value.totalAmount),
-  returns: (value.returns ?? []).map(mapPOReturn),
-});
+export const mapPurchaseOrder = (value: any): PurchaseOrder => {
+  const sup = value.supplier;
+  const isVendorPlaceholder = !value.supplierName || value.supplierName === 'Vendor';
+  const supplierName = (isVendorPlaceholder && sup?.companyName) ? sup.companyName : (value.supplierName || sup?.companyName || 'Vendor');
+  const supplierContact = (!value.supplierContact || value.supplierContact === 'Vendor Contact') && sup?.contactPerson ? sup.contactPerson : (value.supplierContact || '');
+  const supplierPhone = (!value.supplierPhone || value.supplierPhone === '0000000000') && sup?.phone ? sup.phone : (value.supplierPhone || '');
+  const supplierAddress = (!value.supplierAddress && sup?.address) ? sup.address : (value.supplierAddress || '');
+  const supplierCity = (!value.supplierCity && sup?.city) ? sup.city : (value.supplierCity || '');
+  const supplierEmail = (!value.supplierEmail && sup?.email) ? sup.email : (value.supplierEmail || '');
+
+  return {
+    ...value,
+    supplierName,
+    supplierContact,
+    supplierPhone,
+    supplierAddress,
+    supplierCity,
+    supplierEmail,
+    sourceOrderNumber: value.sourceOrder?.orderNumber ?? value.sourceOrderNumber ?? value.referenceOrderNum,
+    items: (value.items ?? []).map((item: any) => ({
+      ...item,
+      unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),
+      subTotal: money(item.subTotal), totalPrice: money(item.totalPrice),
+    })),
+    subTotal: money(value.subTotal), discountValue: money(value.discountValue),
+    totalDiscount: money(value.totalDiscount), totalTax: money(value.totalTax),
+    shippingCharges: money(value.shippingCharges), totalAmount: money(value.totalAmount),
+    returns: (value.returns ?? []).map(mapPOReturn),
+  };
+};
