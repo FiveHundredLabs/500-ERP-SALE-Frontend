@@ -31,7 +31,7 @@ import type {
   InvoiceResponse
 } from "../types/invoice";
 import type { InventoryItem as InvoiceInventoryItem } from "../types/inventory";
-import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus } from "../types/invoice";
+import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus, compareInvoicesBySequence } from "../types/invoice";
 import {
   validateLineDiscount,
   validateOverallDiscount,
@@ -75,8 +75,6 @@ const Invoice: React.FC = () => {
   const [salesmanFilter, setSalesmanFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [sortColumn, setSortColumn] = useState('invoiceNumber');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -1247,10 +1245,8 @@ const Invoice: React.FC = () => {
       // Fetch all invoices
       const invoices = await invoiceService.getAll();
 
-      // Sort invoices
-      const sortedInvoices = [...invoices].sort((a, b) =>
-        (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' })
-      );
+      // Sort invoices using numeric sequence descending, secondary by creation timestamp
+      const sortedInvoices = [...invoices].sort(compareInvoicesBySequence);
 
       setAllInvoices(sortedInvoices);
     } catch (error) {
@@ -1511,47 +1507,14 @@ const Invoice: React.FC = () => {
       const matchesDateTo = dateTo === '' || issueDate <= dateTo;
 
       return matchesSearch && matchesStatus && matchesPayment && matchesSalesman && matchesDateFrom && matchesDateTo;
-    });
+    }).sort(compareInvoicesBySequence);
   }, [allInvoices, searchQuery, statusFilter, paymentFilter, salesmanFilter, dateFrom, dateTo]);
 
-  const sortedInvoices = useMemo(() => {
-    return [...filteredInvoices].sort((a, b) => {
-      if (sortColumn === 'invoiceNumber') {
-        const cmp = (a.invoiceNumber || '').localeCompare(b.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' });
-        return sortDirection === 'asc' ? cmp : -cmp;
-      }
-      let valA: any = (a as any)[sortColumn];
-      let valB: any = (b as any)[sortColumn];
-      if (sortColumn === 'customer') {
-        valA = getCustomerDisplay(a);
-        valB = getCustomerDisplay(b);
-      } else if (sortColumn === 'salesman') {
-        valA = getSalesmanDisplay(a);
-        valB = getSalesmanDisplay(b);
-      } else if (sortColumn === 'status') {
-        valA = getInvoiceReturnInfo(a).displayStatus;
-        valB = getInvoiceReturnInfo(b).displayStatus;
-      }
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' });
-    });
-  }, [filteredInvoices, sortColumn, sortDirection]);
-
-  const totalPages = Math.ceil(sortedInvoices.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
   const paginatedInvoices = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return sortedInvoices.slice(start, start + itemsPerPage);
-  }, [sortedInvoices, currentPage]);
-
-  const handleSort = (colKey: string) => {
-    if (sortColumn === colKey) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortColumn(colKey);
-      setSortDirection(colKey === 'invoiceNumber' ? 'desc' : 'asc');
-    }
-  };
+    return filteredInvoices.slice(start, start + itemsPerPage);
+  }, [filteredInvoices, currentPage]);
 
   const hasActiveFilters =
     searchQuery !== '' || statusFilter !== '' || paymentFilter !== '' ||
@@ -1565,7 +1528,7 @@ const Invoice: React.FC = () => {
 
   const handleExportCSV = () => {
     const headers = ['Invoice ID', 'Date', 'Customer', 'Salesman', 'Items', 'Total Amount', 'Paid Amount', 'Remaining', 'Status'];
-    const rows = sortedInvoices.map((inv) => {
+    const rows = filteredInvoices.map((inv) => {
       const calc = getInvoiceCalculatedStatus(inv);
       const retInfo = getInvoiceReturnInfo(inv);
       const custName = getCustomerDisplay(inv);
@@ -1595,7 +1558,6 @@ const Invoice: React.FC = () => {
     {
       key: 'invoiceNumber',
       header: 'INVOICE ID',
-      sortable: true,
       minWidth: '110px',
       render: (row) => (
         <button
@@ -1615,7 +1577,6 @@ const Invoice: React.FC = () => {
     {
       key: 'issueDate',
       header: 'DATE',
-      sortable: true,
       minWidth: '105px',
       render: (row) => {
         const cleanDate = row.issueDate ? String(row.issueDate).split('T')[0] : '—';
@@ -1625,7 +1586,6 @@ const Invoice: React.FC = () => {
     {
       key: 'customer',
       header: 'CUSTOMER',
-      sortable: true,
       minWidth: '180px',
       render: (row) => {
         const custName = getCustomerDisplay(row);
@@ -1644,7 +1604,6 @@ const Invoice: React.FC = () => {
     {
       key: 'salesman',
       header: 'SALESMAN',
-      sortable: true,
       minWidth: '140px',
       render: (row) => {
         const salesmanName = getSalesmanDisplay(row);
@@ -1669,7 +1628,6 @@ const Invoice: React.FC = () => {
     {
       key: 'totalAmount',
       header: 'AMOUNT',
-      sortable: true,
       align: 'right',
       minWidth: '120px',
       render: (row) => {
@@ -1691,7 +1649,6 @@ const Invoice: React.FC = () => {
     {
       key: 'status',
       header: 'STATUS',
-      sortable: true,
       minWidth: '110px',
       render: (row) => {
         const retInfo = getInvoiceReturnInfo(row);
@@ -1896,13 +1853,10 @@ const Invoice: React.FC = () => {
                 handleLoadInvoice(item, false);
                 setShowPreviewModal(true);
               }}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
               emptyMessage="No invoices found matching the criteria."
               currentPage={currentPage}
               totalPages={totalPages}
-              totalItems={sortedInvoices.length}
+              totalItems={filteredInvoices.length}
               itemsPerPage={itemsPerPage}
               onPageChange={setCurrentPage}
             />

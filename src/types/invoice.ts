@@ -216,3 +216,45 @@ export function getInvoiceCalculatedStatus(invoice: {
   else if (paid > 0) status = 'partially_paid';
   return { status, paidAmount: paid, remainingAmount, diffDays };
 }
+
+/**
+ * Extracts the trailing numeric sequence from an invoice number, ignoring any Sales Officer prefix.
+ * e.g. "BIMI2024" -> 2024, "STAI2036" -> 2036
+ */
+export function extractInvoiceSequence(invoiceNumber?: string | null): number {
+  if (!invoiceNumber) return -1;
+  const match = String(invoiceNumber).trim().match(/(\d+)$/);
+  if (match) {
+    const val = parseInt(match[1], 10);
+    return isNaN(val) ? -1 : val;
+  }
+  return -1;
+}
+
+/**
+ * Sorts invoices strictly by numeric sequence in descending order (highest numeric sequence first).
+ * If sequences are identical (e.g. BIMI2027 and STAI2027), the most recently created/entered invoice appears first.
+ */
+export function compareInvoicesBySequence(a: any, b: any): number {
+  const seqA = extractInvoiceSequence(a?.invoiceNumber);
+  const seqB = extractInvoiceSequence(b?.invoiceNumber);
+
+  if (seqA !== seqB) {
+    return seqB - seqA;
+  }
+
+  // Secondary tie-breaker: creation/entry timestamp (most recent first)
+  const timeA = a?.createdAt
+    ? new Date(a.createdAt).getTime()
+    : a?.issueDate
+      ? new Date(a.issueDate).getTime()
+      : 0;
+  const timeB = b?.createdAt
+    ? new Date(b.createdAt).getTime()
+    : b?.issueDate
+      ? new Date(b.issueDate).getTime()
+      : 0;
+
+  return timeB - timeA;
+}
+
