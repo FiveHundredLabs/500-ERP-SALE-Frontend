@@ -380,29 +380,12 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
             </div>{/* end content area */}
 
             {/* ── FOOTER: absolute bottom — always pinned, never pushed off ── */}
-            {documentTitle === "PURCHASE ORDER" ? (
+            {documentTitle === "INVOICE" ? (
               <div style={{
                 position: 'absolute',
                 bottom: '8mm',
                 left: '15mm',
                 right: '15mm',
-                borderTop: '1px solid #cbd5e1',
-                paddingTop: '7px',
-              }}>
-                <div style={{ textAlign: 'center', fontSize: '11px', color: '#64748b', fontWeight: '500', letterSpacing: '0.3px', marginBottom: '4px' }}>
-                  Computer Generated Document – No Signature Required
-                </div>
-                <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', color: '#1e3a8a' }}>
-                  Thank You For Trusting S &amp; K Enterprises.
-                </div>
-              </div>
-            ) : (
-              <div style={{
-                position: 'absolute',
-                bottom: '8mm',
-                left: '15mm',
-                right: '15mm',
-                borderTop: '1px solid #e2e8f0',
                 paddingTop: '7px',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', padding: '0 20px' }}>
@@ -421,6 +404,21 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                       CUSTOMER SIGNATURE
                     </div>
                   </div>
+                </div>
+                <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', color: '#1e3a8a' }}>
+                  Thank You For Trusting S &amp; K Enterprises.
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                position: 'absolute',
+                bottom: '8mm',
+                left: '15mm',
+                right: '15mm',
+                paddingTop: '7px',
+              }}>
+                <div style={{ textAlign: 'center', fontSize: '11px', color: '#64748b', fontWeight: '500', letterSpacing: '0.3px', marginBottom: '4px' }}>
+                  Computer Generated Document – No Signature Required
                 </div>
                 <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', color: '#1e3a8a' }}>
                   Thank You For Trusting S &amp; K Enterprises.

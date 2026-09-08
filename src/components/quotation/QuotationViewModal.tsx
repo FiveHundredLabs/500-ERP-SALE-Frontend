@@ -167,8 +167,24 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     const docNode = quotationRef.current.querySelector('.invoice-document');
     if (!docNode) return;
 
-    const printWin = window.open('', '_blank', 'width=900,height=1200');
+    const screenWidth = window.screen?.availWidth || window.outerWidth || 1200;
+    const screenHeight = window.screen?.availHeight || window.outerHeight || 900;
+    const screenLeft = (window.screen as any)?.availLeft ?? window.screenLeft ?? window.screenX ?? 0;
+    const screenTop = (window.screen as any)?.availTop ?? window.screenTop ?? window.screenY ?? 0;
+
+    const printWin = window.open(
+      '',
+      '_blank',
+      `left=${screenLeft},top=${screenTop},width=${screenWidth},height=${screenHeight},toolbar=0,scrollbars=1,status=0,resizable=1`
+    );
     if (!printWin) return;
+
+    try {
+      printWin.moveTo(screenLeft, screenTop);
+      printWin.resizeTo(screenWidth, screenHeight);
+    } catch {
+      // Ignored if browser restricts window manipulation
+    }
 
     const logoImg = quotationRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
     let logoSrc = logoImg?.src || '';
@@ -187,6 +203,12 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   <title>Print Document</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"/>
+  <script>
+    try {
+      window.moveTo(0, 0);
+      window.resizeTo(screen.availWidth, screen.availHeight);
+    } catch (e) {}
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -248,13 +270,23 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
 </html>`);
       printWin.document.close();
 
-      printWin.onload = () => {
-        setTimeout(() => {
+      let printed = false;
+      const doPrint = () => {
+        if (printed) return;
+        printed = true;
+        try {
           printWin.focus();
           printWin.print();
           printWin.close();
-        }, 600);
+        } catch {
+          // ignore
+        }
       };
+
+      printWin.onload = () => {
+        setTimeout(doPrint, 500);
+      };
+      setTimeout(doPrint, 1000);
     };
 
     if (logoSrc && !logoSrc.startsWith('data:')) {
