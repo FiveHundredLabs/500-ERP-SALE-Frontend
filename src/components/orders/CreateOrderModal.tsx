@@ -111,7 +111,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       setSelectedCustomerId(initialOrder.customerId || '');
       setCustomerSearch(initialOrder.customerName || '');
       setSelectedSalesmanId(initialOrder.salesmanId || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.id : '') || '');
-      setSalesmanSearch(initialOrder.salesmanName || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.fullName : '') || '');
+      setSalesmanSearch(initialOrder.salesmanName || (typeof initialOrder.salesman === 'object' ? ((initialOrder.salesman as any)?.displayName || initialOrder.salesman?.fullName) : '') || '');
       setOrderDate(initialOrder.orderDate ? String(initialOrder.orderDate).split('T')[0] : today);
       setNotes(initialOrder.notes || '');
       setTotalDiscountType(initialOrder.totalDiscountType || 'percentage');
@@ -175,7 +175,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   useEffect(() => {
     if (isOpen) {
       invoiceService.getAllCustomers().then(c => setAllCustomers(c || [])).catch(() => {});
-      salesOfficerService.getAll().then(s => setAllSalesmen(s.map(o => ({ id: o.id, name: o.fullName, employeeId: o.officerId, phone: o.contactNumber || o.phone, area: o.assignedTerritory || o.assignedArea })) || [])).catch(() => {});
+      salesOfficerService.getAll().then(s => setAllSalesmen(s.map(o => ({ id: o.id, name: o.displayName || o.fullName, fullName: o.fullName, displayName: o.displayName, employeeId: o.officerId, phone: o.contactNumber || o.phone, area: o.assignedTerritory || o.assignedArea })) || [])).catch(() => {});
       inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
     }
   }, [isOpen]);
@@ -305,6 +305,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setShowCustomerDropdown(false);
     setHighlightedCustomerIndex(-1);
     setErrors(prev => ({ ...prev, customer: '' }));
+
+    if (c.salesRepId) {
+      const rep = allSalesmen.find(s => s.id === c.salesRepId);
+      if (rep) setSelectedSalesmanId(rep.id);
+    } else if (c.salesRepName) {
+      const rep = allSalesmen.find(s => (s.name && s.name.toLowerCase() === c.salesRepName.toLowerCase()) || (s.fullName && s.fullName.toLowerCase() === c.salesRepName.toLowerCase()));
+      if (rep) setSelectedSalesmanId(rep.id);
+    }
+
     setTimeout(() => {
       salesmanInputRef.current?.focus();
     }, 50);

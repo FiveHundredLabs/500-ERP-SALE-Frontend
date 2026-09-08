@@ -29,6 +29,7 @@ export class SalesOfficerService {
             id: u._id || u.id,
             officerId: u.officerId || `SO-${String(idx + 1).padStart(3, '0')}`,
             fullName: u.fullName || u.email,
+            displayName: u.displayName || u.fullName || u.email,
             contactNumber: u.contactNumber || u.phone || '+94705787818',
             phone: u.phone || '+94705787818',
             joiningDate: u.joiningDate ? u.joiningDate.split('T')[0] : (u.createdAt ? u.createdAt.split('T')[0] : '2026-01-01'),
@@ -58,9 +59,11 @@ export class SalesOfficerService {
 
   async create(data: Omit<SalesOfficer, 'id' | 'createdAt' | 'updatedAt'> & { password?: string; assignedCustomers?: string[] }): Promise<SalesOfficer> {
     const all = await this.getAll();
-    const cleanNameSlug = (data.fullName || 'sales').toLowerCase().replace(/[^a-z0-9]/g, '.');
+    const displayName = (data.displayName || data.fullName || '').trim();
+    const cleanNameSlug = (displayName || data.fullName || 'sales').toLowerCase().replace(/[^a-z0-9]/g, '.');
     const payload = {
       fullName: data.fullName,
+      displayName: displayName || data.fullName,
       email: data.email || `${cleanNameSlug}.${Date.now()}@erp.local`,
       password: data.password || '123456',
       role: 'salesman',
@@ -179,12 +182,17 @@ export class SalesOfficerService {
     const officerInvoices = invoices.filter((inv) => {
       if (officer === 'ALL') return true;
       const sName = inv.salesman?.fullName || inv.salesmanName || '';
-      return sName === officer.fullName || inv.salesman?.id === officer.id;
+      return (
+        sName === (officer.displayName || officer.fullName) ||
+        sName === officer.fullName ||
+        inv.salesman?.id === officer.id
+      );
     });
 
     const officerOrders = orders.filter((ord) => {
       if (officer === 'ALL') return true;
       return (
+        ord.salesman?.fullName === (officer.displayName || officer.fullName) ||
         ord.salesman?.fullName === officer.fullName ||
         ord.salesman?.id === officer.id ||
         ord.salesman?.id === officer.officerId
@@ -210,7 +218,7 @@ export class SalesOfficerService {
 
     return {
       officerId: officer === 'ALL' ? 'ALL' : officer.id,
-      officerName: officer === 'ALL' ? 'All Sales Officers' : officer.fullName,
+      officerName: officer === 'ALL' ? 'All Sales Officers' : (officer.displayName || officer.fullName),
       officerCode: officer === 'ALL' ? 'ALL' : (officer.officerId || officer.id),
       territory: officer === 'ALL' ? 'All Island' : (officer.assignedTerritory || officer.assignedArea || 'Region'),
       status: officer === 'ALL' ? 'Active' : officer.status,

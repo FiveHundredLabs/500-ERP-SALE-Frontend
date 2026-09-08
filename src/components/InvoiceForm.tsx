@@ -273,16 +273,16 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     if (custSalesRepId) {
       const rep = salesmen.find(s => s.id === custSalesRepId);
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       }
     } else if (custSalesRepName) {
-      const rep = salesmen.find(s => s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
+      const rep = salesmen.find(s => (s.displayName && s.displayName.toLowerCase() === custSalesRepName.toLowerCase()) || s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       }
     } else if (!invoiceData.salesman?.id && salesmen.length > 0) {
       const defaultOfficer = salesmen[0];
-      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.displayName || defaultOfficer.fullName, name: defaultOfficer.displayName || defaultOfficer.fullName, displayName: defaultOfficer.displayName } as any);
     }
 
     setTimeout(() => {
@@ -395,11 +395,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
     // 4. Auto-fill Sales Officer from order if present
     const salesmanId = srcOrder?.salesmanId || (srcOrder?.salesman as any)?.id;
-    const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.fullName;
+    const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.displayName || (srcOrder?.salesman as any)?.fullName;
     if (salesmanId || salesmanName) {
-      const rep = salesmen.find(s => s.id === salesmanId || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
+      const rep = salesmen.find(s => s.id === salesmanId || (s.displayName && s.displayName.toLowerCase() === salesmanName?.toLowerCase()) || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       } else if (salesmanName) {
         onFieldChange('salesman', { id: salesmanId || '', fullName: salesmanName, name: salesmanName } as any);
       }
@@ -707,7 +707,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
                   const selected = salesmen.find(s => s.id === e.target.value);
-                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
+                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.displayName || selected.fullName, name: selected.displayName || selected.fullName, displayName: selected.displayName } as any : null as any);
                   setTimeout(() => {
                     productSearchInputRef.current?.focus();
                   }, 50);
@@ -722,7 +722,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               >
                 <option value="">— Select Sales Officer —</option>
                 {salesmen.map(s => (
-                  <option key={s.id} value={s.id}>{s.fullName}</option>
+                  <option key={s.id} value={s.id}>{s.displayName || s.fullName}</option>
                 ))}
               </select>
             </div>

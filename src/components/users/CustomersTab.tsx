@@ -30,7 +30,7 @@ const getCustomerSalesRepName = (customer: Customer): string => {
   // Prisma returns null for an unassigned relation. Older Mongo-backed data may
   // still expose the representative as a string or with a `name` property.
   const salesRep = customer.salesRep as
-    | { fullName?: string; name?: string }
+    | { displayName?: string; fullName?: string; name?: string }
     | string
     | null
     | undefined;
@@ -38,7 +38,7 @@ const getCustomerSalesRepName = (customer: Customer): string => {
   if (!salesRep) return '';
   return typeof salesRep === 'string'
     ? salesRep
-    : salesRep.fullName || salesRep.name || '';
+    : salesRep.displayName || salesRep.fullName || salesRep.name || '';
 };
 
 const CustomersTab: React.FC = () => {
@@ -152,7 +152,7 @@ const CustomersTab: React.FC = () => {
   ];
 
   const salesRepOptions = useMemo(() => {
-    return salesOfficers.map(s => ({ value: s.fullName, label: s.fullName }));
+    return salesOfficers.map(s => ({ value: s.displayName || s.fullName, label: s.displayName || s.fullName }));
   }, [salesOfficers]);
 
   const searchSuggestions = useMemo(() => {
@@ -774,14 +774,14 @@ const CustomersTab: React.FC = () => {
                             setFormData({ 
                               ...formData, 
                               salesRepId: repId || null,
-                              salesRepName: rep?.fullName || ''
+                              salesRepName: rep?.displayName || rep?.fullName || ''
                             });
                           }}
                         >
                           <option value="">Unassigned</option>
                           {salesOfficers.map((so: SalesOfficer) => (
                             <option key={so.id} value={so.id}>
-                              {so.fullName} {so.officerId ? `(${so.officerId})` : ''}
+                              {so.displayName || so.fullName} {so.officerId ? `(${so.officerId})` : ''}
                             </option>
                           ))}
                         </select>

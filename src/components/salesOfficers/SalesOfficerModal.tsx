@@ -43,6 +43,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
   const [formData, setFormData] = useState({
     fullName: "",
+    displayName: "",
     contactNumber: "+94",
     joiningDate: new Date().toISOString().split("T")[0],
     username: "",
@@ -71,6 +72,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
       setFormData({
         fullName: initialData.fullName || "",
+        displayName: initialData.displayName || initialData.fullName || "",
         contactNumber: initialData.contactNumber || "+94",
         joiningDate: initialData.joiningDate || new Date().toISOString().split("T")[0],
         username: initialData.username || (initialData.email ? initialData.email.split('@')[0] : ""),
@@ -82,6 +84,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
     } else {
       setFormData({
         fullName: "",
+        displayName: "",
         contactNumber: "+94",
         joiningDate: new Date().toISOString().split("T")[0],
         username: "",
@@ -99,7 +102,8 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required";
+    if (!formData.displayName.trim()) newErrors.displayName = "Display Name is required (used across system)";
+    if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required for official records";
     if (!formData.contactNumber.trim() || formData.contactNumber.length < 9) {
       newErrors.contactNumber = "Valid contact phone number is required";
     }
@@ -205,23 +209,54 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
 
         {/* Modal Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-          {/* Row 1: Full Name & Contact Number */}
+          {/* Row 1: Display Name & Full Name */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                Full Name <span className="text-red-400">*</span>
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
+                Display Name <span className="text-red-400">*</span>
               </label>
+              <p className="text-[11px] text-gray-400 mb-1.5">
+                Used across invoices, orders, quotations & dropdowns
+              </p>
+              <div className="relative">
+                <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. Kasun"
+                  value={formData.displayName}
+                  onChange={(e) => {
+                    const disp = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      displayName: disp,
+                      username: prev.username || disp.toLowerCase().replace(/[^a-z0-9]/g, '.')
+                    }));
+                  }}
+                  className="w-full bg-[#1e293b] border border-[#334155] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                />
+              </div>
+              {errors.displayName && <p className="text-red-400 text-xs mt-1">{errors.displayName}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
+                Full Name (Record) <span className="text-red-400">*</span>
+              </label>
+              <p className="text-[11px] text-gray-400 mb-1.5">
+                Official legal name for employee records
+              </p>
               <div className="relative">
                 <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="e.g. Kasun Perera"
+                  placeholder="e.g. Kasun Perera Karunaratne"
                   value={formData.fullName}
                   onChange={(e) => {
                     const name = e.target.value;
                     setFormData(prev => ({
                       ...prev,
                       fullName: name,
+                      displayName: prev.displayName || (mode === 'create' ? name : prev.displayName),
                       username: prev.username || name.toLowerCase().replace(/[^a-z0-9]/g, '.')
                     }));
                   }}
@@ -230,7 +265,10 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
               </div>
               {errors.fullName && <p className="text-red-400 text-xs mt-1">{errors.fullName}</p>}
             </div>
+          </div>
 
+          {/* Row 2: Contact Number & Joining Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
                 Contact Number (WhatsApp) <span className="text-red-400">*</span>
@@ -247,10 +285,7 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
               </div>
               {errors.contactNumber && <p className="text-red-400 text-xs mt-1">{errors.contactNumber}</p>}
             </div>
-          </div>
 
-          {/* Row 2: Joining Date & Account Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
                 Joining Date <span className="text-red-400">*</span>
@@ -265,7 +300,10 @@ export const SalesOfficerModal: React.FC<SalesOfficerModalProps> = ({
                 />
               </div>
             </div>
+          </div>
 
+          {/* Row 4: Account Status */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
                 Account Status

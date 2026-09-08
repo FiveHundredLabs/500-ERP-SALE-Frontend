@@ -323,7 +323,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                         setFormData(prev => ({
                           ...prev,
                           salesRepId: salesRepId || null,
-                          salesRepName: selected?.fullName || '',
+                          salesRepName: selected?.displayName || selected?.fullName || '',
                         }));
                       }}
                       className="w-full appearance-none bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-8 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
@@ -331,7 +331,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                       <option value="">Unassigned</option>
                       {salesOfficers.map((so) => (
                         <option key={so.id} value={so.id}>
-                          {so.fullName} {so.officerId ? `(${so.officerId})` : ''}
+                          {so.displayName || so.fullName} {so.officerId ? `(${so.officerId})` : ''}
                         </option>
                       ))}
                     </select>
