@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Search, Plus, X, AlertCircle } from 'lucide-react';
 import type { InventoryItem } from '../../types/inventory';
 import type { QuotationItem } from '../../types/quotation';

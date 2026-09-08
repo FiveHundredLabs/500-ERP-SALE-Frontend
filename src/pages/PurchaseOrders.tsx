@@ -159,6 +159,8 @@ const PurchaseOrders: React.FC = () => {
         po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (po.sourceOrderNumber && po.sourceOrderNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (po.notes && po.notes.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        ((po as any).remarks && String((po as any).remarks).toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
@@ -201,9 +203,10 @@ const PurchaseOrders: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ['PO Number', 'PO Date', 'Supplier', 'Ref Order', 'Created By', 'Items', 'Total', 'Status'];
+    const headers = ['PO Number', 'PO Date', 'Supplier', 'Ref Order', 'Remark', 'Created By', 'Items', 'Total', 'Status'];
     const rows = sortedPOs.map((p) => [
       p.poNumber, p.poDate, `"${p.supplierName}"`, p.sourceOrderNumber || 'Direct PO',
+      `"${((p.notes || (p as any).remarks || '') as string).replace(/"/g, '""')}"`,
       `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -301,6 +304,35 @@ const PurchaseOrders: React.FC = () => {
       align: 'right',
       minWidth: '120px',
       render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.totalAmount)}</span>,
+    },
+    {
+      key: 'remark',
+      header: 'Remark',
+      sortable: false,
+      minWidth: '110px',
+      render: (row) => {
+        const fullRemark = (row.notes || (row as any).remarks || '').trim();
+        if (!fullRemark) {
+          return <span className="text-slate-500 text-xs font-mono">—</span>;
+        }
+        const preview = fullRemark.length > 10 ? `${fullRemark.slice(0, 10)}...` : fullRemark;
+        return (
+          <div className="relative group inline-block" title={fullRemark}>
+            <span className="text-xs text-slate-300 font-medium cursor-help hover:text-purple-300 transition-colors border-b border-dotted border-slate-500/70 pb-0.5">
+              {preview}
+            </span>
+            {fullRemark.length > 10 && (
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                <div className="bg-[#0f172a] text-slate-200 text-xs rounded-lg px-3 py-2 shadow-2xl border border-[#334155] whitespace-pre-wrap max-w-[260px] min-w-[150px] break-words">
+                  <span className="text-[10px] uppercase tracking-wider text-purple-400 font-semibold block mb-1">Remark</span>
+                  <span>{fullRemark}</span>
+                </div>
+                <div className="w-2 h-2 bg-[#0f172a] border-r border-b border-[#334155] rotate-45 -mt-1" />
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'actions',
