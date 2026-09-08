@@ -22,6 +22,16 @@ export const purchaseOrderService = {
     return ((await res.json()) as unknown[]).map(mapPurchaseOrder);
   },
 
+  async getNextId(): Promise<string> {
+    const res = await fetch(`${API_BASE}/purchase-orders/next-id`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Failed to fetch next purchase order number`);
+    const data = await res.json();
+    return data.nextPoNumber;
+  },
+
   async getById(id: string): Promise<PurchaseOrder> {
     let res = await fetch(`${API_BASE}/purchase-orders/${encodeURIComponent(id)}`, {
       headers: getAuthHeaders(),

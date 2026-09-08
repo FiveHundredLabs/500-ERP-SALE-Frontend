@@ -36,6 +36,38 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
     onShowSuggestionsChange(false);
   });
 
+  const [highlightedIndex, setHighlightedIndex] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchTerm, filteredCustomers.length]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || filteredCustomers.length === 0) {
+      if (e.key === 'ArrowDown') {
+        onShowSuggestionsChange(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % filteredCustomers.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev - 1 + filteredCustomers.length) % filteredCustomers.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = filteredCustomers[highlightedIndex] || filteredCustomers[0];
+      if (target) {
+        onCustomerSelect(target);
+        onShowSuggestionsChange(false);
+      }
+    } else if (e.key === 'Escape') {
+      onShowSuggestionsChange(false);
+    }
+  };
+
   return (
     <div className="space-y-4 mb-6">
       <div className="flex items-center justify-between mb-4">
@@ -92,6 +124,7 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
             }}
             onFocus={() => onShowSuggestionsChange(true)}
             onClick={() => onShowSuggestionsChange(true)}
+            onKeyDown={handleKeyDown}
             placeholder="Search by customer name..."
             className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-10 pr-10 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Search by customer name"
@@ -118,11 +151,19 @@ export const CustomerSearchAndManagement: React.FC<CustomerSearchAndManagementPr
                   No customers found matching "{searchTerm}"
                 </div>
               ) : (
-                filteredCustomers.map((customer) => (
+                filteredCustomers.map((customer, idx) => (
                   <div
                     key={customer.id}
-                    className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150"
-                    onClick={() => onCustomerSelect(customer)}
+                    className={`px-3 py-2 cursor-pointer border-b border-[#334155] last:border-b-0 transition-colors duration-150 ${
+                      highlightedIndex === idx
+                        ? 'bg-blue-600/30 text-white'
+                        : 'hover:bg-[#1e293b] text-gray-300'
+                    }`}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    onClick={() => {
+                      onCustomerSelect(customer);
+                      onShowSuggestionsChange(false);
+                    }}
                   >
                     <div className="font-medium text-white">{customer.shopName || customer.fullName || 'Unnamed Customer'}</div>
                     <div className="text-sm text-gray-400 flex justify-between mt-1">

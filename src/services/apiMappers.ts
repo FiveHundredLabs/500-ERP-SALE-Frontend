@@ -157,16 +157,38 @@ export const mapOrder = (value: any): Order => ({
   totalTax: money(value.totalTax), grandTotal: money(value.grandTotal),
 });
 
-export const mapPurchaseOrder = (value: any): PurchaseOrder => ({
-  ...value,
-  sourceOrderNumber: value.sourceOrder?.orderNumber ?? value.sourceOrderNumber ?? value.referenceOrderNum,
-  items: (value.items ?? []).map((item: any) => ({
-    ...item,
-    unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),
-    subTotal: money(item.subTotal), totalPrice: money(item.totalPrice),
-  })),
-  subTotal: money(value.subTotal), discountValue: money(value.discountValue),
-  totalDiscount: money(value.totalDiscount), totalTax: money(value.totalTax),
-  shippingCharges: money(value.shippingCharges), totalAmount: money(value.totalAmount),
-  returns: (value.returns ?? []).map(mapPOReturn),
-});
+export const mapPurchaseOrder = (value: any): PurchaseOrder => {
+  const returns = (value.returns ?? []).map(mapPOReturn);
+  const activeReturns = returns.filter((r: any) => r.status !== 'cancelled');
+  const hasReturns = activeReturns.length > 0;
+  const totalReturnedQuantity = value.totalReturnedQuantity !== undefined
+    ? Number(value.totalReturnedQuantity)
+    : activeReturns.reduce((sum: number, r: any) => sum + (r.items || []).reduce((s: number, it: any) => s + Number(it.quantity || 0), 0), 0);
+  const totalOrderedQuantity = (value.items ?? []).reduce((sum: number, it: any) => sum + Number(it.quantityOrdered || 0), 0);
+  const totalReturnedAmount = value.totalReturnedAmount !== undefined
+    ? money(value.totalReturnedAmount)
+    : activeReturns.reduce((sum: number, r: any) => sum + money(r.returnTotal), 0);
+  const totalPOAmount = money(value.totalAmount);
+
+  const returnStatus: 'none' | 'partial' | 'full' = value.returnStatus || (hasReturns ? ((totalOrderedQuantity > 0 && totalReturnedQuantity >= totalOrderedQuantity) || (totalPOAmount > 0 && totalReturnedAmount >= totalPOAmount - 0.01) ? 'full' : 'partial') : 'none');
+  const calculatedStatus: string = value.calculatedStatus || (hasReturns ? (returnStatus === 'full' ? 'returned' : 'partially_returned') : value.status);
+
+  return {
+    ...value,
+    sourceOrderNumber: value.sourceOrder?.orderNumber ?? value.sourceOrderNumber ?? value.referenceOrderNum,
+    items: (value.items ?? []).map((item: any) => ({
+      ...item,
+      unitPrice: money(item.unitPrice), discount: money(item.discount), tax: money(item.tax),
+      subTotal: money(item.subTotal), totalPrice: money(item.totalPrice),
+    })),
+    subTotal: money(value.subTotal), discountValue: money(value.discountValue),
+    totalDiscount: money(value.totalDiscount), totalTax: money(value.totalTax),
+    shippingCharges: money(value.shippingCharges), totalAmount: totalPOAmount,
+    returns,
+    hasReturns,
+    returnStatus,
+    calculatedStatus,
+    totalReturnedAmount,
+    totalReturnedQuantity,
+  };
+};

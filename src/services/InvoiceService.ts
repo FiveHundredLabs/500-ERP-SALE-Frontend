@@ -75,14 +75,19 @@ export const invoiceService = {
   },
 
   // Get next invoice ID
-  async getNextId(): Promise<string> {
-    const res = await fetch(`${API_BASE}/invoices/next-id`, {
+  async getNextId(salesmanId?: string, salesmanName?: string): Promise<string> {
+    const params = new URLSearchParams();
+    if (salesmanId) params.append('salesmanId', salesmanId);
+    if (salesmanName) params.append('salesmanName', salesmanName);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    const res = await fetch(`${API_BASE}/invoices/next-id${queryString}`, {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Failed to fetch next invoice ID: ${res.statusText}`);
     const data = await res.json();
-    return data.nextInvoiceNumber || `INV-${Date.now()}`;
+    return data.nextInvoiceNumber || 'SLSI1001';
   },
 
   // Get invoice by ID

@@ -547,7 +547,7 @@ const SupplierDetails: React.FC = () => {
                             )}
                           </td>
                           <td className="p-3 text-center">
-                            <StatusBadge status={po.status} />
+                            <StatusBadge status={po.calculatedStatus || po.status} />
                           </td>
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end">

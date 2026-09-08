@@ -24,7 +24,6 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<{
@@ -76,6 +75,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (!invoiceRef.current) return false;
     try {
       setIsGeneratingPDF(true);
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const pages = invoiceRef.current.querySelectorAll('.invoice-page');
       if (pages.length === 0) return false;
 
@@ -85,14 +89,21 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
       for (let i = 0; i < pages.length; i++) {
         const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
+          scale: 2.5,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            let curr: HTMLElement | null = clonedElement;
+            while (curr) {
+              curr.style.transform = 'none';
+              curr = curr.parentElement;
+            }
+          },
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
       const fileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
@@ -148,86 +159,199 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     setShowShareMenu(false);
   };
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (!invoiceRef.current) return;
+    const docNode = invoiceRef.current.querySelector('.invoice-document');
+    if (!docNode) return;
+
+    const screenWidth = window.screen?.availWidth || window.outerWidth || 1200;
+    const screenHeight = window.screen?.availHeight || window.outerHeight || 900;
+    const screenLeft = (window.screen as any)?.availLeft ?? window.screenLeft ?? window.screenX ?? 0;
+    const screenTop = (window.screen as any)?.availTop ?? window.screenTop ?? window.screenY ?? 0;
+
+    const printWin = window.open(
+      '',
+      '_blank',
+      `left=${screenLeft},top=${screenTop},width=${screenWidth},height=${screenHeight},toolbar=0,scrollbars=1,status=0,resizable=1`
+    );
+    if (!printWin) return;
+
     try {
-      setIsPrinting(true);
-      const pages = invoiceRef.current.querySelectorAll('.invoice-page');
-      if (pages.length === 0) return;
-      
-      const images: string[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
-        images.push(canvas.toDataURL('image/jpeg', 0.95));
+      printWin.moveTo(screenLeft, screenTop);
+      printWin.resizeTo(screenWidth, screenHeight);
+    } catch {
+      // Ignored if browser restricts window manipulation
+    }
+
+    // Get logo as data-url to work cross-origin in the popup
+    const logoImg = invoiceRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    let logoSrc = logoImg?.src || '';
+
+    const writeAndPrint = (resolvedLogoSrc: string) => {
+      const html = (docNode as HTMLElement).innerHTML
+        .replace(/src="[^"]*logo[^"]*"/gi, `src="${resolvedLogoSrc}"`)
+        .replace(/margin-bottom:\s*20px;?/gi, 'margin-bottom: 0;');
+
+      printWin.document.open();
+      printWin.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Print Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"/>
+  <script>
+    try {
+      window.moveTo(0, 0);
+      window.resizeTo(screen.availWidth, screen.availHeight);
+    } catch (e) {}
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      font-family: Inter, Arial, sans-serif;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .invoice-document {
+      display: block !important;
+      position: static !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      width: 210mm !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    .invoice-page {
+      width: 210mm !important;
+      min-width: 210mm !important;
+      max-width: 210mm !important;
+      height: 296.5mm !important;
+      min-height: 296.5mm !important;
+      max-height: 296.5mm !important;
+      margin: 0 auto !important;
+      margin-bottom: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      background: #ffffff !important;
+      position: relative !important;
+      overflow: hidden !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: always !important;
+      break-after: page !important;
+    }
+    .invoice-page:last-child,
+    .invoice-page.is-last-page {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      margin-bottom: 0 !important;
+    }
+    .invoice-page table {
+      table-layout: fixed !important;
+      width: 180mm !important;
+      min-width: 180mm !important;
+      max-width: 180mm !important;
+      border-collapse: collapse !important;
+      margin: 0 auto !important;
+    }
+    .invoice-page th,
+    .invoice-page td {
+      box-sizing: border-box !important;
+      vertical-align: middle !important;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 0mm;
+    }
+    @media print {
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
       }
+      .invoice-document {
+        display: block !important;
+        position: static !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        width: 210mm !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      .invoice-page {
+        width: 210mm !important;
+        min-width: 210mm !important;
+        max-width: 210mm !important;
+        height: 296.5mm !important;
+        min-height: 296.5mm !important;
+        max-height: 296.5mm !important;
+        margin: 0 auto !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .invoice-page:last-child,
+      .invoice-page.is-last-page {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        margin-bottom: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-document">${html}</div>
+</body>
+</html>`);
+      printWin.document.close();
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
+      let printed = false;
+      const doPrint = () => {
+        if (printed) return;
+        printed = true;
+        try {
+          printWin.focus();
+          printWin.print();
+          printWin.close();
+        } catch {
+          // ignore
+        }
+      };
 
-      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
+      printWin.onload = () => {
+        setTimeout(doPrint, 500);
+      };
+      setTimeout(doPrint, 1000);
+    };
 
-      const printHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Invoice ${invoiceData.invoiceNumber}</title>
-            <style>
-              @page { size: A4 portrait; margin: 0; }
-              body {
-                margin: 0;
-                padding: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                background: #fff;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-              .page-img {
-                width: 210mm;
-                height: 297mm;
-                object-fit: contain;
-                page-break-after: always;
-                display: block;
-              }
-              .page-img:last-child {
-                page-break-after: auto;
-              }
-              @media print {
-                body { margin: 0 !important; padding: 0 !important; }
-                .page-img { page-break-after: always; }
-                .page-img:last-child { page-break-after: auto; }
-              }
-            </style>
-          </head>
-          <body>
-            ${imgTags}
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() {
-                    window.close();
-                  }, 800);
-                }, 300);
-              };
-            </script>
-          </body>
-        </html>
-      `;
-
-      printWindow.document.open();
-      printWindow.document.write(printHtml);
-      printWindow.document.close();
-    } catch (err) {
-      console.error('Print failed:', err);
-    } finally {
-      setIsPrinting(false);
+    // Convert logo to data URL if possible (handles same-origin images)
+    if (logoSrc && !logoSrc.startsWith('data:')) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const cvs = document.createElement('canvas');
+          cvs.width = img.naturalWidth;
+          cvs.height = img.naturalHeight;
+          cvs.getContext('2d')!.drawImage(img, 0, 0);
+          writeAndPrint(cvs.toDataURL('image/png'));
+        } catch {
+          writeAndPrint(logoSrc);
+        }
+      };
+      img.onerror = () => writeAndPrint(logoSrc);
+      img.src = logoSrc;
+    } else {
+      writeAndPrint(logoSrc);
     }
   };
 
@@ -272,7 +396,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              disabled={isGeneratingPDF || isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
               title={`Generate PDF & Open WhatsApp chat for ${customerPhone}`}
             >
@@ -331,8 +455,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               size="sm"
               icon={<Printer className="w-3.5 h-3.5" />}
               onClick={handlePrint}
-              disabled={isPrinting || isGeneratingPDF}
-              isLoading={isPrinting}
+              disabled={isGeneratingPDF}
             >
               Print
             </Button>
@@ -342,7 +465,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 variant="secondary"
                 size="sm"
                 onClick={() => onReturnInvoice(invoiceData)}
-                disabled={isGeneratingPDF || isPrinting}
+                disabled={isGeneratingPDF}
                 className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
               >
                 Return Invoice

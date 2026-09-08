@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, useToast } from '../components/erp';
+import { PageHeader, StatusBadge, useToast } from '../components/erp';
 import type { PurchaseOrder } from '../types/purchaseOrders';
 import type { PurchaseOrderReturn } from '../types/po-return';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
@@ -30,7 +30,7 @@ import CreatePOReturnModal from '../components/orders/CreatePOReturnModal';
 import POReturnViewModal from '../components/orders/POReturnViewModal';
 import CustomConfirm from '../components/CustomConfirm';
 
-const PO_STATUS_LABELS: Record<string, string> = {
+export const PO_STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
   pending_approval: 'Pending Approval',
   approved: 'Approved',
@@ -39,6 +39,8 @@ const PO_STATUS_LABELS: Record<string, string> = {
   partially_received: 'Partially Received',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  returned: 'Returned',
+  partially_returned: 'Partial Return',
 };
 
 const PurchaseOrderDetails: React.FC = () => {
@@ -70,7 +72,7 @@ const PurchaseOrderDetails: React.FC = () => {
 
   const isPOEditable = (status?: string) => {
     const s = (status || '').toLowerCase();
-    return s !== 'completed' && s !== 'paid' && s !== 'cancelled';
+    return s !== 'completed' && s !== 'paid' && s !== 'cancelled' && s !== 'returned';
   };
 
   const fetchPO = async () => {
@@ -246,8 +248,8 @@ const PurchaseOrderDetails: React.FC = () => {
               <ShoppingCart size={20} className="text-purple-400" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">PO Status</p>
-              <p className="text-sm font-bold text-purple-300 mt-0.5">{PO_STATUS_LABELS[po.status] || po.status}</p>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">PO Status</p>
+              <StatusBadge status={po.calculatedStatus || po.status} />
             </div>
           </div>
 
@@ -380,7 +382,7 @@ const PurchaseOrderDetails: React.FC = () => {
               )}
 
               {/* Mark Goods Received */}
-              {po.status !== 'goods_received' && po.status !== 'completed' && po.status !== 'cancelled' && (
+              {po.status !== 'goods_received' && po.status !== 'completed' && po.status !== 'cancelled' && po.status !== 'returned' && (
                 <button
                   onClick={handleMarkGoodsReceived}
                   disabled={updatingStatus}

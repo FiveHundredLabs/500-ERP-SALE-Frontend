@@ -75,7 +75,7 @@ const Invoice: React.FC = () => {
   const [salesmanFilter, setSalesmanFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [sortColumn, setSortColumn] = useState('issueDate');
+  const [sortColumn, setSortColumn] = useState('invoiceNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -215,7 +215,7 @@ const Invoice: React.FC = () => {
 
   const getInitialInvoiceData = (): InvoiceData => {
     const today = new Date().toISOString().split('T')[0];
-    const defaultDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const defaultDueDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     return {
       invoiceNumber: "",
       customer: "",
@@ -229,7 +229,7 @@ const Invoice: React.FC = () => {
       totalAmount: 0,
       paymentStatus: PaymentStatus.PENDING,
       paymentMethod: PaymentMethod.CREDIT,
-      creditPeriod: 30,
+      creditPeriod: 60,
       issueDate: today,
       dueDate: defaultDueDate,
       vehicleNumber: "",
@@ -534,7 +534,7 @@ const Invoice: React.FC = () => {
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
-      const creditDays = (typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer as any).creditPeriod : null) || 30;
+      const creditDays = (typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer as any).creditPeriod : null) || 60;
       const calcDueDate = new Date(Date.now() + creditDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const initialInvoiceData: InvoiceData = {
@@ -887,7 +887,7 @@ const Invoice: React.FC = () => {
           const issueTime = data.issueDate ? new Date(data.issueDate).getTime() : Date.now();
           const dueTime = d ? new Date(d).getTime() : 0;
           if (!d || dueTime <= issueTime) {
-            const days = Number(data.creditPeriod) || 30;
+            const days = Number(data.creditPeriod) || 60;
             d = new Date(issueTime + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
           }
         }
@@ -1053,6 +1053,20 @@ const Invoice: React.FC = () => {
         };
       }
 
+      if (field === 'salesman' && !prev.id && value) {
+        const salesmanObj = value as any;
+        const salesmanId = salesmanObj?.id;
+        const salesmanName = salesmanObj?.fullName || salesmanObj?.name;
+        if (salesmanId || salesmanName) {
+          invoiceService.getNextId(salesmanId, salesmanName).then(nextNum => {
+            setInvoiceData(current => {
+              if (current.id) return current;
+              return { ...current, invoiceNumber: nextNum };
+            });
+          }).catch(() => {});
+        }
+      }
+
       return updated;
     });
     setIsDirty(true);
@@ -1181,7 +1195,8 @@ const Invoice: React.FC = () => {
 
         setInvoiceData(prev => ({
           ...prev,
-          id: response.id
+          id: response.id,
+          invoiceNumber: response.invoiceNumber || prev.invoiceNumber
         }));
 
         setAlert({
@@ -1233,11 +1248,9 @@ const Invoice: React.FC = () => {
       const invoices = await invoiceService.getAll();
 
       // Sort invoices
-      const sortedInvoices = [...invoices].sort((a, b) => {
-        const dateA = new Date(a.createdAt || a.issueDate).getTime();
-        const dateB = new Date(b.createdAt || b.issueDate).getTime();
-        return dateB - dateA;
-      });
+      const sortedInvoices = [...invoices].sort((a, b) =>
+        (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
 
       setAllInvoices(sortedInvoices);
     } catch (error) {
@@ -1503,6 +1516,10 @@ const Invoice: React.FC = () => {
 
   const sortedInvoices = useMemo(() => {
     return [...filteredInvoices].sort((a, b) => {
+      if (sortColumn === 'invoiceNumber') {
+        const cmp = (a.invoiceNumber || '').localeCompare(b.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
       if (sortColumn === 'customer') {
@@ -1517,7 +1534,7 @@ const Invoice: React.FC = () => {
       }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [filteredInvoices, sortColumn, sortDirection]);
 
@@ -1532,7 +1549,7 @@ const Invoice: React.FC = () => {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(colKey);
-      setSortDirection('asc');
+      setSortDirection(colKey === 'invoiceNumber' ? 'desc' : 'asc');
     }
   };
 

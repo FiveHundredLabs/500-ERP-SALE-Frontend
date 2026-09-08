@@ -4,6 +4,7 @@ export const POStatus = {
   DRAFT: 'draft', PENDING_APPROVAL: 'pending_approval', APPROVED: 'approved', PROCESSING: 'processing',
   GOODS_RECEIVED: 'goods_received', PARTIALLY_RECEIVED: 'partially_received',
   COMPLETED: 'completed', CANCELLED: 'cancelled',
+  RETURNED: 'returned', PARTIALLY_RETURNED: 'partially_returned',
 } as const;
 export type POStatusType = typeof POStatus[keyof typeof POStatus];
 export const POPaymentStatus = { UNPAID: 'unpaid', PAID: 'paid', PARTIAL: 'partial' } as const;
@@ -83,4 +84,9 @@ export interface PurchaseOrder {
   deliveryTerms?: string;
   notes?: string;
   returns?: PurchaseOrderReturn[];
+  calculatedStatus?: string;
+  returnStatus?: 'none' | 'partial' | 'full';
+  hasReturns?: boolean;
+  totalReturnedAmount?: number;
+  totalReturnedQuantity?: number;
 }

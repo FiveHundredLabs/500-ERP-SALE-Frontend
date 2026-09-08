@@ -67,7 +67,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
         phone2: initialData.phone2 || '',
         phone3: initialData.phone3 || '',
         creditLimit: initialData.creditLimit ?? 1000000,
-        creditPeriod: (initialData as any).creditPeriod ?? 30,
+        creditPeriod: (initialData as any).creditPeriod ?? 60,
         salesRepId: initialData.salesRepId || initialData.salesRep?.id || null,
         salesRepName: initialData.salesRepName || initialData.salesRep?.fullName || '',
         address: initialAddress,
@@ -84,7 +84,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
       phone2: prefillData?.phone2 || '',
       phone3: prefillData?.phone3 || '',
       creditLimit: prefillData?.creditLimit ?? 1000000,
-      creditPeriod: prefillData?.creditPeriod ?? 30,
+      creditPeriod: prefillData?.creditPeriod ?? 60,
       salesRepId: prefillData?.salesRepId || null,
       salesRepName: prefillData?.salesRepName || '',
       address: prefillAddr,
@@ -287,7 +287,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
               <div className="bg-gradient-to-br from-[#1b1539]/90 to-[#10193b]/90 border border-purple-500/30 rounded-xl p-4 space-y-3">
                 <div>
                   <label className="block text-purple-200 mb-1 font-semibold text-xs">
-                    Credit Period ({formData.creditPeriod || 30} Days)
+                    Credit Period ({formData.creditPeriod || 60} Days)
                   </label>
                   <div className="grid grid-cols-5 gap-1">
                     {[15, 30, 45, 60, 90].map((days) => (
@@ -323,7 +323,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                         setFormData(prev => ({
                           ...prev,
                           salesRepId: salesRepId || null,
-                          salesRepName: selected?.fullName || '',
+                          salesRepName: selected?.displayName || selected?.fullName || '',
                         }));
                       }}
                       className="w-full appearance-none bg-[#0a1024] border border-[#2e265c] rounded-xl pl-9 pr-8 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/50 font-medium cursor-pointer"
@@ -331,7 +331,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                       <option value="">Unassigned</option>
                       {salesOfficers.map((so) => (
                         <option key={so.id} value={so.id}>
-                          {so.fullName} {so.officerId ? `(${so.officerId})` : ''}
+                          {so.displayName || so.fullName} {so.officerId ? `(${so.officerId})` : ''}
                         </option>
                       ))}
                     </select>

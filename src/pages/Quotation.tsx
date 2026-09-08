@@ -79,7 +79,7 @@ const Quotation: React.FC = () => {
   const [salesmanFilter, setSalesmanFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [sortColumn, setSortColumn] = useState('issueDate');
+  const [sortColumn, setSortColumn] = useState('quotationNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -151,7 +151,7 @@ const Quotation: React.FC = () => {
     paymentMethod: PaymentMethod.CASH,
     status: QuotationStatus.PENDING,
     issueDate: new Date().toISOString().split('T')[0],
-    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     notes: "",
   });
 
@@ -631,7 +631,7 @@ const Quotation: React.FC = () => {
       setIsLoadingQuotations(true);
       const quotations = await quotationService.getAll();
       const sortedQuotations = (quotations || []).sort((a, b) =>
-        new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
+        (b.quotationNumber || '').localeCompare(a.quotationNumber || '', undefined, { numeric: true, sensitivity: 'base' })
       );
       setAllQuotations(sortedQuotations);
     } catch (error) {
@@ -916,6 +916,10 @@ const Quotation: React.FC = () => {
 
   const sortedQuotations = useMemo(() => {
     return [...filteredQuotations].sort((a, b) => {
+      if (sortColumn === 'quotationNumber') {
+        const cmp = (a.quotationNumber || '').localeCompare(b.quotationNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
       if (sortColumn === 'customer') {
@@ -927,7 +931,7 @@ const Quotation: React.FC = () => {
       }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return (b.quotationNumber || '').localeCompare(a.quotationNumber || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [filteredQuotations, sortColumn, sortDirection]);
 
@@ -942,7 +946,7 @@ const Quotation: React.FC = () => {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(colKey);
-      setSortDirection('asc');
+      setSortDirection(colKey === 'quotationNumber' ? 'desc' : 'asc');
     }
   };
 

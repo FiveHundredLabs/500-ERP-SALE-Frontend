@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { QuotationData, QuotationItem } from "../../types/quotation";
 import type { InventoryItem } from "../../types/inventory";
 import { PaymentMethod } from "../../types/invoice";
@@ -77,7 +77,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     discountValue: "0"
   });
 
-  const [creditPeriod, setCreditPeriod] = useState<string>('custom');
+  const [creditPeriod, setCreditPeriod] = useState<string>('60');
 
   // When credit period preset is selected, auto-calculate validUntil from issueDate
   const handleCreditPeriodChange = useCallback((period: string) => {
@@ -107,6 +107,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'create' | 'edit' | null>(null);
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
+
+  const salesRepSelectRef = useRef<HTMLSelectElement>(null);
+  const productSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Sales Officer list (users with role === 'salesman')
   const [salesmen, setSalesmen] = useState<User[]>([]);
@@ -167,7 +170,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   const handlePaymentMethodChange = (method: string) => {
     onFieldChange('paymentMethod', method);
     if (method === PaymentMethod.CREDIT || method === 'credit') {
-      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      const periodToUse = creditPeriod === 'custom' ? '60' : creditPeriod;
       handleCreditPeriodChange(periodToUse);
     } else {
       setCreditPeriod('custom');
@@ -182,7 +185,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     setCustomerModalMode(null);
 
     // Auto-set payment method to Credit and credit period to customer's default period
-    const defaultPeriod = (customer as any).creditPeriod ?? 30;
+    const defaultPeriod = (customer as any).creditPeriod ?? 60;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     handleCreditPeriodChange(String(defaultPeriod));
 
@@ -192,17 +195,21 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     if (custSalesRepId) {
       const rep = salesmen.find(s => s.id === custSalesRepId);
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       }
     } else if (custSalesRepName) {
-      const rep = salesmen.find(s => s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
+      const rep = salesmen.find(s => (s.displayName && s.displayName.toLowerCase() === custSalesRepName.toLowerCase()) || s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       }
     } else if (!quotationData.salesman?.id && salesmen.length > 0) {
       const defaultOfficer = salesmen[0];
-      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.displayName || defaultOfficer.fullName, name: defaultOfficer.displayName || defaultOfficer.fullName, displayName: defaultOfficer.displayName } as any);
     }
+
+    setTimeout(() => {
+      salesRepSelectRef.current?.focus();
+    }, 50);
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange, salesmen, quotationData.salesman?.id]);
 
   const handleClearCustomer = useCallback(() => {
@@ -279,18 +286,21 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         setSelectedCustomer(updated);
         onCustomerIdChange(updated.id, updated);
         setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
-        const defaultPeriod = (updated as any).creditPeriod ?? 30;
+        const defaultPeriod = (updated as any).creditPeriod ?? 60;
         handleCreditPeriodChange(String(defaultPeriod));
       } else {
         const created = await createCustomer(formData as Omit<Customer, 'id'>);
         setSelectedCustomer(created);
         onCustomerIdChange(created.id, created);
         setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
-        const defaultPeriod = (created as any).creditPeriod ?? 30;
+        const defaultPeriod = (created as any).creditPeriod ?? 60;
         onFieldChange('paymentMethod', PaymentMethod.CREDIT);
         handleCreditPeriodChange(String(defaultPeriod));
       }
       setCustomerModalMode(null);
+      setTimeout(() => {
+        salesRepSelectRef.current?.focus();
+      }, 50);
     } catch (error) {
       throw error;
     }
@@ -381,16 +391,26 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
                 <span className="flex items-center gap-1.5"><UserCheck size={16} className="text-purple-400" /> Sales Officer*</span>
               </label>
               <select
+                ref={salesRepSelectRef}
                 value={quotationData.salesman?.id || (typeof quotationData.salesman === 'object' ? (quotationData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
                   const selected = salesmen.find(s => s.id === e.target.value);
-                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
+                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.displayName || selected.fullName, name: selected.displayName || selected.fullName, displayName: selected.displayName } as any : null as any);
+                  setTimeout(() => {
+                    productSearchInputRef.current?.focus();
+                  }, 50);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    productSearchInputRef.current?.focus();
+                  }
                 }}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium"
               >
                 <option value="">— Select Sales Officer —</option>
                 {salesmen.map(s => (
-                  <option key={s.id} value={s.id}>{s.fullName}</option>
+                  <option key={s.id} value={s.id}>{s.displayName || s.fullName}</option>
                 ))}
               </select>
             </div>
@@ -507,6 +527,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         onClearSelection={handleClearItemSelection}
         stockWarning={stockWarning}
         quotationItems={quotationData.items}
+        searchInputRef={productSearchInputRef}
       />
 
       {quotationData.items.length > 0 && (

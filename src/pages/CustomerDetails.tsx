@@ -371,7 +371,7 @@ const CustomerDetails: React.FC = () => {
   }
 
   const city = customer.city || extractCityFromAddress(customer.address);
-  const repName = customer.salesRepName || customer.salesRep?.fullName || 'Unassigned';
+  const repName = customer.salesRepName || (customer.salesRep as any)?.displayName || customer.salesRep?.fullName || 'Unassigned';
 
   return (
     <AppLayout

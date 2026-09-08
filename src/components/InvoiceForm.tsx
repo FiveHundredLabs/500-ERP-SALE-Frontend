@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { InvoiceData, InvoiceItem, InvoiceCustomer } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory";
 import { PaymentMethod, PaymentStatus, type PaymentStatusType, type PaymentMethodType } from "../types/invoice";
@@ -86,6 +86,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     discountScope: 'per_unit',
     discountValue: '0',
   });
+
+  const salesRepSelectRef = useRef<HTMLSelectElement>(null);
+  const productSearchInputRef = useRef<HTMLInputElement>(null);
 
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
@@ -181,7 +184,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, []);
 
   // Credit period state in days (e.g. 30, 60, custom)
-  const [creditPeriod, setCreditPeriod] = useState<string>('30');
+  const [creditPeriod, setCreditPeriod] = useState<string>('60');
 
   const handleCreditPeriodChange = useCallback((days: string) => {
     setCreditPeriod(days);
@@ -210,14 +213,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
   }, [invoiceData.creditPeriod, invoiceData.dueDate, invoiceData.issueDate]);
 
-  // Auto-correct: If invoice is Credit and dueDate is missing or identical to issueDate, auto-set to credit period (default 30d)
+  // Auto-correct: If invoice is Credit and dueDate is missing or identical to issueDate, auto-set to credit period (default 60d)
   useEffect(() => {
     if (
       ((invoiceData.paymentMethod as any) === PaymentMethod.CREDIT || (invoiceData.paymentMethod as any) === 'credit') &&
       invoiceData.issueDate &&
       (!invoiceData.dueDate || invoiceData.dueDate === invoiceData.issueDate)
     ) {
-      const days = parseInt(creditPeriod === 'custom' ? '30' : creditPeriod, 10) || 30;
+      const days = parseInt(creditPeriod === 'custom' ? '60' : creditPeriod, 10) || 60;
       const baseDate = new Date(invoiceData.issueDate);
       if (!isNaN(baseDate.getTime())) {
         const newDueDate = new Date(baseDate.getTime() + days * 86400000).toISOString().split('T')[0];
@@ -244,7 +247,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     onFieldChange('paymentMethod', method);
     if (method === PaymentMethod.CREDIT || method === 'credit') {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
-      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      const periodToUse = creditPeriod === 'custom' ? '60' : creditPeriod;
       handleCreditPeriodChange(periodToUse);
     } else {
       onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
@@ -259,7 +262,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     setCustomerModalMode(null);
 
     // Auto-set payment method to Credit and credit period to customer's default period
-    const defaultPeriod = (customer as any).creditPeriod ?? 30;
+    const defaultPeriod = (customer as any).creditPeriod ?? 60;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     onFieldChange('paymentStatus', PaymentStatus.PENDING);
     handleCreditPeriodChange(String(defaultPeriod));
@@ -270,17 +273,21 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     if (custSalesRepId) {
       const rep = salesmen.find(s => s.id === custSalesRepId);
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       }
     } else if (custSalesRepName) {
-      const rep = salesmen.find(s => s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
+      const rep = salesmen.find(s => (s.displayName && s.displayName.toLowerCase() === custSalesRepName.toLowerCase()) || s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       }
     } else if (!invoiceData.salesman?.id && salesmen.length > 0) {
       const defaultOfficer = salesmen[0];
-      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
+      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.displayName || defaultOfficer.fullName, name: defaultOfficer.displayName || defaultOfficer.fullName, displayName: defaultOfficer.displayName } as any);
     }
+
+    setTimeout(() => {
+      salesRepSelectRef.current?.focus();
+    }, 50);
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange, salesmen, invoiceData.salesman?.id]);
 
   const handleOrderImport = useCallback(async (po: PurchaseOrder) => {
@@ -388,11 +395,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
     // 4. Auto-fill Sales Officer from order if present
     const salesmanId = srcOrder?.salesmanId || (srcOrder?.salesman as any)?.id;
-    const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.fullName;
+    const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.displayName || (srcOrder?.salesman as any)?.fullName;
     if (salesmanId || salesmanName) {
-      const rep = salesmen.find(s => s.id === salesmanId || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
+      const rep = salesmen.find(s => s.id === salesmanId || (s.displayName && s.displayName.toLowerCase() === salesmanName?.toLowerCase()) || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
       if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.fullName, name: rep.fullName } as any);
+        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
       } else if (salesmanName) {
         onFieldChange('salesman', { id: salesmanId || '', fullName: salesmanName, name: salesmanName } as any);
       }
@@ -502,19 +509,22 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       setSelectedCustomer(updated);
       onCustomerIdChange(updated.id, updated);
       setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
-      const defaultPeriod = (updated as any).creditPeriod ?? 30;
+      const defaultPeriod = (updated as any).creditPeriod ?? 60;
       handleCreditPeriodChange(String(defaultPeriod));
     } else {
       const created = await createCustomer(formData as Omit<Customer, 'id'>);
       setSelectedCustomer(created);
       onCustomerIdChange(created.id, created);
       setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
-      const defaultPeriod = (created as any).creditPeriod ?? 30;
+      const defaultPeriod = (created as any).creditPeriod ?? 60;
       onFieldChange('paymentMethod', PaymentMethod.CREDIT);
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
       handleCreditPeriodChange(String(defaultPeriod));
     }
     setCustomerModalMode(null);
+    setTimeout(() => {
+      salesRepSelectRef.current?.focus();
+    }, 50);
   }, [customerModalMode, selectedCustomer, updateCustomer, createCustomer, onCustomerIdChange, setCustomerSearchTerm, handleCreditPeriodChange, onFieldChange]);
 
   const getCustomerPrefillData = useCallback(() => {
@@ -693,16 +703,26 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer <span className="text-red-400 font-bold">*</span></span>
               </label>
               <select
+                ref={salesRepSelectRef}
                 value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
                   const selected = salesmen.find(s => s.id === e.target.value);
-                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
+                  onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.displayName || selected.fullName, name: selected.displayName || selected.fullName, displayName: selected.displayName } as any : null as any);
+                  setTimeout(() => {
+                    productSearchInputRef.current?.focus();
+                  }, 50);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    productSearchInputRef.current?.focus();
+                  }
                 }}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
               >
                 <option value="">— Select Sales Officer —</option>
                 {salesmen.map(s => (
-                  <option key={s.id} value={s.id}>{s.fullName}</option>
+                  <option key={s.id} value={s.id}>{s.displayName || s.fullName}</option>
                 ))}
               </select>
             </div>
@@ -825,6 +845,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         onClearSelection={handleClearItemSelection}
         stockWarning={stockWarning}
         invoiceItems={invoiceData.items}
+        searchInputRef={productSearchInputRef}
       />
 
       {invoiceData.items.length > 0 && (

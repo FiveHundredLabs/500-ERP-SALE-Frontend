@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
+import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download, RotateCcw } from 'lucide-react';
+import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
@@ -18,10 +18,11 @@ const PurchaseOrders: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const [sortColumn, setSortColumn] = useState('createdAt');
+  const [sortColumn, setSortColumn] = useState('poNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -56,7 +57,10 @@ const PurchaseOrders: React.FC = () => {
     setLoading(true);
     try {
       const data = await purchaseOrderService.getAll();
-      setPurchaseOrders(data || []);
+      const sorted = (data || []).sort((a, b) =>
+        (b.poNumber || '').localeCompare(a.poNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
+      setPurchaseOrders(sorted);
     } catch {
       setPurchaseOrders([]);
     } finally {
@@ -156,25 +160,37 @@ const PurchaseOrders: React.FC = () => {
         po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (po.sourceOrderNumber && po.sourceOrderNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (po.notes && po.notes.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        ((po as any).remarks && String((po as any).remarks).toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
+      const effectiveStatus = po.calculatedStatus || po.status;
+      const matchesStatus = statusFilter === '' || effectiveStatus === statusFilter;
 
       const poDate = po.poDate;
       const matchesDateFrom = dateFrom === '' || poDate >= dateFrom;
       const matchesDateTo = dateTo === '' || poDate <= dateTo;
 
-      return matchesSearch && matchesSupplier && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesSupplier && matchesStatus && matchesDateFrom && matchesDateTo;
     });
-  }, [purchaseOrders, searchQuery, supplierFilter, dateFrom, dateTo]);
+  }, [purchaseOrders, searchQuery, supplierFilter, statusFilter, dateFrom, dateTo]);
 
   const sortedPOs = useMemo(() => {
     return [...filteredPOs].sort((a, b) => {
+      if (sortColumn === 'poNumber') {
+        const cmp = (a.poNumber || '').localeCompare(b.poNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
+      if (sortColumn === 'status') {
+        valA = a.calculatedStatus || a.status;
+        valB = b.calculatedStatus || b.status;
+      }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return (b.poNumber || '').localeCompare(a.poNumber || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [filteredPOs, sortColumn, sortDirection]);
 
@@ -189,15 +205,16 @@ const PurchaseOrders: React.FC = () => {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(colKey);
-      setSortDirection('asc');
+      setSortDirection(colKey === 'poNumber' ? 'desc' : 'asc');
     }
   };
 
   const handleExportCSV = () => {
-    const headers = ['PO Number', 'PO Date', 'Supplier', 'Ref Order', 'Created By', 'Items', 'Total', 'Status'];
+    const headers = ['PO Number', 'PO Date', 'Supplier', 'Ref Order', 'Remark', 'Created By', 'Items', 'Total', 'Status'];
     const rows = sortedPOs.map((p) => [
       p.poNumber, p.poDate, `"${p.supplierName}"`, p.sourceOrderNumber || 'Direct PO',
-      `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.status,
+      `"${((p.notes || (p as any).remarks || '') as string).replace(/"/g, '""')}"`,
+      `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.calculatedStatus || p.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -217,20 +234,10 @@ const PurchaseOrders: React.FC = () => {
       key: 'poNumber',
       header: 'PO Number',
       sortable: true,
-      minWidth: '130px',
-      render: (row) => {
-        const hasReturns = row.returns && row.returns.filter(r => r.status !== 'cancelled').length > 0;
-        return (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[#38BDF8] font-bold text-xs">{row.poNumber}</span>
-            {hasReturns && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30" title={`${row.returns?.length} return(s) processed`}>
-                <RotateCcw size={9} /> Return
-              </span>
-            )}
-          </div>
-        );
-      },
+      minWidth: '110px',
+      render: (row) => (
+        <span className="font-mono text-[#38BDF8] font-bold text-xs">{row.poNumber}</span>
+      ),
     },
     {
       key: 'referenceOrderNum',
@@ -294,6 +301,45 @@ const PurchaseOrders: React.FC = () => {
       align: 'right',
       minWidth: '120px',
       render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.totalAmount)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      minWidth: '125px',
+      render: (row) => {
+        const displayStatus = row.calculatedStatus || row.status;
+        return <StatusBadge status={displayStatus} />;
+      },
+    },
+    {
+      key: 'remark',
+      header: 'Remark',
+      sortable: false,
+      minWidth: '110px',
+      render: (row) => {
+        const fullRemark = (row.notes || (row as any).remarks || '').trim();
+        if (!fullRemark) {
+          return <span className="text-slate-500 text-xs font-mono">—</span>;
+        }
+        const preview = fullRemark.length > 10 ? `${fullRemark.slice(0, 10)}...` : fullRemark;
+        return (
+          <div className="relative group inline-block" title={fullRemark}>
+            <span className="text-xs text-slate-300 font-medium cursor-help hover:text-purple-300 transition-colors border-b border-dotted border-slate-500/70 pb-0.5">
+              {preview}
+            </span>
+            {fullRemark.length > 10 && (
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                <div className="bg-[#0f172a] text-slate-200 text-xs rounded-lg px-3 py-2 shadow-2xl border border-[#334155] whitespace-pre-wrap max-w-[260px] min-w-[150px] break-words">
+                  <span className="text-[10px] uppercase tracking-wider text-purple-400 font-semibold block mb-1">Remark</span>
+                  <span>{fullRemark}</span>
+                </div>
+                <div className="w-2 h-2 bg-[#0f172a] border-r border-b border-[#334155] rotate-45 -mt-1" />
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'actions',
@@ -425,10 +471,10 @@ const PurchaseOrders: React.FC = () => {
   ];
 
   const hasActiveFilters =
-    searchQuery !== '' || supplierFilter !== '' || dateFrom !== '' || dateTo !== '';
+    searchQuery !== '' || supplierFilter !== '' || statusFilter !== '' || dateFrom !== '' || dateTo !== '';
 
   const clearAllFilters = () => {
-    setSearchQuery(''); setSupplierFilter('');
+    setSearchQuery(''); setSupplierFilter(''); setStatusFilter('');
     setDateFrom(''); setDateTo('');
     setCurrentPage(1);
   };
@@ -478,6 +524,23 @@ const PurchaseOrders: React.FC = () => {
           onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
           onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
           selects={[
+            {
+              value: statusFilter,
+              onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
+              options: [
+                { value: '', label: 'All Statuses' },
+                { value: 'pending_approval', label: 'Pending Approval' },
+                { value: 'goods_received', label: 'Goods Received' },
+                { value: 'partially_received', label: 'Partially Received' },
+                { value: 'partially_returned', label: 'Partial Return' },
+                { value: 'returned', label: 'Returned' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'draft', label: 'Draft' },
+                { value: 'cancelled', label: 'Cancelled' },
+              ],
+              placeholder: 'All Statuses',
+              width: 'w-40',
+            },
             {
               value: supplierFilter,
               onChange: (val) => { setSupplierFilter(val); setCurrentPage(1); },
