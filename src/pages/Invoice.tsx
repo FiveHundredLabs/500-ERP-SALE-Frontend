@@ -1053,6 +1053,20 @@ const Invoice: React.FC = () => {
         };
       }
 
+      if (field === 'salesman' && !prev.id && value) {
+        const salesmanObj = value as any;
+        const salesmanId = salesmanObj?.id;
+        const salesmanName = salesmanObj?.fullName || salesmanObj?.name;
+        if (salesmanId || salesmanName) {
+          invoiceService.getNextId(salesmanId, salesmanName).then(nextNum => {
+            setInvoiceData(current => {
+              if (current.id) return current;
+              return { ...current, invoiceNumber: nextNum };
+            });
+          }).catch(() => {});
+        }
+      }
+
       return updated;
     });
     setIsDirty(true);
@@ -1181,7 +1195,8 @@ const Invoice: React.FC = () => {
 
         setInvoiceData(prev => ({
           ...prev,
-          id: response.id
+          id: response.id,
+          invoiceNumber: response.invoiceNumber || prev.invoiceNumber
         }));
 
         setAlert({

@@ -7,6 +7,7 @@ import type { InventoryItem } from '../../types/inventory';
 import type { Supplier } from '../../types/suppliers';
 import { supplierService } from '../../services/SupplierService';
 import { inventoryService } from '../../services/InventoryService';
+import { purchaseOrderService } from '../../services/PurchaseOrderService';
 import { useToast } from '../erp/Toast';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
@@ -120,12 +121,17 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
 
+  const [nextPoNumber, setNextPoNumber] = useState<string>('');
+
   useEffect(() => {
     if (isOpen) {
       supplierService.getAll().then(s => setAllSuppliers(s || [])).catch(() => {});
       inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
+      if (!poToEdit) {
+        purchaseOrderService.getNextId().then(id => setNextPoNumber(id)).catch(() => {});
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, poToEdit]);
 
   // Escape key to close drawer
   useEffect(() => {
@@ -516,11 +522,9 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       remark: it.remark?.trim() || undefined,
     }));
 
-    const poId = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
     const newPO: PurchaseOrder = {
       id: poToEdit ? poToEdit.id : Date.now().toString(),
-      poNumber: poToEdit ? poToEdit.poNumber : poId,
+      poNumber: poToEdit ? poToEdit.poNumber : (nextPoNumber || undefined as any),
       sourceOrderId: initialData?.sourceOrderId,
       sourceOrderNumber: referenceOrderNum || undefined,
       customerName: customerName || (poToEdit ? poToEdit.customerName : undefined),
@@ -641,8 +645,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                   {poToEdit
                     ? `Update Purchase Order — ${poToEdit.poNumber}`
                     : isConverting
-                    ? `Convert to Purchase Order ${referenceOrderNum ? `(Ref #${referenceOrderNum})` : ''}`
-                    : 'Create Purchase Order'}
+                    ? `Convert to Purchase Order ${nextPoNumber ? `— ${nextPoNumber} ` : ''}${referenceOrderNum ? `(Ref #${referenceOrderNum})` : ''}`
+                    : `Create Purchase Order${nextPoNumber ? ` — ${nextPoNumber}` : ''}`}
                 </h2>
                 <p className="text-xs text-slate-400">
                   {isConverting
