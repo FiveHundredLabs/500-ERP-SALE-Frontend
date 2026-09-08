@@ -24,7 +24,6 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<{
@@ -76,6 +75,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     if (!invoiceRef.current) return false;
     try {
       setIsGeneratingPDF(true);
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const pages = invoiceRef.current.querySelectorAll('.invoice-page');
       if (pages.length === 0) return false;
 
@@ -85,14 +89,21 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
       for (let i = 0; i < pages.length; i++) {
         const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
+          scale: 2.5,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            let curr: HTMLElement | null = clonedElement;
+            while (curr) {
+              curr.style.transform = 'none';
+              curr = curr.parentElement;
+            }
+          },
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
       const fileName = `Invoice-${invoiceData.invoiceNumber || 'draft'}.pdf`;
@@ -148,86 +159,121 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     setShowShareMenu(false);
   };
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (!invoiceRef.current) return;
-    try {
-      setIsPrinting(true);
-      const pages = invoiceRef.current.querySelectorAll('.invoice-page');
-      if (pages.length === 0) return;
-      
-      const images: string[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
-        images.push(canvas.toDataURL('image/jpeg', 0.95));
-      }
+    const docNode = invoiceRef.current.querySelector('.invoice-document');
+    if (!docNode) return;
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
+    const printWin = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWin) return;
 
-      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
+    // Get logo as data-url to work cross-origin in the popup
+    const logoImg = invoiceRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    let logoSrc = logoImg?.src || '';
 
-      const printHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Invoice ${invoiceData.invoiceNumber}</title>
-            <style>
-              @page { size: A4 portrait; margin: 0; }
-              body {
-                margin: 0;
-                padding: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                background: #fff;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-              .page-img {
-                width: 210mm;
-                height: 297mm;
-                object-fit: contain;
-                page-break-after: always;
-                display: block;
-              }
-              .page-img:last-child {
-                page-break-after: auto;
-              }
-              @media print {
-                body { margin: 0 !important; padding: 0 !important; }
-                .page-img { page-break-after: always; }
-                .page-img:last-child { page-break-after: auto; }
-              }
-            </style>
-          </head>
-          <body>
-            ${imgTags}
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() {
-                    window.close();
-                  }, 800);
-                }, 300);
-              };
-            </script>
-          </body>
-        </html>
-      `;
+    const writeAndPrint = (resolvedLogoSrc: string) => {
+      const html = (docNode as HTMLElement).innerHTML.replace(
+        /src="[^"]*logo[^"]*"/gi,
+        `src="${resolvedLogoSrc}"`
+      );
 
-      printWindow.document.open();
-      printWindow.document.write(printHtml);
-      printWindow.document.close();
-    } catch (err) {
-      console.error('Print failed:', err);
-    } finally {
-      setIsPrinting(false);
+      printWin.document.open();
+      printWin.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Print Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #fff;
+      font-family: Inter, Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .invoice-document {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .invoice-page {
+      width: 210mm;
+      height: 297mm;
+      min-height: 297mm;
+      max-height: 297mm;
+      padding: 10mm 15mm;
+      box-sizing: border-box;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+    .invoice-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+    .invoice-page table {
+      table-layout: fixed;
+      width: 180mm;
+      min-width: 180mm;
+      max-width: 180mm;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+    .invoice-page th,
+    .invoice-page td {
+      box-sizing: border-box;
+      vertical-align: middle;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    @media print {
+      html, body { margin: 0; padding: 0; }
+      .invoice-page { page-break-after: always; break-after: page; }
+      .invoice-page:last-child { page-break-after: auto; break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-document">${html}</div>
+</body>
+</html>`);
+      printWin.document.close();
+
+      printWin.onload = () => {
+        setTimeout(() => {
+          printWin.focus();
+          printWin.print();
+          printWin.close();
+        }, 600);
+      };
+    };
+
+    // Convert logo to data URL if possible (handles same-origin images)
+    if (logoSrc && !logoSrc.startsWith('data:')) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const cvs = document.createElement('canvas');
+          cvs.width = img.naturalWidth;
+          cvs.height = img.naturalHeight;
+          cvs.getContext('2d')!.drawImage(img, 0, 0);
+          writeAndPrint(cvs.toDataURL('image/png'));
+        } catch {
+          writeAndPrint(logoSrc);
+        }
+      };
+      img.onerror = () => writeAndPrint(logoSrc);
+      img.src = logoSrc;
+    } else {
+      writeAndPrint(logoSrc);
     }
   };
 
@@ -272,7 +318,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              disabled={isGeneratingPDF || isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
               title={`Generate PDF & Open WhatsApp chat for ${customerPhone}`}
             >
@@ -331,8 +377,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               size="sm"
               icon={<Printer className="w-3.5 h-3.5" />}
               onClick={handlePrint}
-              disabled={isPrinting || isGeneratingPDF}
-              isLoading={isPrinting}
+              disabled={isGeneratingPDF}
             >
               Print
             </Button>
@@ -342,7 +387,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 variant="secondary"
                 size="sm"
                 onClick={() => onReturnInvoice(invoiceData)}
-                disabled={isGeneratingPDF || isPrinting}
+                disabled={isGeneratingPDF}
                 className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
               >
                 Return Invoice

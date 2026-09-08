@@ -489,34 +489,132 @@ select.no-custom-arrow {
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  /* Reset all modal containers during print */
+  [role="dialog"],
+  .fixed,
+  .modal,
+  .modal-backdrop,
+  #root,
+  .App {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+    transform: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [role="dialog"] > div,
+  .modal-content,
+  .overflow-y-auto,
+  .overflow-auto {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  /* Hide app chrome, navigation, toolbars, modal headers, action buttons, guidance banners */
+  button,
+  nav,
+  aside,
+  header,
+  .no-print,
+  .modal-header,
+  [role="dialog"] > div > div:first-child,
+  .animate-fadeIn {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Only show the invoice document and its contents */
+  body * {
+    visibility: hidden;
+  }
+
+  .invoice-document,
+  .invoice-document * {
+    visibility: visible;
+  }
+
+  .invoice-document {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    transform: none !important;
+  }
+
   .invoice-page {
     width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
     height: 297mm !important;
+    min-height: 297mm !important;
     max-height: 297mm !important;
-    page-break-after: always !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
     margin: 0 auto !important;
     padding: 10mm 15mm !important;
     box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
     box-shadow: none !important;
     border: none !important;
+    transform: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .invoice-page:last-child {
     page-break-after: auto !important;
+    break-after: auto !important;
   }
 
   .invoice-page table {
     table-layout: fixed !important;
-    width: 100% !important;
+    width: 180mm !important;
+    min-width: 180mm !important;
+    max-width: 180mm !important;
     border-collapse: collapse !important;
+    margin: 0 auto !important;
+  }
+
+  .invoice-page th,
+  .invoice-page td {
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
   }
 }
+
 

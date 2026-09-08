@@ -24,7 +24,6 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
 }) => {
   const quotationRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<{
@@ -163,72 +162,119 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     setShowShareMenu(false);
   };
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (!quotationRef.current) return;
-    try {
-      setIsPrinting(true);
-      if (document.fonts) {
-        await document.fonts.ready;
-      }
-      await new Promise(resolve => setTimeout(resolve, 50));
+    const docNode = quotationRef.current.querySelector('.invoice-document');
+    if (!docNode) return;
 
-      const pages = quotationRef.current.querySelectorAll('.invoice-page');
-      if (pages.length === 0) return;
+    const printWin = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWin) return;
 
-      const images: string[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
-            let curr: HTMLElement | null = clonedElement;
-            while (curr) {
-              curr.style.transform = 'none';
-              curr = curr.parentElement;
-            }
-          },
-        });
-        images.push(canvas.toDataURL('image/png'));
-      }
+    const logoImg = quotationRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    let logoSrc = logoImg?.src || '';
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
+    const writeAndPrint = (resolvedLogoSrc: string) => {
+      const html = (docNode as HTMLElement).innerHTML.replace(
+        /src="[^"]*logo[^"]*"/gi,
+        `src="${resolvedLogoSrc}"`
+      );
 
-      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
+      printWin.document.open();
+      printWin.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Print Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #fff;
+      font-family: Inter, Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .invoice-document {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .invoice-page {
+      width: 210mm;
+      height: 297mm;
+      min-height: 297mm;
+      max-height: 297mm;
+      padding: 10mm 15mm;
+      box-sizing: border-box;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+    .invoice-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+    .invoice-page table {
+      table-layout: fixed;
+      width: 180mm;
+      min-width: 180mm;
+      max-width: 180mm;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+    .invoice-page th,
+    .invoice-page td {
+      box-sizing: border-box;
+      vertical-align: middle;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    @media print {
+      html, body { margin: 0; padding: 0; }
+      .invoice-page { page-break-after: always; break-after: page; }
+      .invoice-page:last-child { page-break-after: auto; break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-document">${html}</div>
+</body>
+</html>`);
+      printWin.document.close();
 
-      const printHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Quotation ${quotationData.quotationNumber}</title>
-            <style>
-              @page { size: A4 portrait; margin: 0; }
-              body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
-              .page-img { width: 210mm; height: 297mm; object-fit: contain; page-break-after: always; display: block; }
-              .page-img:last-child { page-break-after: auto; }
-            </style>
-          </head>
-          <body>
-            ${imgTags}
-            <script>
-              window.onload = function() {
-                window.print();
-                window.close();
-              }
-            </script>
-          </body>
-        </html>
-      `;
+      printWin.onload = () => {
+        setTimeout(() => {
+          printWin.focus();
+          printWin.print();
+          printWin.close();
+        }, 600);
+      };
+    };
 
-      printWindow.document.open();
-      printWindow.document.write(printHtml);
-      printWindow.document.close();
-    } catch (err) {
-      console.error('Print failed:', err);
-    } finally {
-      setIsPrinting(false);
+    if (logoSrc && !logoSrc.startsWith('data:')) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const cvs = document.createElement('canvas');
+          cvs.width = img.naturalWidth;
+          cvs.height = img.naturalHeight;
+          cvs.getContext('2d')!.drawImage(img, 0, 0);
+          writeAndPrint(cvs.toDataURL('image/png'));
+        } catch {
+          writeAndPrint(logoSrc);
+        }
+      };
+      img.onerror = () => writeAndPrint(logoSrc);
+      img.src = logoSrc;
+    } else {
+      writeAndPrint(logoSrc);
     }
   };
 
@@ -265,7 +311,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              disabled={isGeneratingPDF || isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
               title={`Generate PDF & Open WhatsApp chat for ${customerPhone}`}
             >
@@ -334,7 +380,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
             >
               <Printer size={13} />
