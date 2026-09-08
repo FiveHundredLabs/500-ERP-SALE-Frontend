@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import QuotationCanvas from "../components/quotation/QuotationCanvas";
+import InvoiceCanvas from "../components/InvoiceCanvas";
 import type { QuotationData } from "../types/quotation";
 import { quotationService } from "../services/QuotationService";
 import CustomAlert from "../components/CustomAlert";
@@ -114,7 +114,39 @@ const QuotationView: React.FC = () => {
           }}
         >
           <ErrorBoundary>
-            <QuotationCanvas quotationData={quotationData} />
+            <InvoiceCanvas
+              invoiceData={{
+                documentTitle: "QUOTATION",
+                invoiceNumber: quotationData.quotationNumber || "Draft",
+                customer: quotationData.customer,
+                customerDetails: quotationData.customerDetails as any,
+                salesman: quotationData.salesman,
+                salesmanName: quotationData.salesmanName || quotationData.salesman?.fullName,
+                items: quotationData.items.map(item => ({
+                  id: item.id || Date.now().toString(),
+                  inventoryItemId: item.inventoryItemId,
+                  itemName: item.itemName || item.inventoryItem?.productName || 'Item',
+                  itemCode: item.productCode || item.inventoryItem?.productCode,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  total: item.total,
+                })),
+                subTotal: quotationData.subTotal,
+                discount: quotationData.discount,
+                discountPercentage: quotationData.discountPercentage || 0,
+                totalAmount: quotationData.totalAmount,
+                paymentStatus: 'pending',
+                paymentMethod: quotationData.paymentMethod as any,
+                issueDate: quotationData.issueDate,
+                dueDate: quotationData.validUntil,
+                vehicleNumber: '',
+                notes: quotationData.notes,
+                applyVat: false,
+                vatAmount: 0,
+                taxRate: 0,
+                paidAmount: 0,
+              }}
+            />
           </ErrorBoundary>
         </div>
       </div>

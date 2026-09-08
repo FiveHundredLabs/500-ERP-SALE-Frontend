@@ -167,28 +167,28 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <img src={Logo} alt="Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', marginRight: '15px' }} />
                 <div>
-                  <h1 style={{ color: '#1e3a8a', margin: '0 0 4px 0', fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px' }}>
+                  <h1 style={{ color: '#1e3a8a', margin: '0 0 4px 0', fontSize: '24px', fontWeight: '800' }}>
                     S & K Enterprises
                   </h1>
-                  <div style={{ color: '#1d4ed8', fontSize: '13px', marginBottom: '3px', display: 'flex', alignItems: 'center', fontWeight: '500' }}>
-                    <span style={{ marginRight: '6px' }}>📍</span> 116/01 Kudabuthgamuwa, Kotikawattha.
+                  <div style={{ color: '#1d4ed8', fontSize: '13px', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
+                    <span>📍</span> <span>116/01 Kudabuthgamuwa, Kotikawattha.</span>
                   </div>
-                  <div style={{ color: '#1d4ed8', fontSize: '13px', display: 'flex', alignItems: 'center', fontWeight: '500' }}>
-                    <span style={{ marginRight: '6px' }}>📞</span> 0713500780
+                  <div style={{ color: '#1d4ed8', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
+                    <span>📞</span> <span>0713500780</span>
                   </div>
                 </div>
               </div>
 
               {/* Document Title - Now in Red */}
               <div style={{ textAlign: 'right', paddingTop: '5px' }}>
-                <h2 style={{ margin: '0 0 8px 0', fontSize: '28px', color: '#dc2626', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <h2 style={{ margin: '0 0 8px 0', fontSize: '28px', color: '#dc2626', fontWeight: '800', textTransform: 'uppercase' }}>
                   {documentTitle}
                 </h2>
-                <div style={{ fontSize: '13px', color: '#4b5563', marginBottom: '3px', fontWeight: '600' }}>
-                  Date: <span style={{ color: '#111827' }}>{formatDate(invoiceData.issueDate)}</span>
+                <div style={{ fontSize: '13px', color: '#4b5563', marginBottom: '3px', fontWeight: '600', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                  <span>Date:</span> <span style={{ color: '#111827' }}>{formatDate(invoiceData.issueDate)}</span>
                 </div>
-                <div style={{ fontSize: '13px', color: '#4b5563', fontWeight: '600' }}>
-                  {documentLabel} <span style={{ color: '#111827' }}>{invoiceData.invoiceNumber}</span>
+                <div style={{ fontSize: '13px', color: '#4b5563', fontWeight: '600', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                  <span>{documentLabel}</span> <span style={{ color: '#111827', fontWeight: '700' }}>{invoiceData.invoiceNumber}</span>
                 </div>
                 {chunkedItems.length > 1 && (
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
@@ -203,7 +203,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
               {/* Customer / Supplier Details Box */}
               <div style={{ flex: '2', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
                 <div style={{ marginBottom: '6px' }}>
-                  <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
+                  <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700' }}>
                     {documentTitle === "PURCHASE ORDER" ? "Supplier Details" : "Customer Details"}
                   </h3>
                 </div>
@@ -211,8 +211,8 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   {customerName}
                 </div>
                 {contactPerson && (
-                  <div style={{ fontSize: '12px', color: '#475569', marginBottom: '2px' }}>
-                    <span style={{ color: '#64748b' }}>Attn:</span> {contactPerson}
+                  <div style={{ fontSize: '12px', color: '#475569', marginBottom: '2px', display: 'flex', gap: '4px' }}>
+                    <span style={{ color: '#64748b' }}>Attn:</span> <span>{contactPerson}</span>
                   </div>
                 )}
                 <div style={{ fontSize: '13px', color: '#475569', marginBottom: '2px' }}>
@@ -225,18 +225,18 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
               {/* Salesman / Order Details */}
               <div style={{ flex: '1', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px' }}>
-                <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700' }}>
                   {documentTitle === "PURCHASE ORDER" ? "Order Details" : "Sales Details"}
                 </h3>
-                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '5px' }}>
-                  <strong style={{ color: '#0f172a' }}>
+                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '5px', display: 'flex', gap: '6px' }}>
+                  <strong style={{ color: '#0f172a', whiteSpace: 'nowrap' }}>
                     {documentTitle === "PURCHASE ORDER" ? "Purchaser / Officer:" : "Sales Officer:"}
-                  </strong>{' '}
-                  {salesmanName || (documentTitle === "PURCHASE ORDER" ? "Procurement" : "N/A")}
+                  </strong>
+                  <span>{salesmanName || (documentTitle === "PURCHASE ORDER" ? "Procurement" : "N/A")}</span>
                 </div>
                 {invoiceData.paymentMethod && (
-                  <div style={{ fontSize: '13px', color: '#475569' }}>
-                    <strong style={{ color: '#0f172a' }}>Payment Method:</strong>{' '}
+                  <div style={{ fontSize: '13px', color: '#475569', display: 'flex', gap: '6px' }}>
+                    <strong style={{ color: '#0f172a', whiteSpace: 'nowrap' }}>Payment Method:</strong>
                     <span style={{ textTransform: 'capitalize' }}>
                       {String(invoiceData.paymentMethod).toLowerCase() === 'credit'
                         ? `Credit${invoiceData.creditPeriod ? ` (${invoiceData.creditPeriod} Days)` : ''}`
@@ -248,7 +248,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
             </div>
 
             {/* Main Items Table - FIXED HEIGHT */}
-            {/* The table area ensures that 20 rows are displayed identically regardless of actual item count */}
+            {/* The table area ensures that rows are displayed identically regardless of actual item count */}
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12px' }}>
               <colgroup>
                 <col style={{ width: '5%' }} />
@@ -259,33 +259,32 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                 <col style={{ width: '20%' }} />
               </colgroup>
               <thead>
-                <tr style={{ backgroundColor: '#1e3a8a', color: '#ffffff', height: '26px' }}>
-                  <th style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>#</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'left', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>DESCRIPTION</th>
-                  <th style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>QTY</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>RATE (Rs.)</th>
-                  <th style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>DISC</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>AMOUNT (Rs.)</th>
+                <tr style={{ backgroundColor: '#1e3a8a', color: '#ffffff', height: '28px' }}>
+                  <th style={{ padding: '5px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>#</th>
+                  <th style={{ padding: '5px 8px', textAlign: 'left', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>DESCRIPTION</th>
+                  <th style={{ padding: '5px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>QTY</th>
+                  <th style={{ padding: '5px 8px', textAlign: 'right', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>RATE (Rs.)</th>
+                  <th style={{ padding: '5px 2px', textAlign: 'center', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>DISC</th>
+                  <th style={{ padding: '5px 8px', textAlign: 'right', border: '1px solid #1e3a8a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>AMOUNT (Rs.)</th>
                 </tr>
               </thead>
               <tbody>
                 {chunk.map((item, index) => {
-                  // Fixed row height ensures the table structure never shifts
                   const rowStyle: React.CSSProperties = {
                     backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
-                    height: '24px',
+                    minHeight: '26px',
                     boxSizing: 'border-box',
                   };
                   
                   if (item.isPlaceholder) {
                     return (
-                      <tr key={`placeholder-${index}`} style={rowStyle}>
-                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
-                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}></td>
+                      <tr key={`placeholder-${index}`} style={{ ...rowStyle, height: '26px' }}>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '0' }}>&nbsp;</td>
                       </tr>
                     );
                   }
@@ -293,22 +292,22 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   const globalIndex = pageIndex * ITEMS_PER_PAGE + index;
                   return (
                     <tr key={item.id || globalIndex} style={rowStyle}>
-                      <td style={{ padding: '0 2px 2px 2px', border: '1px solid #e2e8f0', color: '#64748b', textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                      <td style={{ padding: '4px 2px', border: '1px solid #e2e8f0', color: '#64748b', textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.3' }}>
                         {globalIndex + 1}
                       </td>
-                      <td style={{ padding: '0 8px 2px 8px', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '500', wordBreak: 'break-word', whiteSpace: 'normal', verticalAlign: 'middle', lineHeight: '1.3' }}>
                         {item.itemName || item.inventoryItem?.productName || 'Item'}
                       </td>
-                      <td style={{ padding: '0 2px 2px 2px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                      <td style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.3' }}>
                         {item.quantity}
                       </td>
-                      <td style={{ padding: '0 8px 2px 8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.3' }}>
                         {Math.round(item.unitPrice).toLocaleString()}
                       </td>
-                      <td style={{ padding: '0 2px 2px 2px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                      <td style={{ padding: '4px 2px', textAlign: 'center', border: '1px solid #e2e8f0', color: '#334155', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.3' }}>
                         {getDiscountDisplay(item)}
                       </td>
-                      <td style={{ padding: '0 8px 2px 8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.3' }}>
                         {Math.round(item.total).toLocaleString()}
                       </td>
                     </tr>
@@ -332,7 +331,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                       minHeight: '60px',
                       boxSizing: 'border-box'
                     }}>
-                      <strong style={{ display: 'block', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                      <strong style={{ display: 'block', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
                         Remarks / Notes
                       </strong>
                       <div style={{ fontSize: '12px', color: '#475569', fontStyle: 'italic', lineHeight: '1.4', wordBreak: 'break-word' }}>
@@ -431,16 +430,16 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
             {/* Footer Signatures Area - On Every Page */}
             {/* Pushed to the very bottom naturally using flex layout */}
-            <div style={{ marginTop: 'auto', paddingTop: '50px' }}>
+            <div style={{ marginTop: 'auto', paddingTop: '40px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', padding: '0 20px' }}>
                 <div style={{ textAlign: 'center', width: '25%' }}>
-                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>PREPARED BY</div>
+                  <div style={{ borderTop: '1.5px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569' }}>PREPARED BY</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '25%' }}>
-                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>AUTHORIZED BY</div>
+                  <div style={{ borderTop: '1.5px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569' }}>AUTHORIZED BY</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '25%' }}>
-                  <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px' }}>
+                  <div style={{ borderTop: '1.5px solid #94a3b8', paddingTop: '6px', fontSize: '11px', fontWeight: '700', color: '#475569' }}>
                     {documentTitle === "PURCHASE ORDER" ? "SUPPLIER ACCEPTANCE" : "CUSTOMER SIGNATURE"}
                   </div>
                 </div>

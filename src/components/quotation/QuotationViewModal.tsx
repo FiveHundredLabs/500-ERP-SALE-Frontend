@@ -76,10 +76,20 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return false;
     try {
       setIsGeneratingPDF(true);
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const pages = quotationRef.current.querySelectorAll('.invoice-page');
       if (pages.length === 0) return false;
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
@@ -89,10 +99,17 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            let curr: HTMLElement | null = clonedElement;
+            while (curr) {
+              curr.style.transform = 'none';
+              curr = curr.parentElement;
+            }
+          },
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       }
 
       const fileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
@@ -150,6 +167,11 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return;
     try {
       setIsPrinting(true);
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const pages = quotationRef.current.querySelectorAll('.invoice-page');
       if (pages.length === 0) return;
 
@@ -160,8 +182,15 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            let curr: HTMLElement | null = clonedElement;
+            while (curr) {
+              curr.style.transform = 'none';
+              curr = curr.parentElement;
+            }
+          },
         });
-        images.push(canvas.toDataURL('image/jpeg', 0.95));
+        images.push(canvas.toDataURL('image/png'));
       }
 
       const printWindow = window.open('', '_blank');
@@ -352,57 +381,58 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
         )}
 
         {/* Canvas Render Area */}
-        <div className="flex-1 overflow-auto bg-[#0b1120] rounded-xl p-4 flex items-center justify-center min-h-[550px]">
-          {isGeneratingPDF ? (
-            <LoadingSpinner size="lg" text="Preparing PDF Document..." />
-          ) : (
-            <div
-              ref={quotationRef}
-              style={{
-                width: '210mm',
-                minHeight: '297mm',
-                backgroundColor: 'white',
-                transform: 'scale(0.88)',
-                transformOrigin: 'top center',
-                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-                margin: '0 auto',
-              }}
-            >
-              <InvoiceCanvas 
-                invoiceData={{
-                  documentTitle: "QUOTATION",
-                  invoiceNumber: quotationData.quotationNumber || "Draft",
-                  customer: quotationData.customer,
-                  customerDetails: quotationData.customerDetails as any,
-                  salesman: quotationData.salesman,
-                  salesmanName: quotationData.salesmanName || quotationData.salesman?.fullName,
-                  items: quotationData.items.map(item => ({
-                    id: item.id || Date.now().toString(),
-                    inventoryItemId: item.inventoryItemId,
-                    itemName: item.itemName || item.inventoryItem?.productName || 'Item',
-                    itemCode: item.productCode || item.inventoryItem?.productCode,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    total: item.total,
-                  })),
-                  subTotal: quotationData.subTotal,
-                  discount: quotationData.discount,
-                  discountPercentage: quotationData.discountPercentage || 0,
-                  totalAmount: quotationData.totalAmount,
-                  paymentStatus: 'pending',
-                  paymentMethod: quotationData.paymentMethod as any,
-                  issueDate: quotationData.issueDate,
-                  dueDate: quotationData.validUntil,
-                  vehicleNumber: '',
-                  notes: quotationData.notes,
-                  applyVat: false,
-                  vatAmount: 0,
-                  taxRate: 0,
-                  paidAmount: 0,
-                }} 
-              />
+        <div className="relative flex-1 overflow-auto bg-[#0b1120] rounded-xl p-4 flex items-center justify-center min-h-[550px]">
+          {isGeneratingPDF && (
+            <div className="absolute inset-0 z-50 bg-[#0b1120]/80 backdrop-blur-sm flex items-center justify-center rounded-xl">
+              <LoadingSpinner size="lg" text="Preparing PDF Document..." />
             </div>
           )}
+          <div
+            ref={quotationRef}
+            style={{
+              width: '210mm',
+              minHeight: '297mm',
+              backgroundColor: 'white',
+              transform: 'scale(0.88)',
+              transformOrigin: 'top center',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              margin: '0 auto',
+            }}
+          >
+            <InvoiceCanvas 
+              invoiceData={{
+                documentTitle: "QUOTATION",
+                invoiceNumber: quotationData.quotationNumber || "Draft",
+                customer: quotationData.customer,
+                customerDetails: quotationData.customerDetails as any,
+                salesman: quotationData.salesman,
+                salesmanName: quotationData.salesmanName || quotationData.salesman?.fullName,
+                items: quotationData.items.map(item => ({
+                  id: item.id || Date.now().toString(),
+                  inventoryItemId: item.inventoryItemId,
+                  itemName: item.itemName || item.inventoryItem?.productName || 'Item',
+                  itemCode: item.productCode || item.inventoryItem?.productCode,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  total: item.total,
+                })),
+                subTotal: quotationData.subTotal,
+                discount: quotationData.discount,
+                discountPercentage: quotationData.discountPercentage || 0,
+                totalAmount: quotationData.totalAmount,
+                paymentStatus: 'pending',
+                paymentMethod: quotationData.paymentMethod as any,
+                issueDate: quotationData.issueDate,
+                dueDate: quotationData.validUntil,
+                vehicleNumber: '',
+                notes: quotationData.notes,
+                applyVat: false,
+                vatAmount: 0,
+                taxRate: 0,
+                paidAmount: 0,
+              }} 
+            />
+          </div>
         </div>
       </div>
     </Modal>
