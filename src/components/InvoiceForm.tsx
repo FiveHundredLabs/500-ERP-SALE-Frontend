@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { InvoiceData, InvoiceItem, InvoiceCustomer } from "../types/invoice";
 import type { InventoryItem } from "../types/inventory";
 import { PaymentMethod, PaymentStatus, type PaymentStatusType, type PaymentMethodType } from "../types/invoice";
@@ -86,6 +86,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     discountScope: 'per_unit',
     discountValue: '0',
   });
+
+  const salesRepSelectRef = useRef<HTMLSelectElement>(null);
+  const productSearchInputRef = useRef<HTMLInputElement>(null);
 
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
@@ -281,6 +284,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       const defaultOfficer = salesmen[0];
       onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
     }
+
+    setTimeout(() => {
+      salesRepSelectRef.current?.focus();
+    }, 50);
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, onFieldChange, handleCreditPeriodChange, salesmen, invoiceData.salesman?.id]);
 
   const handleOrderImport = useCallback(async (po: PurchaseOrder) => {
@@ -515,6 +522,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       handleCreditPeriodChange(String(defaultPeriod));
     }
     setCustomerModalMode(null);
+    setTimeout(() => {
+      salesRepSelectRef.current?.focus();
+    }, 50);
   }, [customerModalMode, selectedCustomer, updateCustomer, createCustomer, onCustomerIdChange, setCustomerSearchTerm, handleCreditPeriodChange, onFieldChange]);
 
   const getCustomerPrefillData = useCallback(() => {
@@ -693,10 +703,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer <span className="text-red-400 font-bold">*</span></span>
               </label>
               <select
+                ref={salesRepSelectRef}
                 value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
                   const selected = salesmen.find(s => s.id === e.target.value);
                   onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
+                  setTimeout(() => {
+                    productSearchInputRef.current?.focus();
+                  }, 50);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    productSearchInputRef.current?.focus();
+                  }
                 }}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
               >
@@ -825,6 +845,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         onClearSelection={handleClearItemSelection}
         stockWarning={stockWarning}
         invoiceItems={invoiceData.items}
+        searchInputRef={productSearchInputRef}
       />
 
       {invoiceData.items.length > 0 && (

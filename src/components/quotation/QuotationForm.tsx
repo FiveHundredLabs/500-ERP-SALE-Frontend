@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { QuotationData, QuotationItem } from "../../types/quotation";
 import type { InventoryItem } from "../../types/inventory";
 import { PaymentMethod } from "../../types/invoice";
@@ -108,6 +108,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
+  const salesRepSelectRef = useRef<HTMLSelectElement>(null);
+  const productSearchInputRef = useRef<HTMLInputElement>(null);
+
   // Sales Officer list (users with role === 'salesman')
   const [salesmen, setSalesmen] = useState<User[]>([]);
   useEffect(() => {
@@ -203,6 +206,10 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
       const defaultOfficer = salesmen[0];
       onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
     }
+
+    setTimeout(() => {
+      salesRepSelectRef.current?.focus();
+    }, 50);
   }, [onCustomerIdChange, setCustomerSearchTerm, setShowCustomerSuggestions, handleCreditPeriodChange, onFieldChange, salesmen, quotationData.salesman?.id]);
 
   const handleClearCustomer = useCallback(() => {
@@ -291,6 +298,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         handleCreditPeriodChange(String(defaultPeriod));
       }
       setCustomerModalMode(null);
+      setTimeout(() => {
+        salesRepSelectRef.current?.focus();
+      }, 50);
     } catch (error) {
       throw error;
     }
@@ -381,10 +391,20 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
                 <span className="flex items-center gap-1.5"><UserCheck size={16} className="text-purple-400" /> Sales Officer*</span>
               </label>
               <select
+                ref={salesRepSelectRef}
                 value={quotationData.salesman?.id || (typeof quotationData.salesman === 'object' ? (quotationData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
                   const selected = salesmen.find(s => s.id === e.target.value);
                   onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.fullName, name: selected.fullName } as any : null as any);
+                  setTimeout(() => {
+                    productSearchInputRef.current?.focus();
+                  }, 50);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    productSearchInputRef.current?.focus();
+                  }
                 }}
                 className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium"
               >
@@ -507,6 +527,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         onClearSelection={handleClearItemSelection}
         stockWarning={stockWarning}
         quotationItems={quotationData.items}
+        searchInputRef={productSearchInputRef}
       />
 
       {quotationData.items.length > 0 && (
