@@ -24,7 +24,6 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
 }) => {
   const quotationRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<{
@@ -76,10 +75,20 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     if (!quotationRef.current) return false;
     try {
       setIsGeneratingPDF(true);
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const pages = quotationRef.current.querySelectorAll('.invoice-page');
       if (pages.length === 0) return false;
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
@@ -89,10 +98,17 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            let curr: HTMLElement | null = clonedElement;
+            while (curr) {
+              curr.style.transform = 'none';
+              curr = curr.parentElement;
+            }
+          },
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       }
 
       const fileName = `Quotation-${quotationData.quotationNumber || 'draft'}.pdf`;
@@ -146,60 +162,197 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
     setShowShareMenu(false);
   };
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (!quotationRef.current) return;
+    const docNode = quotationRef.current.querySelector('.invoice-document');
+    if (!docNode) return;
+
+    const screenWidth = window.screen?.availWidth || window.outerWidth || 1200;
+    const screenHeight = window.screen?.availHeight || window.outerHeight || 900;
+    const screenLeft = (window.screen as any)?.availLeft ?? window.screenLeft ?? window.screenX ?? 0;
+    const screenTop = (window.screen as any)?.availTop ?? window.screenTop ?? window.screenY ?? 0;
+
+    const printWin = window.open(
+      '',
+      '_blank',
+      `left=${screenLeft},top=${screenTop},width=${screenWidth},height=${screenHeight},toolbar=0,scrollbars=1,status=0,resizable=1`
+    );
+    if (!printWin) return;
+
     try {
-      setIsPrinting(true);
-      const pages = quotationRef.current.querySelectorAll('.invoice-page');
-      if (pages.length === 0) return;
+      printWin.moveTo(screenLeft, screenTop);
+      printWin.resizeTo(screenWidth, screenHeight);
+    } catch {
+      // Ignored if browser restricts window manipulation
+    }
 
-      const images: string[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
-        images.push(canvas.toDataURL('image/jpeg', 0.95));
+    const logoImg = quotationRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    let logoSrc = logoImg?.src || '';
+
+    const writeAndPrint = (resolvedLogoSrc: string) => {
+      const html = (docNode as HTMLElement).innerHTML
+        .replace(/src="[^"]*logo[^"]*"/gi, `src="${resolvedLogoSrc}"`)
+        .replace(/margin-bottom:\s*20px;?/gi, 'margin-bottom: 0;');
+
+      printWin.document.open();
+      printWin.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Print Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"/>
+  <script>
+    try {
+      window.moveTo(0, 0);
+      window.resizeTo(screen.availWidth, screen.availHeight);
+    } catch (e) {}
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      font-family: Inter, Arial, sans-serif;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .invoice-document {
+      display: block !important;
+      position: static !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      width: 210mm !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    .invoice-page {
+      width: 210mm !important;
+      min-width: 210mm !important;
+      max-width: 210mm !important;
+      height: 296.5mm !important;
+      min-height: 296.5mm !important;
+      max-height: 296.5mm !important;
+      margin: 0 auto !important;
+      margin-bottom: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      background: #ffffff !important;
+      position: relative !important;
+      overflow: hidden !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: always !important;
+      break-after: page !important;
+    }
+    .invoice-page:last-child,
+    .invoice-page.is-last-page {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      margin-bottom: 0 !important;
+    }
+    .invoice-page table {
+      table-layout: fixed !important;
+      width: 180mm !important;
+      min-width: 180mm !important;
+      max-width: 180mm !important;
+      border-collapse: collapse !important;
+      margin: 0 auto !important;
+    }
+    .invoice-page th,
+    .invoice-page td {
+      box-sizing: border-box !important;
+      vertical-align: middle !important;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 0mm;
+    }
+    @media print {
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
       }
+      .invoice-document {
+        display: block !important;
+        position: static !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        width: 210mm !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      .invoice-page {
+        width: 210mm !important;
+        min-width: 210mm !important;
+        max-width: 210mm !important;
+        height: 296.5mm !important;
+        min-height: 296.5mm !important;
+        max-height: 296.5mm !important;
+        margin: 0 auto !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .invoice-page:last-child,
+      .invoice-page.is-last-page {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        margin-bottom: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-document">${html}</div>
+</body>
+</html>`);
+      printWin.document.close();
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
+      let printed = false;
+      const doPrint = () => {
+        if (printed) return;
+        printed = true;
+        try {
+          printWin.focus();
+          printWin.print();
+          printWin.close();
+        } catch {
+          // ignore
+        }
+      };
 
-      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
+      printWin.onload = () => {
+        setTimeout(doPrint, 500);
+      };
+      setTimeout(doPrint, 1000);
+    };
 
-      const printHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Quotation ${quotationData.quotationNumber}</title>
-            <style>
-              @page { size: A4 portrait; margin: 0; }
-              body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background: #fff; }
-              .page-img { width: 210mm; height: 297mm; object-fit: contain; page-break-after: always; display: block; }
-              .page-img:last-child { page-break-after: auto; }
-            </style>
-          </head>
-          <body>
-            ${imgTags}
-            <script>
-              window.onload = function() {
-                window.print();
-                window.close();
-              }
-            </script>
-          </body>
-        </html>
-      `;
-
-      printWindow.document.open();
-      printWindow.document.write(printHtml);
-      printWindow.document.close();
-    } catch (err) {
-      console.error('Print failed:', err);
-    } finally {
-      setIsPrinting(false);
+    if (logoSrc && !logoSrc.startsWith('data:')) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const cvs = document.createElement('canvas');
+          cvs.width = img.naturalWidth;
+          cvs.height = img.naturalHeight;
+          cvs.getContext('2d')!.drawImage(img, 0, 0);
+          writeAndPrint(cvs.toDataURL('image/png'));
+        } catch {
+          writeAndPrint(logoSrc);
+        }
+      };
+      img.onerror = () => writeAndPrint(logoSrc);
+      img.src = logoSrc;
+    } else {
+      writeAndPrint(logoSrc);
     }
   };
 
@@ -236,7 +389,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              disabled={isGeneratingPDF || isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-md disabled:opacity-50"
               title={`Generate PDF & Open WhatsApp chat for ${customerPhone}`}
             >
@@ -305,7 +458,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
             >
               <Printer size={13} />
@@ -352,57 +505,58 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
         )}
 
         {/* Canvas Render Area */}
-        <div className="flex-1 overflow-auto bg-[#0b1120] rounded-xl p-4 flex items-center justify-center min-h-[550px]">
-          {isGeneratingPDF ? (
-            <LoadingSpinner size="lg" text="Preparing PDF Document..." />
-          ) : (
-            <div
-              ref={quotationRef}
-              style={{
-                width: '210mm',
-                minHeight: '297mm',
-                backgroundColor: 'white',
-                transform: 'scale(0.88)',
-                transformOrigin: 'top center',
-                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-                margin: '0 auto',
-              }}
-            >
-              <InvoiceCanvas 
-                invoiceData={{
-                  documentTitle: "QUOTATION",
-                  invoiceNumber: quotationData.quotationNumber || "Draft",
-                  customer: quotationData.customer,
-                  customerDetails: quotationData.customerDetails as any,
-                  salesman: quotationData.salesman,
-                  salesmanName: quotationData.salesmanName || quotationData.salesman?.fullName,
-                  items: quotationData.items.map(item => ({
-                    id: item.id || Date.now().toString(),
-                    inventoryItemId: item.inventoryItemId,
-                    itemName: item.itemName || item.inventoryItem?.productName || 'Item',
-                    itemCode: item.productCode || item.inventoryItem?.productCode,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    total: item.total,
-                  })),
-                  subTotal: quotationData.subTotal,
-                  discount: quotationData.discount,
-                  discountPercentage: quotationData.discountPercentage || 0,
-                  totalAmount: quotationData.totalAmount,
-                  paymentStatus: 'pending',
-                  paymentMethod: quotationData.paymentMethod as any,
-                  issueDate: quotationData.issueDate,
-                  dueDate: quotationData.validUntil,
-                  vehicleNumber: '',
-                  notes: quotationData.notes,
-                  applyVat: false,
-                  vatAmount: 0,
-                  taxRate: 0,
-                  paidAmount: 0,
-                }} 
-              />
+        <div className="relative flex-1 overflow-auto bg-[#0b1120] rounded-xl p-4 flex items-center justify-center min-h-[550px]">
+          {isGeneratingPDF && (
+            <div className="absolute inset-0 z-50 bg-[#0b1120]/80 backdrop-blur-sm flex items-center justify-center rounded-xl">
+              <LoadingSpinner size="lg" text="Preparing PDF Document..." />
             </div>
           )}
+          <div
+            ref={quotationRef}
+            style={{
+              width: '210mm',
+              minHeight: '297mm',
+              backgroundColor: 'white',
+              transform: 'scale(0.88)',
+              transformOrigin: 'top center',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              margin: '0 auto',
+            }}
+          >
+            <InvoiceCanvas 
+              invoiceData={{
+                documentTitle: "QUOTATION",
+                invoiceNumber: quotationData.quotationNumber || "Draft",
+                customer: quotationData.customer,
+                customerDetails: quotationData.customerDetails as any,
+                salesman: quotationData.salesman,
+                salesmanName: quotationData.salesmanName || quotationData.salesman?.fullName,
+                items: quotationData.items.map(item => ({
+                  id: item.id || Date.now().toString(),
+                  inventoryItemId: item.inventoryItemId,
+                  itemName: item.itemName || item.inventoryItem?.productName || 'Item',
+                  itemCode: item.productCode || item.inventoryItem?.productCode,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  total: item.total,
+                })),
+                subTotal: quotationData.subTotal,
+                discount: quotationData.discount,
+                discountPercentage: quotationData.discountPercentage || 0,
+                totalAmount: quotationData.totalAmount,
+                paymentStatus: 'pending',
+                paymentMethod: quotationData.paymentMethod as any,
+                issueDate: quotationData.issueDate,
+                dueDate: quotationData.validUntil,
+                vehicleNumber: '',
+                notes: quotationData.notes,
+                applyVat: false,
+                vatAmount: 0,
+                taxRate: 0,
+                paidAmount: 0,
+              }} 
+            />
+          </div>
         </div>
       </div>
     </Modal>

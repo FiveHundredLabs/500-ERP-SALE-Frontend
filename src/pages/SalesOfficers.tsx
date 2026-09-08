@@ -142,10 +142,15 @@ export const SalesOfficers: React.FC = () => {
     // Filter by officer
     if (selectedOfficerId !== "ALL") {
       const officer = officers.find((o) => o.id === selectedOfficerId || o.officerId === selectedOfficerId);
-      const officerName = officer ? officer.fullName : "";
+      const officerDisplayName = officer ? (officer.displayName || officer.fullName) : "";
+      const officerFullName = officer ? officer.fullName : "";
       list = list.filter((inv: InvoiceResponse) => {
         const sName = inv.salesman?.fullName || inv.salesmanName || "";
-        return sName === officerName || inv.salesman?.id === selectedOfficerId;
+        return (
+          sName === officerDisplayName ||
+          sName === officerFullName ||
+          inv.salesman?.id === selectedOfficerId
+        );
       });
     }
 
@@ -457,9 +462,14 @@ export const SalesOfficers: React.FC = () => {
                 const isSelected = selectedOfficerId === officer.id || selectedOfficerId === officer.officerId;
                 const officerInvoices = periodFilteredInvoices.filter((inv: InvoiceResponse) => {
                   const sName = inv.salesman?.fullName || inv.salesmanName || "";
-                  return sName === officer.fullName;
+                  return (
+                    sName === (officer.displayName || officer.fullName) ||
+                    sName === officer.fullName ||
+                    inv.salesman?.id === officer.id
+                  );
                 });
                 const officerSales = officerInvoices.reduce((sum: number, i: InvoiceResponse) => sum + (i.totalAmount || 0), 0);
+                const primaryName = officer.displayName || officer.fullName;
 
                 return (
                   <div
@@ -477,16 +487,21 @@ export const SalesOfficers: React.FC = () => {
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-bold text-xs">
-                            {officer.fullName
+                            {primaryName
                               .split(" ")
                               .map((n) => n[0])
                               .slice(0, 2)
                               .join("")}
                           </div>
                           <div>
-                            <h4 className="text-xs font-bold text-white truncate max-w-[120px]">
-                              {officer.fullName}
+                            <h4 className="text-xs font-bold text-white truncate max-w-[120px]" title={primaryName}>
+                              {primaryName}
                             </h4>
+                            {officer.displayName && officer.displayName !== officer.fullName && (
+                              <p className="text-[9px] text-gray-400 truncate max-w-[120px]" title={`Full Name: ${officer.fullName}`}>
+                                {officer.fullName}
+                              </p>
+                            )}
                             <span className="text-[10px] text-emerald-400 font-mono font-medium">
                               {officer.contactNumber}
                             </span>

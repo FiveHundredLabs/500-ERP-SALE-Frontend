@@ -275,6 +275,7 @@ export const CustomerPdfImportModal: React.FC<CustomerPdfImportModalProps> = ({
         phone: c.whatsapp || c.phone2 || '',
         phone2: c.whatsapp && c.phone2 ? c.phone2 : undefined,
         creditLimit: 1000000,
+        creditPeriod: 60,
         status: 'Active',
       }));
 

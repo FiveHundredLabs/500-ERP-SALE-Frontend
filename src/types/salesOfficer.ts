@@ -1,6 +1,7 @@
 export interface SalesOfficer {
   id: string;
   fullName: string;
+  displayName?: string;
   contactNumber: string;     // Sri Lankan mobile (WhatsApp enabled)
   joiningDate: string;       // YYYY-MM-DD
   username?: string;

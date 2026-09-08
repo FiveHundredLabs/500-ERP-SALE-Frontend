@@ -7,6 +7,7 @@ import type { InventoryItem } from '../../types/inventory';
 import type { Supplier } from '../../types/suppliers';
 import { supplierService } from '../../services/SupplierService';
 import { inventoryService } from '../../services/InventoryService';
+import { purchaseOrderService } from '../../services/PurchaseOrderService';
 import { useToast } from '../erp/Toast';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { generatePOWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
@@ -69,6 +70,15 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   const supplierRef = useRef<HTMLDivElement>(null);
   useClickOutside([supplierRef], () => setShowSupplierDropdown(false));
 
+  const supplierInputRef = useRef<HTMLInputElement>(null);
+  const itemSearchInputRef = useRef<HTMLInputElement>(null);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+  const priceInputRef = useRef<HTMLInputElement>(null);
+  const remarkInputRef = useRef<HTMLInputElement>(null);
+
+  const [highlightedSupplierIndex, setHighlightedSupplierIndex] = useState<number>(-1);
+  const [highlightedItemIndex, setHighlightedItemIndex] = useState<number>(-1);
+
   // Quick Add Supplier state
   const [isCustomSupplier, setIsCustomSupplier] = useState(false);
   const [customSupplier, setCustomSupplier] = useState({
@@ -120,12 +130,29 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
 
+  const [nextPoNumber, setNextPoNumber] = useState<string>('');
+
   useEffect(() => {
     if (isOpen) {
       supplierService.getAll().then(s => setAllSuppliers(s || [])).catch(() => {});
       inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
+      if (!poToEdit) {
+        purchaseOrderService.getNextId().then(id => setNextPoNumber(id)).catch(() => {});
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, poToEdit]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        if (!selectedSupplierId && !poToEdit) {
+          supplierInputRef.current?.focus();
+        } else {
+          itemSearchInputRef.current?.focus();
+        }
+      }, 100);
+    }
+  }, [isOpen, selectedSupplierId, poToEdit]);
 
   // Escape key to close drawer
   useEffect(() => {
@@ -314,25 +341,38 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     setSelectedSupplierId(sup.id);
     setSupplierSearch(`${sup.companyName} (${sup.supplierCode})`);
     setShowSupplierDropdown(false);
+    setHighlightedSupplierIndex(-1);
     setIsCustomSupplier(false);
+    setErrors((prev) => ({ ...prev, supplier: '' }));
+    setTimeout(() => {
+      itemSearchInputRef.current?.focus();
+    }, 50);
   };
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItemToAdd(item);
-    setItemSearch(`${item.productName} (${item.productCode})`);
+    setItemSearch(`${item.productName} (${item.productCode || item.inventoryCode || ''})`);
     // Load existing inventory cost price into unit price
     setAddPrice(item.purchasePrice || 0);
-    setAddQty(0);
+    setAddQty(1);
     setShowItemDropdown(false);
+    setHighlightedItemIndex(-1);
+    setTimeout(() => {
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
+    }, 50);
   };
 
   const handleAddItem = () => {
     if (!selectedItemToAdd) {
       toast.error('Validation Error', 'Please select an item to add.');
+      itemSearchInputRef.current?.focus();
       return;
     }
     if (addQty <= 0) {
       toast.error('Validation Error', 'Quantity must be greater than 0.');
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
       return;
     }
 
@@ -363,7 +403,12 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
     setAddQty(0);
     setAddPrice(0);
     setAddRemark('');
+    setHighlightedItemIndex(-1);
     toast.success('Item Added', 'Item added to draft purchase order.');
+
+    setTimeout(() => {
+      itemSearchInputRef.current?.focus();
+    }, 50);
   };
 
   const handleRemoveItem = (idx: number) => {
@@ -516,11 +561,9 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       remark: it.remark?.trim() || undefined,
     }));
 
-    const poId = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
     const newPO: PurchaseOrder = {
       id: poToEdit ? poToEdit.id : Date.now().toString(),
-      poNumber: poToEdit ? poToEdit.poNumber : poId,
+      poNumber: poToEdit ? poToEdit.poNumber : (nextPoNumber || undefined as any),
       sourceOrderId: initialData?.sourceOrderId,
       sourceOrderNumber: referenceOrderNum || undefined,
       customerName: customerName || (poToEdit ? poToEdit.customerName : undefined),
@@ -548,7 +591,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       totalAmount: financials.grandTotal,
       status: poToEdit ? poToEdit.status : 'pending_approval',
       paymentStatus: poToEdit ? poToEdit.paymentStatus : 'unpaid',
-      paymentTerms: poToEdit ? poToEdit.paymentTerms : 'Net 30',
+      paymentTerms: poToEdit ? poToEdit.paymentTerms : 'Net 60',
       notes,
     };
 
@@ -641,8 +684,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                   {poToEdit
                     ? `Update Purchase Order — ${poToEdit.poNumber}`
                     : isConverting
-                    ? `Convert to Purchase Order ${referenceOrderNum ? `(Ref #${referenceOrderNum})` : ''}`
-                    : 'Create Purchase Order'}
+                    ? `Convert to Purchase Order ${nextPoNumber ? `— ${nextPoNumber} ` : ''}${referenceOrderNum ? `(Ref #${referenceOrderNum})` : ''}`
+                    : `Create Purchase Order${nextPoNumber ? ` — ${nextPoNumber}` : ''}`}
                 </h2>
                 <p className="text-xs text-slate-400">
                   {isConverting
@@ -745,14 +788,44 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                   <>
                     <div className="relative">
                       <input
+                        ref={supplierInputRef}
                         type="text"
                         placeholder="Search & select supplier..."
                         value={supplierSearch}
                         onChange={(e) => {
                           setSupplierSearch(e.target.value);
                           setShowSupplierDropdown(true);
+                          setHighlightedSupplierIndex(0);
                         }}
-                        onFocus={() => setShowSupplierDropdown(true)}
+                        onFocus={() => {
+                          setShowSupplierDropdown(true);
+                          if (filteredSuppliers.length > 0) setHighlightedSupplierIndex(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!showSupplierDropdown) {
+                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                              setShowSupplierDropdown(true);
+                              setHighlightedSupplierIndex(0);
+                              return;
+                            }
+                          }
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setHighlightedSupplierIndex((prev) => (prev < filteredSuppliers.length - 1 ? prev + 1 : prev));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setHighlightedSupplierIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (showSupplierDropdown && highlightedSupplierIndex >= 0 && filteredSuppliers[highlightedSupplierIndex]) {
+                              handleSelectSupplier(filteredSuppliers[highlightedSupplierIndex]);
+                            } else if (filteredSuppliers.length > 0) {
+                              handleSelectSupplier(filteredSuppliers[0]);
+                            }
+                          } else if (e.key === 'Escape') {
+                            setShowSupplierDropdown(false);
+                          }
+                        }}
                         className={`w-full bg-[#0b1120] border ${
                           errors.supplier ? 'border-red-500 ring-1 ring-red-500' : 'border-[#1e293b]'
                         } rounded-xl px-3 py-2.5 pl-9 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500`}
@@ -764,19 +837,29 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                     {/* Dropdown list */}
                     {showSupplierDropdown && filteredSuppliers.length > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-1.5 max-h-48 bg-[#0b1120] border border-[#1e293b] rounded-xl shadow-2xl overflow-y-auto z-50 p-1">
-                        {filteredSuppliers.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => handleSelectSupplier(s)}
-                            className="px-3 py-2 hover:bg-[#1e293b] rounded-lg cursor-pointer transition text-xs flex justify-between items-center"
-                          >
-                            <div>
-                              <span className="font-semibold text-white">{s.companyName}</span>
-                              <span className="text-slate-400 ml-1.5">({s.contactPerson})</span>
+                        {filteredSuppliers.map((s, index) => {
+                          const isSelected = selectedSupplierId === s.id;
+                          const isHighlighted = highlightedSupplierIndex === index;
+                          return (
+                            <div
+                              key={s.id}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setHighlightedSupplierIndex(index)}
+                              onClick={() => handleSelectSupplier(s)}
+                              className={`px-3 py-2 rounded-lg cursor-pointer transition text-xs flex justify-between items-center ${
+                                isSelected || isHighlighted
+                                  ? 'bg-purple-600/25 text-purple-200 font-semibold'
+                                  : 'hover:bg-[#1e293b] text-slate-200'
+                              }`}
+                            >
+                              <div>
+                                <span className="font-semibold text-white">{s.companyName}</span>
+                                <span className="text-slate-400 ml-1.5">({s.contactPerson})</span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-mono">{s.supplierCode}</span>
                             </div>
-                            <span className="text-[10px] text-slate-500 font-mono">{s.supplierCode}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -830,14 +913,44 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                     <label className="text-[11px] font-semibold text-slate-400">Search Product</label>
                     <div className="relative">
                       <input
+                        ref={itemSearchInputRef}
                         type="text"
                         placeholder="Search product from inventory..."
                         value={itemSearch}
                         onChange={(e) => {
                           setItemSearch(e.target.value);
                           setShowItemDropdown(true);
+                          setHighlightedItemIndex(0);
                         }}
-                        onFocus={() => setShowItemDropdown(true)}
+                        onFocus={() => {
+                          setShowItemDropdown(true);
+                          if (filteredInventoryItems.length > 0) setHighlightedItemIndex(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!showItemDropdown) {
+                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                              setShowItemDropdown(true);
+                              setHighlightedItemIndex(0);
+                              return;
+                            }
+                          }
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setHighlightedItemIndex((prev) => (prev < filteredInventoryItems.length - 1 ? prev + 1 : prev));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setHighlightedItemIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (showItemDropdown && highlightedItemIndex >= 0 && filteredInventoryItems[highlightedItemIndex]) {
+                              handleSelectItem(filteredInventoryItems[highlightedItemIndex]);
+                            } else if (filteredInventoryItems.length > 0) {
+                              handleSelectItem(filteredInventoryItems[0]);
+                            }
+                          } else if (e.key === 'Escape') {
+                            setShowItemDropdown(false);
+                          }
+                        }}
                         className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 pl-9 pr-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500"
                       />
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
@@ -848,7 +961,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                             setItemSearch('');
                             setSelectedItemToAdd(null);
                             setAddPrice(0);
-                            setAddQty(1);
+                            setAddQty(0);
                             setShowItemDropdown(true);
                           }}
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
@@ -861,28 +974,38 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
                     {showItemDropdown && filteredInventoryItems.length > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-1 max-h-56 bg-[#0f172a] border border-[#1e293b] rounded-lg shadow-2xl overflow-y-auto z-50 p-1 divide-y divide-[#1e293b]/60">
-                        {filteredInventoryItems.map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => handleSelectItem(item)}
-                            className="px-3 py-2 hover:bg-[#1e293b] rounded-lg cursor-pointer transition text-xs flex justify-between items-center gap-2"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <span className="text-white font-medium block truncate">{item.productName}</span>
-                              {((item as any).category || (item as any).brand) && (
-                                <span className="text-[10px] text-slate-400 truncate block mt-0.5">
-                                  {(item as any).category} {(item as any).brand ? `· ${(item as any).brand}` : ''}
+                        {filteredInventoryItems.map((item, index) => {
+                          const isSelected = selectedItemToAdd?.id === item.id;
+                          const isHighlighted = highlightedItemIndex === index;
+                          return (
+                            <div
+                              key={item.id}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setHighlightedItemIndex(index)}
+                              onClick={() => handleSelectItem(item)}
+                              className={`px-3 py-2 rounded-lg cursor-pointer transition text-xs flex justify-between items-center gap-2 ${
+                                isSelected || isHighlighted
+                                  ? 'bg-purple-600/25 text-purple-200'
+                                  : 'hover:bg-[#1e293b]'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="text-white font-medium block truncate">{item.productName}</span>
+                                {((item as any).category || (item as any).brand) && (
+                                  <span className="text-[10px] text-slate-400 truncate block mt-0.5">
+                                    {(item as any).category} {(item as any).brand ? `· ${(item as any).brand}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-emerald-400 font-mono text-[11px] font-bold block">
+                                  Cost: LKR {Math.round(item.purchasePrice || 0).toLocaleString()}
                                 </span>
-                              )}
+                                <span className="text-slate-500 font-mono text-[10px]">{item.productCode}</span>
+                              </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              <span className="text-emerald-400 font-mono text-[11px] font-bold block">
-                                Cost: LKR {Math.round(item.purchasePrice || 0).toLocaleString()}
-                              </span>
-                              <span className="text-slate-500 font-mono text-[10px]">{item.productCode}</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -890,9 +1013,18 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                   <div className="md:col-span-2 space-y-1.5">
                     <label className="text-[11px] font-semibold text-slate-400">Unit Cost (LKR)</label>
                     <input
+                      ref={priceInputRef}
                       type="number"
                       value={addPrice || ''}
                       onChange={(e) => setAddPrice(parseFloat(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          qtyInputRef.current?.focus();
+                          qtyInputRef.current?.select();
+                        }
+                      }}
                       className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
                     />
                   </div>
@@ -900,10 +1032,18 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                   <div className="md:col-span-2 space-y-1.5">
                     <label className="text-[11px] font-semibold text-slate-400">Quantity</label>
                     <input
+                      ref={qtyInputRef}
                       type="number"
                       min="0"
                       value={addQty === 0 ? '0' : addQty || ''}
                       onChange={(e) => setAddQty(parseInt(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddItem();
+                        }
+                      }}
                       className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
                     />
                   </div>
@@ -925,10 +1065,17 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
                     <MessageSquare size={12} className="text-purple-400" /> Item Remark (Optional - visible to supplier)
                   </label>
                   <input
+                    ref={remarkInputRef}
                     type="text"
                     placeholder="e.g. Please provide latest production batch, specify grade/brand, packaging notes..."
                     value={addRemark}
                     onChange={(e) => setAddRemark(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddItem();
+                      }
+                    }}
                     className="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   />
                 </div>

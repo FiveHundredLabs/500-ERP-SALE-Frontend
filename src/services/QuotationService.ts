@@ -65,7 +65,7 @@ export const quotationService = {
     });
     if (!res.ok) throw new Error(`Failed to fetch next quotation ID: ${res.statusText}`);
     const data = await res.json();
-    return data.nextQuotationNumber || `QUO-${Date.now()}`;
+    return data.nextQuotationNumber || 'QUO1001';
   },
 
   // Get quotation by ID

@@ -25,7 +25,6 @@ const PurchaseOrderPreview: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const poRef = useRef<HTMLDivElement>(null);
@@ -71,6 +70,11 @@ const PurchaseOrderPreview: React.FC = () => {
     if (!poRef.current || !poData) return;
     try {
       setIsGeneratingPDF(true);
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const pages = poRef.current.querySelectorAll('.invoice-page');
       if (pages.length === 0) return;
 
@@ -84,10 +88,17 @@ const PurchaseOrderPreview: React.FC = () => {
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            let curr: HTMLElement | null = clonedElement;
+            while (curr) {
+              curr.style.transform = 'none';
+              curr = curr.parentElement;
+            }
+          },
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
       const fileName = `PurchaseOrder-${poData.poNumber || 'document'}.pdf`;
@@ -101,89 +112,8 @@ const PurchaseOrderPreview: React.FC = () => {
     }
   };
 
-  const handlePrint = async () => {
-    if (!poRef.current || !poData) return;
-    try {
-      setIsPrinting(true);
-      const pages = poRef.current.querySelectorAll('.invoice-page');
-      if (pages.length === 0) {
-        window.print();
-        return;
-      }
-
-      const images: string[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2.5,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
-        images.push(canvas.toDataURL('image/jpeg', 0.95));
-      }
-
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        window.print();
-        setIsPrinting(false);
-        return;
-      }
-
-      const imgTags = images.map(src => `<img class="page-img" src="${src}" />`).join('');
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Purchase Order ${poData.poNumber}</title>
-            <style>
-              @page {
-                size: A4 portrait;
-                margin: 0;
-              }
-              body {
-                margin: 0;
-                padding: 0;
-                background: #fff;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-              }
-              .page-img {
-                width: 210mm;
-                height: 297mm;
-                object-fit: contain;
-                display: block;
-                page-break-after: always;
-              }
-              .page-img:last-child {
-                page-break-after: auto;
-              }
-              @media print {
-                body { margin: 0 !important; padding: 0 !important; }
-              }
-            </style>
-          </head>
-          <body>
-            ${imgTags}
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() { window.close(); }, 1000);
-                }, 400);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    } catch (err) {
-      console.error('Failed to print with custom canvas, falling back to standard print:', err);
-      window.print();
-    } finally {
-      setIsPrinting(false);
-    }
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleShareWhatsApp = () => {
@@ -325,18 +255,18 @@ const PurchaseOrderPreview: React.FC = () => {
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isPrinting || isGeneratingPDF}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
               title="Print document"
             >
               <Printer size={14} />
-              <span>{isPrinting ? 'Printing...' : 'Print'}</span>
+              <span>Print</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadPDF}
-              disabled={isGeneratingPDF || isPrinting}
+              disabled={isGeneratingPDF}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50 cursor-pointer"
               title="Download as PDF"
             >

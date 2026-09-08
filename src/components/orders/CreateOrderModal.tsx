@@ -111,7 +111,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
       setSelectedCustomerId(initialOrder.customerId || '');
       setCustomerSearch(initialOrder.customerName || '');
       setSelectedSalesmanId(initialOrder.salesmanId || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.id : '') || '');
-      setSalesmanSearch(initialOrder.salesmanName || (typeof initialOrder.salesman === 'object' ? initialOrder.salesman?.fullName : '') || '');
+      setSalesmanSearch(initialOrder.salesmanName || (typeof initialOrder.salesman === 'object' ? ((initialOrder.salesman as any)?.displayName || initialOrder.salesman?.fullName) : '') || '');
       setOrderDate(initialOrder.orderDate ? String(initialOrder.orderDate).split('T')[0] : today);
       setNotes(initialOrder.notes || '');
       setTotalDiscountType(initialOrder.totalDiscountType || 'percentage');
@@ -144,6 +144,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   const salesmanRef = useRef<HTMLDivElement>(null);
   const productRef = useRef<HTMLDivElement>(null);
 
+  const customerInputRef = useRef<HTMLInputElement>(null);
+  const salesmanInputRef = useRef<HTMLInputElement>(null);
+  const productInputRef = useRef<HTMLInputElement>(null);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+
+  const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState<number>(-1);
+  const [highlightedSalesmanIndex, setHighlightedSalesmanIndex] = useState<number>(-1);
+  const [highlightedProductIndex, setHighlightedProductIndex] = useState<number>(-1);
+
   useClickOutside([customerRef], () => setShowCustomerDropdown(false));
   useClickOutside([salesmanRef], () => setShowSalesmanDropdown(false));
   useClickOutside([productRef], () => setShowProductDropdown(false));
@@ -166,7 +175,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
   useEffect(() => {
     if (isOpen) {
       invoiceService.getAllCustomers().then(c => setAllCustomers(c || [])).catch(() => {});
-      salesOfficerService.getAll().then(s => setAllSalesmen(s.map(o => ({ id: o.id, name: o.fullName, employeeId: o.officerId, phone: o.contactNumber || o.phone, area: o.assignedTerritory || o.assignedArea })) || [])).catch(() => {});
+      salesOfficerService.getAll().then(s => setAllSalesmen(s.map(o => ({ id: o.id, name: o.displayName || o.fullName, fullName: o.fullName, displayName: o.displayName, employeeId: o.officerId, phone: o.contactNumber || o.phone, area: o.assignedTerritory || o.assignedArea })) || [])).catch(() => {});
       inventoryService.getAll().then(i => setAllInventoryItems(i || [])).catch(() => {});
     }
   }, [isOpen]);
@@ -290,6 +299,37 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     };
   }, [products, totalDiscountType, totalDiscountValue]);
 
+  const handleSelectCustomer = (c: any) => {
+    setSelectedCustomerId(c.id);
+    setCustomerSearch('');
+    setShowCustomerDropdown(false);
+    setHighlightedCustomerIndex(-1);
+    setErrors(prev => ({ ...prev, customer: '' }));
+
+    if (c.salesRepId) {
+      const rep = allSalesmen.find(s => s.id === c.salesRepId);
+      if (rep) setSelectedSalesmanId(rep.id);
+    } else if (c.salesRepName) {
+      const rep = allSalesmen.find(s => (s.name && s.name.toLowerCase() === c.salesRepName.toLowerCase()) || (s.fullName && s.fullName.toLowerCase() === c.salesRepName.toLowerCase()));
+      if (rep) setSelectedSalesmanId(rep.id);
+    }
+
+    setTimeout(() => {
+      salesmanInputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleSelectSalesman = (s: any) => {
+    setSelectedSalesmanId(s.id);
+    setSalesmanSearch('');
+    setShowSalesmanDropdown(false);
+    setHighlightedSalesmanIndex(-1);
+    setErrors(prev => ({ ...prev, salesman: '' }));
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 50);
+  };
+
   const handleSelectProduct = (item: InventoryItem) => {
     setNewProduct(prev => ({
       ...prev,
@@ -304,7 +344,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     }));
     setProductSearch(item.productName);
     setShowProductDropdown(false);
+    setHighlightedProductIndex(-1);
     setErrors(prev => ({ ...prev, productName: '', unitPrice: '' }));
+    setTimeout(() => {
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
+    }, 50);
   };
 
   const handleSaveNewProduct = async (e: React.FormEvent) => {
@@ -407,7 +452,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
         minPrice: 0,
       });
       setProductSearch('');
+      setHighlightedProductIndex(-1);
       setErrors({});
+      setTimeout(() => {
+        productInputRef.current?.focus();
+      }, 50);
     };
 
     const belowCostCheck = checkDiscountBelowCost(productToAdd);
@@ -729,6 +778,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
     setProducts([]);
     setErrors({});
     setCreatedOrder(null);
+    setHighlightedCustomerIndex(-1);
+    setHighlightedSalesmanIndex(-1);
+    setHighlightedProductIndex(-1);
     setTotalDiscountType('percentage');
     setTotalDiscountValue(0);
     setNewProduct({
@@ -817,6 +869,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                   <div className="relative">
                     <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
+                      ref={customerInputRef}
                       type="text"
                       className={`w-full bg-[#1e293b] border rounded-lg pl-9 pr-8 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                         errors.customer ? 'border-red-500' : 'border-[#334155]'
@@ -827,9 +880,38 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         setCustomerSearch(e.target.value);
                         setSelectedCustomerId('');
                         setShowCustomerDropdown(true);
+                        setHighlightedCustomerIndex(0);
                       }}
-                      onFocus={() => setShowCustomerDropdown(true)}
+                      onFocus={() => {
+                        setShowCustomerDropdown(true);
+                        setHighlightedCustomerIndex(0);
+                      }}
                       onClick={() => setShowCustomerDropdown(true)}
+                      onKeyDown={e => {
+                        if (!showCustomerDropdown) {
+                          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                            setShowCustomerDropdown(true);
+                            setHighlightedCustomerIndex(0);
+                            return;
+                          }
+                        }
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setHighlightedCustomerIndex(prev => (prev < filteredCustomers.length - 1 ? prev + 1 : prev));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setHighlightedCustomerIndex(prev => (prev > 0 ? prev - 1 : 0));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (showCustomerDropdown && highlightedCustomerIndex >= 0 && filteredCustomers[highlightedCustomerIndex]) {
+                            handleSelectCustomer(filteredCustomers[highlightedCustomerIndex]);
+                          } else if (filteredCustomers.length > 0) {
+                            handleSelectCustomer(filteredCustomers[0]);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setShowCustomerDropdown(false);
+                        }
+                      }}
                       autoComplete="off"
                     />
                     {(selectedCustomer || customerSearch) ? (
@@ -860,23 +942,23 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       {filteredCustomers.length === 0 ? (
                         <p className="px-4 py-3 text-xs text-gray-400 text-center italic">No customers found</p>
                       ) : (
-                        filteredCustomers.map(c => (
-                          <div
-                            key={c.id}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setSelectedCustomerId(c.id);
-                              setCustomerSearch('');
-                              setShowCustomerDropdown(false);
-                              setErrors(prev => ({ ...prev, customer: '' }));
-                            }}
-                            className={`px-3 py-2.5 cursor-pointer flex items-center justify-between text-xs transition-colors ${
-                              selectedCustomerId === c.id ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'hover:bg-[#1e293b] text-gray-200'
-                            }`}
-                          >
-                            <span>{c.shopName}</span>
-                          </div>
-                        ))
+                        filteredCustomers.map((c, index) => {
+                          const isSelected = selectedCustomerId === c.id;
+                          const isHighlighted = highlightedCustomerIndex === index;
+                          return (
+                            <div
+                              key={c.id}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setHighlightedCustomerIndex(index)}
+                              onClick={() => handleSelectCustomer(c)}
+                              className={`px-3 py-2.5 cursor-pointer flex items-center justify-between text-xs transition-colors ${
+                                isSelected || isHighlighted ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'hover:bg-[#1e293b] text-gray-200'
+                              }`}
+                            >
+                              <span>{c.shopName}</span>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -891,6 +973,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                   <div className="relative">
                     <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
+                      ref={salesmanInputRef}
                       type="text"
                       className={`w-full bg-[#1e293b] border rounded-lg pl-9 pr-8 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                         errors.salesman ? 'border-red-500' : 'border-[#334155]'
@@ -901,9 +984,38 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         setSalesmanSearch(e.target.value);
                         setSelectedSalesmanId('');
                         setShowSalesmanDropdown(true);
+                        setHighlightedSalesmanIndex(0);
                       }}
-                      onFocus={() => setShowSalesmanDropdown(true)}
+                      onFocus={() => {
+                        setShowSalesmanDropdown(true);
+                        setHighlightedSalesmanIndex(0);
+                      }}
                       onClick={() => setShowSalesmanDropdown(true)}
+                      onKeyDown={e => {
+                        if (!showSalesmanDropdown) {
+                          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                            setShowSalesmanDropdown(true);
+                            setHighlightedSalesmanIndex(0);
+                            return;
+                          }
+                        }
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setHighlightedSalesmanIndex(prev => (prev < filteredSalesmen.length - 1 ? prev + 1 : prev));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setHighlightedSalesmanIndex(prev => (prev > 0 ? prev - 1 : 0));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (showSalesmanDropdown && highlightedSalesmanIndex >= 0 && filteredSalesmen[highlightedSalesmanIndex]) {
+                            handleSelectSalesman(filteredSalesmen[highlightedSalesmanIndex]);
+                          } else if (filteredSalesmen.length > 0) {
+                            handleSelectSalesman(filteredSalesmen[0]);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setShowSalesmanDropdown(false);
+                        }
+                      }}
                       autoComplete="off"
                     />
                     {(selectedSalesman || salesmanSearch) ? (
@@ -934,23 +1046,23 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                       {filteredSalesmen.length === 0 ? (
                         <p className="px-4 py-3 text-xs text-gray-400 text-center italic">No salesmen found</p>
                       ) : (
-                        filteredSalesmen.map(s => (
-                          <div
-                            key={s.id}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setSelectedSalesmanId(s.id);
-                              setSalesmanSearch('');
-                              setShowSalesmanDropdown(false);
-                              setErrors(prev => ({ ...prev, salesman: '' }));
-                            }}
-                            className={`px-3 py-2.5 cursor-pointer flex items-center justify-between text-xs transition-colors ${
-                              selectedSalesmanId === s.id ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'hover:bg-[#1e293b] text-gray-200'
-                            }`}
-                          >
-                            <span>{s.name}</span>
-                          </div>
-                        ))
+                        filteredSalesmen.map((s, index) => {
+                          const isSelected = selectedSalesmanId === s.id;
+                          const isHighlighted = highlightedSalesmanIndex === index;
+                          return (
+                            <div
+                              key={s.id}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setHighlightedSalesmanIndex(index)}
+                              onClick={() => handleSelectSalesman(s)}
+                              className={`px-3 py-2.5 cursor-pointer flex items-center justify-between text-xs transition-colors ${
+                                isSelected || isHighlighted ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'hover:bg-[#1e293b] text-gray-200'
+                              }`}
+                            >
+                              <span>{s.name}</span>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -1020,6 +1132,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                     <div className="relative">
                       <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       <input
+                        ref={productInputRef}
                         type="text"
                         className={`w-full bg-[#0f172a] border rounded-lg pl-8 pr-7 py-1.5 text-xs text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                           errors.productName ? 'border-red-500' : 'border-[#334155]'
@@ -1039,9 +1152,38 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                             costPrice: matched ? matched.purchasePrice : prev.costPrice,
                           }));
                           setShowProductDropdown(true);
+                          setHighlightedProductIndex(0);
                         }}
-                        onFocus={() => setShowProductDropdown(true)}
+                        onFocus={() => {
+                          setShowProductDropdown(true);
+                          setHighlightedProductIndex(0);
+                        }}
                         onClick={() => setShowProductDropdown(true)}
+                        onKeyDown={e => {
+                          if (!showProductDropdown) {
+                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                              setShowProductDropdown(true);
+                              setHighlightedProductIndex(0);
+                              return;
+                            }
+                          }
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setHighlightedProductIndex(prev => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setHighlightedProductIndex(prev => (prev > 0 ? prev - 1 : 0));
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (showProductDropdown && highlightedProductIndex >= 0 && filteredProducts[highlightedProductIndex]) {
+                              handleSelectProduct(filteredProducts[highlightedProductIndex]);
+                            } else if (filteredProducts.length > 0) {
+                              handleSelectProduct(filteredProducts[0]);
+                            }
+                          } else if (e.key === 'Escape') {
+                            setShowProductDropdown(false);
+                          }
+                        }}
                         autoComplete="off"
                       />
                       {(newProduct.productName || productSearch) ? (
@@ -1072,24 +1214,30 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                         {filteredProducts.length === 0 ? (
                           <p className="px-4 py-3 text-xs text-gray-400 text-center italic">No products found</p>
                         ) : (
-                          filteredProducts.map(item => (
-                            <div
-                              key={item.id || item.productCode}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => handleSelectProduct(item)}
-                              className="px-3 py-2 cursor-pointer flex items-center justify-between text-xs transition-colors hover:bg-[#1e293b] border-b border-[#334155]/40 last:border-b-0"
-                            >
-                              <div className="truncate pr-2">
-                                <span className="font-semibold text-gray-200 block truncate">{item.productName}</span>
-                                {item.productCode && <span className="text-[10px] text-blue-400 font-mono">{item.productCode}</span>}
+                          filteredProducts.map((item, index) => {
+                            const isHighlighted = highlightedProductIndex === index;
+                            return (
+                              <div
+                                key={item.id || item.productCode}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onMouseEnter={() => setHighlightedProductIndex(index)}
+                                onClick={() => handleSelectProduct(item)}
+                                className={`px-3 py-2 cursor-pointer flex items-center justify-between text-xs transition-colors border-b border-[#334155]/40 last:border-b-0 ${
+                                  isHighlighted ? 'bg-blue-600/30 text-white' : 'hover:bg-[#1e293b] text-gray-200'
+                                }`}
+                              >
+                                <div className="truncate pr-2">
+                                  <span className="font-semibold text-gray-200 block truncate">{item.productName}</span>
+                                  {item.productCode && <span className="text-[10px] text-blue-400 font-mono">{item.productCode}</span>}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="font-bold text-emerald-400 font-mono text-xs">
+                                    LKR {(item.sellPrice || 0).toLocaleString()}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="text-right shrink-0">
-                                <span className="font-bold text-emerald-400 font-mono text-xs">
-                                  LKR {(item.sellPrice || 0).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                         {/* Quick Add Product button in dropdown footer */}
                         <div
@@ -1131,12 +1279,19 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ isOpen, onClose, on
                     </label>
                     <div className="relative">
                       <input
+                        ref={qtyInputRef}
                         type="number"
                         min="0"
                         className={`w-full h-[32px] bg-[#0f172a] border rounded-lg pl-3 pr-8 py-1 text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${errors.quantity ? 'border-red-500' : 'border-[#334155]'}`}
                         placeholder="0"
                         value={newProduct.quantity > 0 ? newProduct.quantity : ''}
                         onChange={e => setNewProduct(p => ({ ...p, quantity: parseInt(e.target.value) || 0 }))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddProduct();
+                          }
+                        }}
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-500 pointer-events-none">
                         PCS

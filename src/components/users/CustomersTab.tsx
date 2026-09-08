@@ -30,7 +30,7 @@ const getCustomerSalesRepName = (customer: Customer): string => {
   // Prisma returns null for an unassigned relation. Older Mongo-backed data may
   // still expose the representative as a string or with a `name` property.
   const salesRep = customer.salesRep as
-    | { fullName?: string; name?: string }
+    | { displayName?: string; fullName?: string; name?: string }
     | string
     | null
     | undefined;
@@ -38,7 +38,7 @@ const getCustomerSalesRepName = (customer: Customer): string => {
   if (!salesRep) return '';
   return typeof salesRep === 'string'
     ? salesRep
-    : salesRep.fullName || salesRep.name || '';
+    : salesRep.displayName || salesRep.fullName || salesRep.name || '';
 };
 
 const CustomersTab: React.FC = () => {
@@ -139,7 +139,7 @@ const CustomersTab: React.FC = () => {
     phone3: '',
     address: '',
     creditLimit: 1000000,
-    creditPeriod: 30,
+    creditPeriod: 60,
     salesRepId: null,
     salesRepName: '',
     status: 'Active',
@@ -152,7 +152,7 @@ const CustomersTab: React.FC = () => {
   ];
 
   const salesRepOptions = useMemo(() => {
-    return salesOfficers.map(s => ({ value: s.fullName, label: s.fullName }));
+    return salesOfficers.map(s => ({ value: s.displayName || s.fullName, label: s.displayName || s.fullName }));
   }, [salesOfficers]);
 
   const searchSuggestions = useMemo(() => {
@@ -306,7 +306,7 @@ const CustomersTab: React.FC = () => {
       phone3: customer.phone3 || '',
       address: customer.address,
       creditLimit: customer.creditLimit || 1000000,
-      creditPeriod: customer.creditPeriod ?? 30,
+      creditPeriod: customer.creditPeriod ?? 60,
       salesRepId: customer.salesRepId || customer.salesRep?.id || null,
       salesRepName: rep,
       status: customer.status,
@@ -719,7 +719,7 @@ const CustomersTab: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-purple-900 dark:text-purple-200 mb-1 font-semibold text-xs">
-                          Credit Period ({formData.creditPeriod || 30}d)
+                          Credit Period ({formData.creditPeriod || 60}d)
                         </label>
                         <div className="grid grid-cols-5 gap-1">
                           {[15, 30, 45, 60, 90].map((days) => (
@@ -774,14 +774,14 @@ const CustomersTab: React.FC = () => {
                             setFormData({ 
                               ...formData, 
                               salesRepId: repId || null,
-                              salesRepName: rep?.fullName || ''
+                              salesRepName: rep?.displayName || rep?.fullName || ''
                             });
                           }}
                         >
                           <option value="">Unassigned</option>
                           {salesOfficers.map((so: SalesOfficer) => (
                             <option key={so.id} value={so.id}>
-                              {so.fullName} {so.officerId ? `(${so.officerId})` : ''}
+                              {so.displayName || so.fullName} {so.officerId ? `(${so.officerId})` : ''}
                             </option>
                           ))}
                         </select>

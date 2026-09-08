@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Search, Plus, X, AlertCircle } from 'lucide-react';
 import type { InventoryItem } from '../../types/inventory';
 import type { InvoiceItem } from '../../types/invoice';
@@ -46,6 +46,7 @@ interface ItemSearchAndAddProps {
   onClearSelection: () => void;
   stockWarning: string | null;
   invoiceItems: InvoiceItem[];
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
@@ -62,8 +63,52 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
   onClearSelection,
   stockWarning,
   invoiceItems,
+  searchInputRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const localSearchRef = useRef<HTMLInputElement>(null);
+  const effectiveSearchRef = searchInputRef || localSearchRef;
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchTerm, filteredItems.length]);
+
+  const handleSelectItem = (item: InventoryItem) => {
+    onItemSelect(item);
+    onShowSuggestionsChange(false);
+    setTimeout(() => {
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
+    }, 50);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || filteredItems.length === 0) {
+      if (e.key === 'ArrowDown') {
+        onShowSuggestionsChange(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % filteredItems.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev - 1 + filteredItems.length) % filteredItems.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = filteredItems[highlightedIndex] || filteredItems[0];
+      if (target) {
+        handleSelectItem(target);
+      }
+    } else if (e.key === 'Escape') {
+      onShowSuggestionsChange(false);
+    }
+  };
+
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -136,6 +181,9 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
       discountAmount: calculatedDiscountAmount,
       total: finalLineTotal,
     });
+    setTimeout(() => {
+      effectiveSearchRef.current?.focus();
+    }, 50);
   };
 
   const handleAddClick = () => {
@@ -227,6 +275,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
             <input
+              ref={effectiveSearchRef}
               type="text"
               value={searchTerm}
               onChange={(e) => {
@@ -235,6 +284,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
               }}
               onFocus={() => onShowSuggestionsChange(true)}
               onClick={() => onShowSuggestionsChange(true)}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search product..."
               className="w-full bg-[#0f172a] border border-[#334155] rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Search product"
@@ -266,7 +316,7 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
                   No products found{searchTerm ? ` matching "${searchTerm}"` : ''}
                 </div>
               ) : (
-                filteredItems.map((item) => {
+                filteredItems.map((item, idx) => {
                   const profit = (item.sellPrice || 0) - (item.purchasePrice || 0);
                   const margin = item.sellPrice > 0 ? ((profit / item.sellPrice) * 100).toFixed(0) : '0';
                   const existingItem = invoiceItems.find(inv => inv.inventoryItemId === item.id);
@@ -275,11 +325,13 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
                   return (
                     <div
                       key={item.id || item.productCode}
-                      className="px-3 py-2 hover:bg-[#1e293b] cursor-pointer transition-colors duration-150 flex justify-between items-center text-xs"
-                      onClick={() => {
-                        onItemSelect(item);
-                        onShowSuggestionsChange(false);
-                      }}
+                      className={`px-3 py-2 cursor-pointer transition-colors duration-150 flex justify-between items-center text-xs ${
+                        highlightedIndex === idx
+                          ? 'bg-blue-600/30 text-white'
+                          : 'hover:bg-[#1e293b] text-gray-300'
+                      }`}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onClick={() => handleSelectItem(item)}
                     >
                       <div className="truncate pr-2">
                         <div className="font-semibold text-white truncate">{item.productName}</div>
@@ -326,10 +378,17 @@ export const ItemSearchAndAdd: React.FC<ItemSearchAndAddProps> = ({
           </label>
           <div className="relative">
             <input
+              ref={qtyInputRef}
               type="number"
               min="0"
               value={newItem.quantity === '0' || newItem.quantity === 0 ? '0' : newItem.quantity || ''}
               onChange={(e) => onQuantityChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddClick();
+                }
+              }}
               disabled={!newItem.inventoryItemId}
               placeholder="0"
               className="w-full h-[32px] bg-[#0f172a] border border-[#334155] rounded-lg pl-2 pr-7 py-1 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-center"
