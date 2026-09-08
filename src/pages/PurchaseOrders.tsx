@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import { PageHeader, FilterBar, DataTable, useToast } from '../components/erp';
+import { PageHeader, FilterBar, DataTable, StatusBadge, useToast } from '../components/erp';
 import type { Column } from '../components/erp/DataTable';
-import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download, RotateCcw } from 'lucide-react';
+import { ShoppingCart, Plus, MessageCircle, Eye, Edit, Trash2, FileText, Download } from 'lucide-react';
 import { purchaseOrderService } from '../services/PurchaseOrderService';
 import { orderService } from '../services/OrderService';
 import CreatePOModal from '../components/orders/CreatePOModal';
@@ -18,6 +18,7 @@ const PurchaseOrders: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -164,14 +165,16 @@ const PurchaseOrders: React.FC = () => {
         po.createdByName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesSupplier = supplierFilter === '' || po.supplierName === supplierFilter;
+      const effectiveStatus = po.calculatedStatus || po.status;
+      const matchesStatus = statusFilter === '' || effectiveStatus === statusFilter;
 
       const poDate = po.poDate;
       const matchesDateFrom = dateFrom === '' || poDate >= dateFrom;
       const matchesDateTo = dateTo === '' || poDate <= dateTo;
 
-      return matchesSearch && matchesSupplier && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesSupplier && matchesStatus && matchesDateFrom && matchesDateTo;
     });
-  }, [purchaseOrders, searchQuery, supplierFilter, dateFrom, dateTo]);
+  }, [purchaseOrders, searchQuery, supplierFilter, statusFilter, dateFrom, dateTo]);
 
   const sortedPOs = useMemo(() => {
     return [...filteredPOs].sort((a, b) => {
@@ -181,6 +184,10 @@ const PurchaseOrders: React.FC = () => {
       }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
+      if (sortColumn === 'status') {
+        valA = a.calculatedStatus || a.status;
+        valB = b.calculatedStatus || b.status;
+      }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return (b.poNumber || '').localeCompare(a.poNumber || '', undefined, { numeric: true, sensitivity: 'base' });
@@ -207,7 +214,7 @@ const PurchaseOrders: React.FC = () => {
     const rows = sortedPOs.map((p) => [
       p.poNumber, p.poDate, `"${p.supplierName}"`, p.sourceOrderNumber || 'Direct PO',
       `"${((p.notes || (p as any).remarks || '') as string).replace(/"/g, '""')}"`,
-      `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.status,
+      `"${p.createdByName}"`, p.totalItems, p.totalAmount, p.calculatedStatus || p.status,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -227,20 +234,10 @@ const PurchaseOrders: React.FC = () => {
       key: 'poNumber',
       header: 'PO Number',
       sortable: true,
-      minWidth: '130px',
-      render: (row) => {
-        const hasReturns = row.returns && row.returns.filter(r => r.status !== 'cancelled').length > 0;
-        return (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[#38BDF8] font-bold text-xs">{row.poNumber}</span>
-            {hasReturns && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30" title={`${row.returns?.length} return(s) processed`}>
-                <RotateCcw size={9} /> Return
-              </span>
-            )}
-          </div>
-        );
-      },
+      minWidth: '110px',
+      render: (row) => (
+        <span className="font-mono text-[#38BDF8] font-bold text-xs">{row.poNumber}</span>
+      ),
     },
     {
       key: 'referenceOrderNum',
@@ -304,6 +301,16 @@ const PurchaseOrders: React.FC = () => {
       align: 'right',
       minWidth: '120px',
       render: (row) => <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(row.totalAmount)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      minWidth: '125px',
+      render: (row) => {
+        const displayStatus = row.calculatedStatus || row.status;
+        return <StatusBadge status={displayStatus} />;
+      },
     },
     {
       key: 'remark',
@@ -464,10 +471,10 @@ const PurchaseOrders: React.FC = () => {
   ];
 
   const hasActiveFilters =
-    searchQuery !== '' || supplierFilter !== '' || dateFrom !== '' || dateTo !== '';
+    searchQuery !== '' || supplierFilter !== '' || statusFilter !== '' || dateFrom !== '' || dateTo !== '';
 
   const clearAllFilters = () => {
-    setSearchQuery(''); setSupplierFilter('');
+    setSearchQuery(''); setSupplierFilter(''); setStatusFilter('');
     setDateFrom(''); setDateTo('');
     setCurrentPage(1);
   };
@@ -517,6 +524,23 @@ const PurchaseOrders: React.FC = () => {
           onDateFromChange={(val) => { setDateFrom(val); setCurrentPage(1); }}
           onDateToChange={(val) => { setDateTo(val); setCurrentPage(1); }}
           selects={[
+            {
+              value: statusFilter,
+              onChange: (val) => { setStatusFilter(val); setCurrentPage(1); },
+              options: [
+                { value: '', label: 'All Statuses' },
+                { value: 'pending_approval', label: 'Pending Approval' },
+                { value: 'goods_received', label: 'Goods Received' },
+                { value: 'partially_received', label: 'Partially Received' },
+                { value: 'partially_returned', label: 'Partial Return' },
+                { value: 'returned', label: 'Returned' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'draft', label: 'Draft' },
+                { value: 'cancelled', label: 'Cancelled' },
+              ],
+              placeholder: 'All Statuses',
+              width: 'w-40',
+            },
             {
               value: supplierFilter,
               onChange: (val) => { setSupplierFilter(val); setCurrentPage(1); },

@@ -4,7 +4,7 @@ import FinanceTable from "../components/FinanceTable";
 import RecordPaymentModal from "../components/RecordPaymentModal";
 import type { RecordPaymentResult } from "../components/RecordPaymentModal";
 import { getInvoiceCalculatedStatus } from "../types/invoice";
-import InvoiceViewModal from "../components/invoice/InvoiceViewModal";
+import InvoiceViewModal from "../components/InvoiceViewModal";
 import { LoadingSpinner } from "../components/common";
 import {
   DollarSign, TrendingUp, TrendingDown, AlertCircle, RefreshCw,

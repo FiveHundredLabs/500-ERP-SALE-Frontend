@@ -41,7 +41,8 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
         po.supplierName.toLowerCase().includes(q) ||
         (po.sourceOrderNumber || '').toLowerCase().includes(q) ||
         (po.customerName || '').toLowerCase().includes(q);
-      const matchStatus = !statusFilter || po.status === statusFilter;
+      const poStatus = po.calculatedStatus || po.status;
+      const matchStatus = !statusFilter || poStatus === statusFilter;
       return matchSearch && matchStatus;
     });
   }, [pos, search, statusFilter]);
@@ -57,6 +58,8 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
       case 'processing': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
       case 'completed': return 'text-teal-400 bg-teal-400/10 border-teal-400/30';
       case 'cancelled': return 'text-red-400 bg-red-400/10 border-red-400/30';
+      case 'returned': return 'text-purple-400 bg-purple-400/10 border-purple-400/30';
+      case 'partially_returned': return 'text-purple-300 bg-purple-400/10 border-purple-400/20';
       default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
     }
   };
@@ -112,6 +115,8 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
             <option value="pending_approval">Pending Approval</option>
             <option value="approved">Approved</option>
             <option value="processing">Processing</option>
+            <option value="partially_returned">Partial Return</option>
+            <option value="returned">Returned</option>
             <option value="completed">Completed</option>
           </select>
         </div>
@@ -149,8 +154,8 @@ const POPickerModal: React.FC<POPickerModalProps> = ({ isOpen, onClose, onSelect
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="font-mono text-purple-400 font-bold text-sm">{po.poNumber}</span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor(po.status)}`}>
-                          {po.status}
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor(po.calculatedStatus || po.status)}`}>
+                          {(po.calculatedStatus || po.status).replace(/_/g, ' ')}
                         </span>
                         {po.sourceOrderNumber && (
                           <span className="text-[10px] text-blue-400 font-mono bg-blue-400/10 border border-blue-400/20 px-1.5 py-0.5 rounded">
