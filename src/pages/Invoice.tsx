@@ -75,7 +75,7 @@ const Invoice: React.FC = () => {
   const [salesmanFilter, setSalesmanFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [sortColumn, setSortColumn] = useState('issueDate');
+  const [sortColumn, setSortColumn] = useState('invoiceNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -1248,11 +1248,9 @@ const Invoice: React.FC = () => {
       const invoices = await invoiceService.getAll();
 
       // Sort invoices
-      const sortedInvoices = [...invoices].sort((a, b) => {
-        const dateA = new Date(a.createdAt || a.issueDate).getTime();
-        const dateB = new Date(b.createdAt || b.issueDate).getTime();
-        return dateB - dateA;
-      });
+      const sortedInvoices = [...invoices].sort((a, b) =>
+        (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
 
       setAllInvoices(sortedInvoices);
     } catch (error) {
@@ -1518,6 +1516,10 @@ const Invoice: React.FC = () => {
 
   const sortedInvoices = useMemo(() => {
     return [...filteredInvoices].sort((a, b) => {
+      if (sortColumn === 'invoiceNumber') {
+        const cmp = (a.invoiceNumber || '').localeCompare(b.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
       if (sortColumn === 'customer') {
@@ -1532,7 +1534,7 @@ const Invoice: React.FC = () => {
       }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [filteredInvoices, sortColumn, sortDirection]);
 
@@ -1547,7 +1549,7 @@ const Invoice: React.FC = () => {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(colKey);
-      setSortDirection('asc');
+      setSortDirection(colKey === 'invoiceNumber' ? 'desc' : 'asc');
     }
   };
 

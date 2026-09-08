@@ -21,7 +21,7 @@ const PurchaseOrders: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const [sortColumn, setSortColumn] = useState('createdAt');
+  const [sortColumn, setSortColumn] = useState('poNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -56,7 +56,10 @@ const PurchaseOrders: React.FC = () => {
     setLoading(true);
     try {
       const data = await purchaseOrderService.getAll();
-      setPurchaseOrders(data || []);
+      const sorted = (data || []).sort((a, b) =>
+        (b.poNumber || '').localeCompare(a.poNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
+      setPurchaseOrders(sorted);
     } catch {
       setPurchaseOrders([]);
     } finally {
@@ -170,11 +173,15 @@ const PurchaseOrders: React.FC = () => {
 
   const sortedPOs = useMemo(() => {
     return [...filteredPOs].sort((a, b) => {
+      if (sortColumn === 'poNumber') {
+        const cmp = (a.poNumber || '').localeCompare(b.poNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return (b.poNumber || '').localeCompare(a.poNumber || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [filteredPOs, sortColumn, sortDirection]);
 
@@ -189,7 +196,7 @@ const PurchaseOrders: React.FC = () => {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(colKey);
-      setSortDirection('asc');
+      setSortDirection(colKey === 'poNumber' ? 'desc' : 'asc');
     }
   };
 

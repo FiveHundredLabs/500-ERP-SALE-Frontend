@@ -21,7 +21,7 @@ const Orders: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const [sortColumn, setSortColumn] = useState('createdAt');
+  const [sortColumn, setSortColumn] = useState('orderNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -55,7 +55,10 @@ const Orders: React.FC = () => {
       setLoading(true);
       try {
         const data = await orderService.getAll();
-        setOrders(data || []);
+        const sorted = (data || []).sort((a, b) =>
+          (b.orderNumber || '').localeCompare(a.orderNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setOrders(sorted);
       } catch (err) {
         setOrders([]);
       } finally {
@@ -126,12 +129,16 @@ const Orders: React.FC = () => {
 
   const sortedOrders = useMemo(() => {
     return [...filteredOrders].sort((a, b) => {
+      if (sortColumn === 'orderNumber') {
+        const cmp = (a.orderNumber || '').localeCompare(b.orderNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
       let valA: any = (a as any)[sortColumn];
       let valB: any = (b as any)[sortColumn];
       if (sortColumn === 'salesman') { valA = a.salesman?.fullName || ''; valB = b.salesman?.fullName || ''; }
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return (b.orderNumber || '').localeCompare(a.orderNumber || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [filteredOrders, sortColumn, sortDirection]);
 
@@ -146,7 +153,7 @@ const Orders: React.FC = () => {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(colKey);
-      setSortDirection('asc');
+      setSortDirection(colKey === 'orderNumber' ? 'desc' : 'asc');
     }
   };
 
