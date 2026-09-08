@@ -214,12 +214,6 @@ const DashboardOverview: React.FC = () => {
       maximumFractionDigits: 0,
     }).format(amount);
 
-  const formatCompact = (amount: number) => {
-    if (amount >= 1_000_000) return `LKR ${(amount / 1_000_000).toFixed(1)}M`;
-    if (amount >= 1_000) return `LKR ${(amount / 1_000).toFixed(0)}K`;
-    return formatCurrency(amount);
-  };
-
   // ── KPI Computations — use remainingAmount as source of truth for collection status ──
   // This correctly handles credit invoices where DB paymentStatus may be 'pending'
   // but the real collection state is determined by paidAmount vs totalAmount.
@@ -296,9 +290,12 @@ const DashboardOverview: React.FC = () => {
       (o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "rejected"
     ).length;
 
-    // 2. PO Stage: Purchase Orders in progress (not completed or cancelled)
+    // 2. PO Stage: Only pending Purchase Orders (excluding approved, goods_received, completed, cancelled)
     const poStage = purchaseOrders.filter(
-      (p) => p.status !== "completed" && p.status !== "cancelled"
+      (p) =>
+        (p.status as string) === "pending_approval" ||
+        (p.status as string) === "pending" ||
+        (p.status as string) === "draft"
     ).length;
 
     // 3. Pending (Invoice): Invoices that are outstanding and NOT yet overdue
@@ -405,20 +402,89 @@ const DashboardOverview: React.FC = () => {
     return result;
   }, [invoiceStatuses]);
 
-  // ── Top Products by soldCount (real) ─────────────────────────────────────
-  const topProducts = useMemo(() => {
-    return [...inventoryItems]
-      .filter((i) => (i.soldCount || 0) > 0 || (i.quantity || 0) > 0)
-      .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
-      .slice(0, 5)
-      .map((item) => ({
-        name: item.productName,
-        code: item.productCode,
-        sales: item.soldCount || 0,
-        revenue: (item.soldCount || 0) * (item.sellPrice || 0),
-        stock: item.quantity,
-      }));
-  }, [inventoryItems]);
+  // ── Top Selling Products (Amount-Wise / Best Sales Revenue) ──────────────
+  const topSellingProducts = useMemo(() => {
+    const salesByProduct = new Map<
+      string,
+      { name: string; code: string; sales: number; revenue: number; stock: number }
+    >();
+
+    // Index inventory items for rapid lookup of stock & code
+    const invMap = new Map<string, InventoryItem>();
+    inventoryItems.forEach((inv) => {
+      if (inv.id) invMap.set(inv.id, inv);
+      if (inv.productCode) invMap.set(inv.productCode.toLowerCase(), inv);
+      if (inv.productName) invMap.set(inv.productName.trim().toLowerCase(), inv);
+    });
+
+    // 1. Aggregate from invoice items
+    invoices.forEach((inv) => {
+      (inv.items || []).forEach((it: any) => {
+        const rawName = (it.itemName || it.productName || '').trim();
+        if (!rawName) return;
+        const normKey = rawName.toLowerCase();
+
+        const lineRevenue = Number(
+          it.total ?? Number(it.quantity || 0) * Number(it.unitPrice || 0),
+        );
+        const lineQty = Number(it.quantity || 0);
+
+        const matchedInv =
+          (it.inventoryItemId && invMap.get(it.inventoryItemId)) ||
+          (it.itemCode && invMap.get(it.itemCode.toLowerCase())) ||
+          invMap.get(normKey);
+
+        const code = it.itemCode || it.productCode || matchedInv?.productCode || '—';
+        const stock = matchedInv?.quantity ?? 0;
+
+        const existing = salesByProduct.get(normKey);
+        if (existing) {
+          existing.sales += lineQty;
+          existing.revenue += lineRevenue;
+          if (existing.code === '—' && code !== '—') existing.code = code;
+          if (existing.stock === 0 && stock > 0) existing.stock = stock;
+        } else {
+          salesByProduct.set(normKey, {
+            name: rawName,
+            code,
+            sales: lineQty,
+            revenue: lineRevenue,
+            stock,
+          });
+        }
+      });
+    });
+
+    // 2. Incorporate inventory items with soldCount * sellPrice
+    inventoryItems.forEach((inv) => {
+      const rawName = (inv.productName || '').trim();
+      if (!rawName) return;
+      const normKey = rawName.toLowerCase();
+      const invRev = Number(inv.soldCount || 0) * Number(inv.sellPrice || 0);
+      const invQty = Number(inv.soldCount || 0);
+      if (invRev > 0 || invQty > 0) {
+        const existing = salesByProduct.get(normKey);
+        if (existing) {
+          if (existing.revenue < invRev) existing.revenue = invRev;
+          if (existing.sales < invQty) existing.sales = invQty;
+        } else {
+          salesByProduct.set(normKey, {
+            name: rawName,
+            code: inv.productCode || '—',
+            sales: invQty,
+            revenue: invRev,
+            stock: inv.quantity ?? 0,
+          });
+        }
+      }
+    });
+
+    // 3. Sort strictly amount-wise descending (highest sales revenue first)
+    return Array.from(salesByProduct.values())
+      .filter((p) => p.revenue > 0 || p.sales > 0)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [invoices, inventoryItems]);
 
   // ── Sales Officer Performance (real invoice totals matched by name) ───────
   const salesmenPerformance = useMemo(() => {
@@ -588,15 +654,15 @@ const DashboardOverview: React.FC = () => {
         />
         <KpiCard
           title="Total Revenue"
-          value={formatCompact(totalRevenue)}
-          subtitle={`${formatCompact(collectedRevenue)} collected · ${formatCompact(outstandingReceivables)} pending`}
+          value={formatCurrency(totalRevenue)}
+          subtitle={`${formatCurrency(collectedRevenue)} collected · ${formatCurrency(outstandingReceivables)} pending`}
           icon={<DollarSign size={20} className="text-purple-400" />}
           iconBg="bg-purple-500/20 border border-purple-500/30"
           onClick={() => navigate("/invoice")}
         />
         <KpiCard
           title="Receivables Outstanding"
-          value={formatCompact(outstandingReceivables)}
+          value={formatCurrency(outstandingReceivables)}
           subtitle={`${unpaidInvoiceCount} invoices · ${overdueInvoiceCount > 0 ? `⚠ ${overdueInvoiceCount} overdue` : 'none overdue'}`}
           icon={<CreditCard size={20} className="text-amber-400" />}
           iconBg={overdueInvoiceCount > 0 ? "bg-red-500/20 border border-red-500/30" : "bg-amber-500/20 border border-amber-500/30"}
@@ -607,8 +673,8 @@ const DashboardOverview: React.FC = () => {
       {/* ══════════════ 2. OPERATIONAL COUNTERS STRIP ══════════════ */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {[
-          { label: "Customers", value: customers.length, color: "blue", icon: <Users size={18} />, link: "/users?tab=customers" },
-          { label: "Suppliers", value: suppliers.length, color: "indigo", icon: <Truck size={18} />, link: "/users?tab=suppliers" },
+          { label: "Customers", value: customers.length, color: "blue", icon: <Users size={18} />, link: "/customers" },
+          { label: "Suppliers", value: suppliers.length, color: "indigo", icon: <Truck size={18} />, link: "/suppliers" },
           { label: "Sales Officers", value: salesOfficers.length, color: "violet", icon: <UserCheck size={18} />, link: "/sales-officers" },
           { label: "Pending Orders", value: pendingOrdersCount, color: "amber", icon: <Clock size={18} />, link: "/orders" },
           { label: "Pending POs", value: pendingPOCount, color: "purple", icon: <ShoppingCart size={18} />, link: "/purchase-orders" },
@@ -641,7 +707,7 @@ const DashboardOverview: React.FC = () => {
                 Revenue Trend — Last 6 Months
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Invoiced revenue vs collected · {formatCompact(totalRevenue)} total
+                Invoiced revenue vs collected · {formatCurrency(totalRevenue)} total
               </p>
             </div>
             <button
@@ -770,12 +836,15 @@ const DashboardOverview: React.FC = () => {
 
       {/* ══════════════ 4. PRODUCTS & CHEQUES ROW ══════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top 5 High-Demand Products */}
+        {/* Most Sales Products (Amount-Wise) */}
         <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-bold text-white">High-Demand Products</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Top items by units sold · Total products: {totalProductsCount}</p>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <TrendingUp size={18} className="text-emerald-400" />
+                Most Sales Products
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Top products ranked by sales revenue · Total products: {totalProductsCount}</p>
             </div>
             <button
               onClick={() => navigate("/inventory")}
@@ -785,33 +854,41 @@ const DashboardOverview: React.FC = () => {
             </button>
           </div>
           <div className="space-y-2.5">
-            {topProducts.length === 0 ? (
-              <p className="text-xs text-slate-500 py-6 text-center">No sold inventory data available</p>
+            {topSellingProducts.length === 0 ? (
+              <p className="text-xs text-slate-500 py-6 text-center">No sales data available</p>
             ) : (
-              topProducts.map((p, idx) => (
+              topSellingProducts.map((p, idx) => (
                 <div
                   key={idx}
                   className="flex items-center justify-between p-3 bg-[#0f172a] rounded-lg border border-[#334155]/60 hover:border-[#475569] transition-colors"
                 >
                   <div className="min-w-0 flex-1 mr-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-slate-500 w-4">{idx + 1}</span>
-                      <span className="text-xs font-bold text-white truncate">{p.name}</span>
-                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 shrink-0">
-                        {p.code}
+                      <span className={`text-[11px] font-mono font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        idx === 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        idx === 1 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' :
+                        idx === 2 ? 'bg-amber-700/20 text-amber-400 border border-amber-700/30' :
+                        'bg-slate-800 text-slate-400'
+                      }`}>
+                        {idx + 1}
                       </span>
+                      <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                      {p.code && p.code !== '—' && (
+                        <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 shrink-0">
+                          {p.code}
+                        </span>
+                      )}
                     </div>
-                    <span className="text-[11px] text-slate-400 ml-6 block mt-0.5">
+                    <span className="text-[11px] text-slate-400 ml-7 block mt-0.5">
                       Stock: <strong className="text-slate-200">{p.stock ?? 0} units</strong>
                       {p.sales > 0 && <> · <span className="text-emerald-400 font-semibold">{p.sales} sold</span></>}
                     </span>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    {p.revenue > 0 ? (
-                      <span className="text-xs font-mono font-bold text-white block">{formatCurrency(p.revenue)}</span>
-                    ) : (
-                      <span className="text-xs text-slate-500">—</span>
-                    )}
+                    <span className="text-sm font-mono font-bold text-emerald-400 block">
+                      {formatCurrency(p.revenue)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Total Sales</span>
                   </div>
                 </div>
               ))
