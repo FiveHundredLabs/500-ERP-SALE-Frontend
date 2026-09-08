@@ -552,7 +552,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({
       totalAmount: financials.grandTotal,
       status: poToEdit ? poToEdit.status : 'pending_approval',
       paymentStatus: poToEdit ? poToEdit.paymentStatus : 'unpaid',
-      paymentTerms: poToEdit ? poToEdit.paymentTerms : 'Net 30',
+      paymentTerms: poToEdit ? poToEdit.paymentTerms : 'Net 60',
       notes,
     };
 

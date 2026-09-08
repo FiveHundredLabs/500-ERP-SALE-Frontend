@@ -215,7 +215,7 @@ const Invoice: React.FC = () => {
 
   const getInitialInvoiceData = (): InvoiceData => {
     const today = new Date().toISOString().split('T')[0];
-    const defaultDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const defaultDueDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     return {
       invoiceNumber: "",
       customer: "",
@@ -229,7 +229,7 @@ const Invoice: React.FC = () => {
       totalAmount: 0,
       paymentStatus: PaymentStatus.PENDING,
       paymentMethod: PaymentMethod.CREDIT,
-      creditPeriod: 30,
+      creditPeriod: 60,
       issueDate: today,
       dueDate: defaultDueDate,
       vehicleNumber: "",
@@ -534,7 +534,7 @@ const Invoice: React.FC = () => {
       }
 
       const subTotal = initialInvoiceItems.reduce((sum, item) => sum + item.total, 0);
-      const creditDays = (typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer as any).creditPeriod : null) || 30;
+      const creditDays = (typeof initialCustomer === 'object' && initialCustomer ? (initialCustomer as any).creditPeriod : null) || 60;
       const calcDueDate = new Date(Date.now() + creditDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const initialInvoiceData: InvoiceData = {
@@ -887,7 +887,7 @@ const Invoice: React.FC = () => {
           const issueTime = data.issueDate ? new Date(data.issueDate).getTime() : Date.now();
           const dueTime = d ? new Date(d).getTime() : 0;
           if (!d || dueTime <= issueTime) {
-            const days = Number(data.creditPeriod) || 30;
+            const days = Number(data.creditPeriod) || 60;
             d = new Date(issueTime + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
           }
         }

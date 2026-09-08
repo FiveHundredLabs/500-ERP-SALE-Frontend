@@ -151,7 +151,7 @@ const Quotation: React.FC = () => {
     paymentMethod: PaymentMethod.CASH,
     status: QuotationStatus.PENDING,
     issueDate: new Date().toISOString().split('T')[0],
-    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     notes: "",
   });
 

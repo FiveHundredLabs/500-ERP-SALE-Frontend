@@ -77,7 +77,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     discountValue: "0"
   });
 
-  const [creditPeriod, setCreditPeriod] = useState<string>('custom');
+  const [creditPeriod, setCreditPeriod] = useState<string>('60');
 
   // When credit period preset is selected, auto-calculate validUntil from issueDate
   const handleCreditPeriodChange = useCallback((period: string) => {
@@ -167,7 +167,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
   const handlePaymentMethodChange = (method: string) => {
     onFieldChange('paymentMethod', method);
     if (method === PaymentMethod.CREDIT || method === 'credit') {
-      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      const periodToUse = creditPeriod === 'custom' ? '60' : creditPeriod;
       handleCreditPeriodChange(periodToUse);
     } else {
       setCreditPeriod('custom');
@@ -182,7 +182,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
     setCustomerModalMode(null);
 
     // Auto-set payment method to Credit and credit period to customer's default period
-    const defaultPeriod = (customer as any).creditPeriod ?? 30;
+    const defaultPeriod = (customer as any).creditPeriod ?? 60;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     handleCreditPeriodChange(String(defaultPeriod));
 
@@ -279,14 +279,14 @@ const QuotationForm: React.FC<QuotationFormProps> = ({
         setSelectedCustomer(updated);
         onCustomerIdChange(updated.id, updated);
         setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
-        const defaultPeriod = (updated as any).creditPeriod ?? 30;
+        const defaultPeriod = (updated as any).creditPeriod ?? 60;
         handleCreditPeriodChange(String(defaultPeriod));
       } else {
         const created = await createCustomer(formData as Omit<Customer, 'id'>);
         setSelectedCustomer(created);
         onCustomerIdChange(created.id, created);
         setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
-        const defaultPeriod = (created as any).creditPeriod ?? 30;
+        const defaultPeriod = (created as any).creditPeriod ?? 60;
         onFieldChange('paymentMethod', PaymentMethod.CREDIT);
         handleCreditPeriodChange(String(defaultPeriod));
       }

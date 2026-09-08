@@ -181,7 +181,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   }, []);
 
   // Credit period state in days (e.g. 30, 60, custom)
-  const [creditPeriod, setCreditPeriod] = useState<string>('30');
+  const [creditPeriod, setCreditPeriod] = useState<string>('60');
 
   const handleCreditPeriodChange = useCallback((days: string) => {
     setCreditPeriod(days);
@@ -210,14 +210,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
   }, [invoiceData.creditPeriod, invoiceData.dueDate, invoiceData.issueDate]);
 
-  // Auto-correct: If invoice is Credit and dueDate is missing or identical to issueDate, auto-set to credit period (default 30d)
+  // Auto-correct: If invoice is Credit and dueDate is missing or identical to issueDate, auto-set to credit period (default 60d)
   useEffect(() => {
     if (
       ((invoiceData.paymentMethod as any) === PaymentMethod.CREDIT || (invoiceData.paymentMethod as any) === 'credit') &&
       invoiceData.issueDate &&
       (!invoiceData.dueDate || invoiceData.dueDate === invoiceData.issueDate)
     ) {
-      const days = parseInt(creditPeriod === 'custom' ? '30' : creditPeriod, 10) || 30;
+      const days = parseInt(creditPeriod === 'custom' ? '60' : creditPeriod, 10) || 60;
       const baseDate = new Date(invoiceData.issueDate);
       if (!isNaN(baseDate.getTime())) {
         const newDueDate = new Date(baseDate.getTime() + days * 86400000).toISOString().split('T')[0];
@@ -244,7 +244,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     onFieldChange('paymentMethod', method);
     if (method === PaymentMethod.CREDIT || method === 'credit') {
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
-      const periodToUse = creditPeriod === 'custom' ? '30' : creditPeriod;
+      const periodToUse = creditPeriod === 'custom' ? '60' : creditPeriod;
       handleCreditPeriodChange(periodToUse);
     } else {
       onFieldChange('paymentStatus', PaymentStatus.COMPLETED);
@@ -259,7 +259,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     setCustomerModalMode(null);
 
     // Auto-set payment method to Credit and credit period to customer's default period
-    const defaultPeriod = (customer as any).creditPeriod ?? 30;
+    const defaultPeriod = (customer as any).creditPeriod ?? 60;
     onFieldChange('paymentMethod', PaymentMethod.CREDIT);
     onFieldChange('paymentStatus', PaymentStatus.PENDING);
     handleCreditPeriodChange(String(defaultPeriod));
@@ -502,14 +502,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       setSelectedCustomer(updated);
       onCustomerIdChange(updated.id, updated);
       setCustomerSearchTerm(`${updated.fullName} (${updated.phone})`);
-      const defaultPeriod = (updated as any).creditPeriod ?? 30;
+      const defaultPeriod = (updated as any).creditPeriod ?? 60;
       handleCreditPeriodChange(String(defaultPeriod));
     } else {
       const created = await createCustomer(formData as Omit<Customer, 'id'>);
       setSelectedCustomer(created);
       onCustomerIdChange(created.id, created);
       setCustomerSearchTerm(`${created.fullName} (${created.phone})`);
-      const defaultPeriod = (created as any).creditPeriod ?? 30;
+      const defaultPeriod = (created as any).creditPeriod ?? 60;
       onFieldChange('paymentMethod', PaymentMethod.CREDIT);
       onFieldChange('paymentStatus', PaymentStatus.PENDING);
       handleCreditPeriodChange(String(defaultPeriod));

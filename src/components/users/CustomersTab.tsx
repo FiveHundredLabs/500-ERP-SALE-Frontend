@@ -139,7 +139,7 @@ const CustomersTab: React.FC = () => {
     phone3: '',
     address: '',
     creditLimit: 1000000,
-    creditPeriod: 30,
+    creditPeriod: 60,
     salesRepId: null,
     salesRepName: '',
     status: 'Active',
@@ -306,7 +306,7 @@ const CustomersTab: React.FC = () => {
       phone3: customer.phone3 || '',
       address: customer.address,
       creditLimit: customer.creditLimit || 1000000,
-      creditPeriod: customer.creditPeriod ?? 30,
+      creditPeriod: customer.creditPeriod ?? 60,
       salesRepId: customer.salesRepId || customer.salesRep?.id || null,
       salesRepName: rep,
       status: customer.status,
@@ -719,7 +719,7 @@ const CustomersTab: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-purple-900 dark:text-purple-200 mb-1 font-semibold text-xs">
-                          Credit Period ({formData.creditPeriod || 30}d)
+                          Credit Period ({formData.creditPeriod || 60}d)
                         </label>
                         <div className="grid grid-cols-5 gap-1">
                           {[15, 30, 45, 60, 90].map((days) => (
