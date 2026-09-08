@@ -418,16 +418,25 @@ const Finance: React.FC = () => {
           </div>
         );
         await new Promise(resolve => setTimeout(resolve, 500));
-        const invoiceElement = tempContainer.firstChild as HTMLElement;
-        if (!invoiceElement) throw new Error("Invoice element not found");
-        const canvas = await html2canvas(invoiceElement, {
-          scale: 3, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff",
-          width: 794, height: 1123, windowWidth: 794, windowHeight: 1123,
-        });
-        const imgData = canvas.toDataURL("image/png", 1.0);
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        pdf.addImage(imgData, "PNG", 0, 0, pageWidth, (canvas.height * pageWidth) / canvas.width);
+        const pages = tempContainer.querySelectorAll('.invoice-page');
+        if (pages.length === 0) throw new Error("Invoice element not found");
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        for (let i = 0; i < pages.length; i++) {
+          const canvas = await html2canvas(pages[i] as HTMLElement, {
+            scale: 2.5,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            backgroundColor: "#ffffff",
+          });
+          const imgData = canvas.toDataURL("image/png", 1.0);
+          if (i > 0) pdf.addPage();
+          pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+        }
         pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
         root.unmount();
         document.body.removeChild(tempContainer);

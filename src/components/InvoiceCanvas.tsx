@@ -104,7 +104,18 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
 
   const ITEMS_PER_PAGE = 20;
   const chunkedItems: any[][] = [];
-  const itemsArray = invoiceData.items || [];
+  const rawItems = invoiceData.items || [];
+  const itemsArray = rawItems.filter(it => {
+    if (!it) return false;
+    if ((it as any).isPlaceholder) return false;
+    const name = String(it.itemName || '').trim();
+    const code = String(it.itemCode || '').trim();
+    const qty = Number(it.quantity) || 0;
+    const price = Number(it.unitPrice) || 0;
+    const total = Number(it.total) || 0;
+    return name.length > 0 || code.length > 0 || qty > 0 || price > 0 || total > 0;
+  });
+
   for (let i = 0; i < itemsArray.length; i += ITEMS_PER_PAGE) {
     const chunk = itemsArray.slice(i, i + ITEMS_PER_PAGE);
     while (chunk.length < ITEMS_PER_PAGE) chunk.push({ isPlaceholder: true } as any);
@@ -115,6 +126,21 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
     while (emptyChunk.length < ITEMS_PER_PAGE) emptyChunk.push({ isPlaceholder: true } as any);
     chunkedItems.push(emptyChunk);
   }
+
+  const getItemTotal = (item: any): number => {
+    if (item.total !== undefined && item.total !== null && !isNaN(Number(item.total))) {
+      return Number(item.total);
+    }
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.unitPrice) || 0;
+    const expectedTotal = qty * price;
+    const discountAmount = item.discountAmount !== undefined
+      ? Number(item.discountAmount)
+      : item.discount !== undefined
+        ? Number(item.discount)
+        : 0;
+    return Math.max(0, expectedTotal - discountAmount);
+  };
 
   const totalProductDiscount = (invoiceData.items || []).reduce((sum, it) => {
     if ((it as any).isPlaceholder) return sum;
@@ -137,28 +163,30 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
       {chunkedItems.map((chunk, pageIndex) => {
         const isLastPage = pageIndex === chunkedItems.length - 1;
 
-        const pageGrossTotal = chunk.reduce((sum, it) => {
+        const pageRowTotal = chunk.reduce((sum, it) => {
           if ((it as any).isPlaceholder) return sum;
-          return sum + ((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0));
+          return sum + getItemTotal(it);
         }, 0);
-
-        const pageSubTotal = (chunkedItems.length === 1 && totalProductDiscount <= 0 && invoiceData.subTotal)
-          ? invoiceData.subTotal
-          : pageGrossTotal;
 
         return (
           <div
             key={pageIndex}
-            className="invoice-page"
+            className={`invoice-page ${isLastPage ? 'is-last-page' : ''}`}
             style={{
               width: '210mm',
-              height: '297mm',
+              height: '296.5mm',
+              minHeight: '296.5mm',
+              maxHeight: '296.5mm',
               backgroundColor: '#ffffff',
               color: '#1f2937',
               fontFamily: 'Inter, Arial, sans-serif',
               boxSizing: 'border-box',
               position: 'relative',
-              pageBreakAfter: isLastPage ? 'auto' : 'always',
+              overflow: 'hidden',
+              pageBreakInside: 'avoid',
+              breakInside: 'avoid',
+              pageBreakAfter: isLastPage ? 'avoid' : 'always',
+              breakAfter: isLastPage ? 'avoid' : 'page',
               marginBottom: isLastPage ? '0' : '20px',
             }}
           >
@@ -305,18 +333,18 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                           {getDiscountDisplay(item)}
                         </td>
                         <td style={{ padding: '3px 10px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', verticalAlign: 'middle', lineHeight: '1.2' }}>
-                          {Math.round(item.total).toLocaleString()}
+                          {Math.round(getItemTotal(item)).toLocaleString()}
                         </td>
                       </tr>
                     );
                   })}
-                  {/* Row 21: SUB TOTAL */}
+                  {/* Row 21: TOTAL */}
                   <tr style={{ height: '22px', backgroundColor: '#f8fafc', fontWeight: '700' }}>
                     <td colSpan={5} style={{ padding: '3px 12px', border: '1px solid #cbd5e1', textAlign: 'right', color: '#0f172a', fontWeight: '700', fontSize: '12px', letterSpacing: '0.5px', verticalAlign: 'middle' }}>
-                      SUB TOTAL:
+                      TOTAL:
                     </td>
                     <td style={{ padding: '3px 10px', border: '1px solid #cbd5e1', textAlign: 'right', color: '#0f172a', fontWeight: '700', fontSize: '12px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                      Rs. {Math.round(pageSubTotal).toLocaleString()}
+                      Rs. {Math.round(pageRowTotal).toLocaleString()}
                     </td>
                   </tr>
                 </tbody>

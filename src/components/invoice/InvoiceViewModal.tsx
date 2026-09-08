@@ -188,10 +188,9 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     let logoSrc = logoImg?.src || '';
 
     const writeAndPrint = (resolvedLogoSrc: string) => {
-      const html = (docNode as HTMLElement).innerHTML.replace(
-        /src="[^"]*logo[^"]*"/gi,
-        `src="${resolvedLogoSrc}"`
-      );
+      const html = (docNode as HTMLElement).innerHTML
+        .replace(/src="[^"]*logo[^"]*"/gi, `src="${resolvedLogoSrc}"`)
+        .replace(/margin-bottom:\s*20px;?/gi, 'margin-bottom: 0;');
 
       printWin.document.open();
       printWin.document.write(`<!DOCTYPE html>
@@ -209,56 +208,103 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #fff;
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
       font-family: Inter, Arial, sans-serif;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .invoice-document {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      display: block !important;
+      position: static !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      width: 210mm !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
     }
     .invoice-page {
-      width: 210mm;
-      height: 297mm;
-      min-height: 297mm;
-      max-height: 297mm;
-      padding: 10mm 15mm;
-      box-sizing: border-box;
-      background: #ffffff;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      page-break-after: always;
-      break-after: page;
+      width: 210mm !important;
+      min-width: 210mm !important;
+      max-width: 210mm !important;
+      height: 296.5mm !important;
+      min-height: 296.5mm !important;
+      max-height: 296.5mm !important;
+      margin: 0 auto !important;
+      margin-bottom: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      background: #ffffff !important;
+      position: relative !important;
+      overflow: hidden !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: always !important;
+      break-after: page !important;
     }
-    .invoice-page:last-child {
-      page-break-after: auto;
-      break-after: auto;
+    .invoice-page:last-child,
+    .invoice-page.is-last-page {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      margin-bottom: 0 !important;
     }
     .invoice-page table {
-      table-layout: fixed;
-      width: 180mm;
-      min-width: 180mm;
-      max-width: 180mm;
-      border-collapse: collapse;
-      margin: 0 auto;
+      table-layout: fixed !important;
+      width: 180mm !important;
+      min-width: 180mm !important;
+      max-width: 180mm !important;
+      border-collapse: collapse !important;
+      margin: 0 auto !important;
     }
     .invoice-page th,
     .invoice-page td {
-      box-sizing: border-box;
-      vertical-align: middle;
+      box-sizing: border-box !important;
+      vertical-align: middle !important;
     }
     @page {
       size: A4 portrait;
-      margin: 0;
+      margin: 0mm;
     }
     @media print {
-      html, body { margin: 0; padding: 0; }
-      .invoice-page { page-break-after: always; break-after: page; }
-      .invoice-page:last-child { page-break-after: auto; break-after: auto; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      .invoice-document {
+        display: block !important;
+        position: static !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        width: 210mm !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      .invoice-page {
+        width: 210mm !important;
+        min-width: 210mm !important;
+        max-width: 210mm !important;
+        height: 296.5mm !important;
+        min-height: 296.5mm !important;
+        max-height: 296.5mm !important;
+        margin: 0 auto !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .invoice-page:last-child,
+      .invoice-page.is-last-page {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        margin-bottom: 0 !important;
+      }
     }
   </style>
 </head>
