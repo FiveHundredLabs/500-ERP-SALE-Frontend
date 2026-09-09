@@ -13,7 +13,7 @@ import { InvoiceSummary } from "./invoice/InvoiceSummary";
 import PaymentModal from "../components/PaymentModal";
 import POPickerModal from "./common/POPickerModal";
 import type { PurchaseOrder } from "../types/purchaseOrders";
-import { ClipboardList, UserCheck } from "lucide-react";
+import { ClipboardList, UserCheck, Lock } from "lucide-react";
 import userService from "../services/UserService";
 import { orderService } from "../services/OrderService";
 import type { User } from "../types/users";
@@ -90,6 +90,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const salesRepSelectRef = useRef<HTMLSelectElement>(null);
   const productSearchInputRef = useRef<HTMLInputElement>(null);
 
+  const isEditMode = Boolean(invoiceData.id);
+
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [importedOrderId, setImportedOrderId] = useState<string | null>(null);
 
@@ -99,7 +101,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     userService.getUsers().then(users => {
       const activeSalesmen = users.filter(u => u.role === 'salesman');
       setSalesmen(activeSalesmen);
-      if (!invoiceData.salesman?.id && activeSalesmen.length > 0) {
+      if (!isEditMode && !invoiceData.salesman?.id && activeSalesmen.length > 0) {
         const defaultOfficer = activeSalesmen[0];
         onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.fullName, name: defaultOfficer.fullName } as any);
       }
@@ -267,22 +269,24 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     onFieldChange('paymentStatus', PaymentStatus.PENDING);
     handleCreditPeriodChange(String(defaultPeriod));
 
-    // Auto-assign Sales Officer if customer has one assigned or if none selected yet
-    const custSalesRepId = (customer as any).salesRepId;
-    const custSalesRepName = (customer as any).salesRepName;
-    if (custSalesRepId) {
-      const rep = salesmen.find(s => s.id === custSalesRepId);
-      if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
+    // Auto-assign Sales Officer if customer has one assigned or if none selected yet (create mode only)
+    if (!isEditMode) {
+      const custSalesRepId = (customer as any).salesRepId;
+      const custSalesRepName = (customer as any).salesRepName;
+      if (custSalesRepId) {
+        const rep = salesmen.find(s => s.id === custSalesRepId);
+        if (rep) {
+          onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
+        }
+      } else if (custSalesRepName) {
+        const rep = salesmen.find(s => (s.displayName && s.displayName.toLowerCase() === custSalesRepName.toLowerCase()) || s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
+        if (rep) {
+          onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
+        }
+      } else if (!invoiceData.salesman?.id && salesmen.length > 0) {
+        const defaultOfficer = salesmen[0];
+        onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.displayName || defaultOfficer.fullName, name: defaultOfficer.displayName || defaultOfficer.fullName, displayName: defaultOfficer.displayName } as any);
       }
-    } else if (custSalesRepName) {
-      const rep = salesmen.find(s => (s.displayName && s.displayName.toLowerCase() === custSalesRepName.toLowerCase()) || s.fullName?.toLowerCase() === custSalesRepName.toLowerCase());
-      if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
-      }
-    } else if (!invoiceData.salesman?.id && salesmen.length > 0) {
-      const defaultOfficer = salesmen[0];
-      onFieldChange('salesman', { id: defaultOfficer.id, fullName: defaultOfficer.displayName || defaultOfficer.fullName, name: defaultOfficer.displayName || defaultOfficer.fullName, displayName: defaultOfficer.displayName } as any);
     }
 
     setTimeout(() => {
@@ -393,15 +397,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       handleCustomerSelect(customerToSelect);
     }
 
-    // 4. Auto-fill Sales Officer from order if present
-    const salesmanId = srcOrder?.salesmanId || (srcOrder?.salesman as any)?.id;
-    const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.displayName || (srcOrder?.salesman as any)?.fullName;
-    if (salesmanId || salesmanName) {
-      const rep = salesmen.find(s => s.id === salesmanId || (s.displayName && s.displayName.toLowerCase() === salesmanName?.toLowerCase()) || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
-      if (rep) {
-        onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
-      } else if (salesmanName) {
-        onFieldChange('salesman', { id: salesmanId || '', fullName: salesmanName, name: salesmanName } as any);
+    // 4. Auto-fill Sales Officer from order if present (create mode only)
+    if (!isEditMode) {
+      const salesmanId = srcOrder?.salesmanId || (srcOrder?.salesman as any)?.id;
+      const salesmanName = srcOrder?.salesmanName || (srcOrder?.salesman as any)?.displayName || (srcOrder?.salesman as any)?.fullName;
+      if (salesmanId || salesmanName) {
+        const rep = salesmen.find(s => s.id === salesmanId || (s.displayName && s.displayName.toLowerCase() === salesmanName?.toLowerCase()) || s.fullName?.toLowerCase() === salesmanName?.toLowerCase());
+        if (rep) {
+          onFieldChange('salesman', { id: rep.id, fullName: rep.displayName || rep.fullName, name: rep.displayName || rep.fullName, displayName: rep.displayName } as any);
+        } else if (salesmanName) {
+          onFieldChange('salesman', { id: salesmanId || '', fullName: salesmanName, name: salesmanName } as any);
+        }
       }
     }
 
@@ -699,13 +705,21 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Sales Officer Selector */}
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-purple-400" /> Sales Officer <span className="text-red-400 font-bold">*</span></span>
+                {isEditMode && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-amber-400/90 font-normal">
+                    <Lock size={11} /> Read-only
+                  </span>
+                )}
               </label>
               <select
                 ref={salesRepSelectRef}
+                disabled={isEditMode}
+                title={isEditMode ? "Sales Officer cannot be changed when editing an existing invoice." : undefined}
                 value={invoiceData.salesman?.id || (typeof invoiceData.salesman === 'object' ? (invoiceData.salesman as any)?.id : '') || ''}
                 onChange={(e) => {
+                  if (isEditMode) return;
                   const selected = salesmen.find(s => s.id === e.target.value);
                   onFieldChange('salesman', selected ? { id: selected.id, fullName: selected.displayName || selected.fullName, name: selected.displayName || selected.fullName, displayName: selected.displayName } as any : null as any);
                   setTimeout(() => {
@@ -718,7 +732,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     productSearchInputRef.current?.focus();
                   }
                 }}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+                className={`w-full rounded-lg px-3 py-2 text-xs font-medium border ${
+                  isEditMode
+                    ? "bg-[#1e293b]/80 border-[#334155] text-gray-400 cursor-not-allowed select-none"
+                    : "bg-[#0f172a] border-[#334155] text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                }`}
               >
                 <option value="">— Select Sales Officer —</option>
                 {salesmen.map(s => (

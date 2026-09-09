@@ -31,7 +31,7 @@ import type {
   InvoiceResponse
 } from "../types/invoice";
 import type { InventoryItem as InvoiceInventoryItem } from "../types/inventory";
-import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus, compareInvoicesBySequence } from "../types/invoice";
+import { PaymentStatus, PaymentMethod, type PaymentMethodType, getInvoiceCalculatedStatus } from "../types/invoice";
 import {
   validateLineDiscount,
   validateOverallDiscount,
@@ -1039,6 +1039,10 @@ const Invoice: React.FC = () => {
 
   const handleFieldChange = (field: keyof InvoiceData, value: string | number | boolean | Date) => {
     setInvoiceData(prev => {
+      // Sales Rep / Sales Officer is immutable on an existing invoice
+      if (field === 'salesman' && prev.id) {
+        return prev;
+      }
       const updated = { ...prev, [field]: value };
 
       if (field === 'applyVat') {
@@ -1245,10 +1249,8 @@ const Invoice: React.FC = () => {
       // Fetch all invoices
       const invoices = await invoiceService.getAll();
 
-      // Sort invoices using numeric sequence descending, secondary by creation timestamp
-      const sortedInvoices = [...invoices].sort(compareInvoicesBySequence);
-
-      setAllInvoices(sortedInvoices);
+      // Set invoices in order returned by backend
+      setAllInvoices(invoices);
     } catch (error) {
       setAlert({
         type: 'error',
@@ -1507,7 +1509,7 @@ const Invoice: React.FC = () => {
       const matchesDateTo = dateTo === '' || issueDate <= dateTo;
 
       return matchesSearch && matchesStatus && matchesPayment && matchesSalesman && matchesDateFrom && matchesDateTo;
-    }).sort(compareInvoicesBySequence);
+    });
   }, [allInvoices, searchQuery, statusFilter, paymentFilter, salesmanFilter, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
