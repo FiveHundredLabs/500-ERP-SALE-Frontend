@@ -56,8 +56,9 @@ export interface SalesOverviewResponse {
 export const invoiceService = {
   // Get all invoices
   async getAll(): Promise<InvoiceResponse[]> {
-    const res = await fetch(`${API_BASE}/invoices`, {
-      headers: getAuthHeaders(),
+    const res = await fetch(`${API_BASE}/invoices?_t=${Date.now()}`, {
+      headers: getAuthHeaders({ 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }),
+      cache: 'no-store',
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Failed to fetch invoices: ${res.statusText}`);
