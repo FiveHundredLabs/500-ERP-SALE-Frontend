@@ -81,6 +81,7 @@ const Invoice: React.FC = () => {
   const handleCloseDrawer = () => {
     setIsDirty(false);
     setIsCreateDrawerOpen(false);
+    fetchAllInvoices();
   };
 
   useEffect(() => {
@@ -823,7 +824,7 @@ const Invoice: React.FC = () => {
     const saved = await handleSave();
     if (saved) {
       lastSavedRef.current = { ...invoiceData };
-      fetchAllInvoices();
+      await fetchAllInvoices();
       setShowPreviewModal(true);
     }
   };
@@ -1183,6 +1184,9 @@ const Invoice: React.FC = () => {
 
         response = await invoiceService.update(invoiceData.id, backendData);
 
+        // Optimistically update invoice in the list
+        setAllInvoices(prev => prev.map(inv => inv.id === response.id ? response : inv));
+
         setAlert({
           type: 'success',
           message: 'Invoice updated successfully!'
@@ -1201,6 +1205,10 @@ const Invoice: React.FC = () => {
           invoiceNumber: response.invoiceNumber || prev.invoiceNumber
         }));
 
+        // Immediately update table list with the new invoice at top
+        setAllInvoices(prev => [response, ...prev.filter(inv => inv.id !== response.id)]);
+        setCurrentPage(1);
+
         setAlert({
           type: 'success',
           message: 'Invoice saved successfully!'
@@ -1212,7 +1220,7 @@ const Invoice: React.FC = () => {
       lastSavedAtRef.current = new Date().toISOString();
       setIsCreateDrawerOpen(false);
       setViewMode('manage');
-      fetchAllInvoices();
+      await fetchAllInvoices();
 
       return true;
     } catch (error: any) {
@@ -2088,7 +2096,10 @@ const Invoice: React.FC = () => {
         {/* Invoice Preview Modal */}
         <InvoiceViewModal
           isOpen={showPreviewModal}
-          onClose={() => setShowPreviewModal(false)}
+          onClose={() => {
+            setShowPreviewModal(false);
+            fetchAllInvoices();
+          }}
           invoiceData={invoiceData}
           onShareSuccess={(msg) => setAlert({ type: 'success', message: msg })}
           onReturnInvoice={() => {
