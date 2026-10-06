@@ -10,7 +10,7 @@ const ReturnCanvas: React.FC<ReturnCanvasProps> = ({ returnData }) => {
     <div className="w-[210mm] min-h-[297mm] bg-white text-black p-8 font-sans relative">
       <div className="text-center mb-8 border-b-2 border-gray-800 pb-4">
         <h1 className="text-3xl font-bold uppercase tracking-widest text-gray-900">Sales Return Note</h1>
-        <p className="text-sm text-gray-500 mt-1">S & K Enterprises</p>
+        <p className="text-sm text-gray-500 mt-1">500 Labs</p>
       </div>
 
       <div className="flex justify-between mb-8">

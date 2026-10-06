@@ -1,6 +1,6 @@
 import React from "react";
 import type { InvoiceData } from "../types/invoice";
-import Logo from "../assets/logo_without_bg.png";
+const Logo = "/logo 500.jpg";
 
 interface InvoiceCanvasProps {
   invoiceData: InvoiceData;
@@ -205,10 +205,10 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <img src={Logo} alt="Logo" style={{ width: '75px', height: '75px', objectFit: 'contain', marginRight: '16px', marginTop: '2px' }} />
+                  <img src={Logo} alt="Logo" style={{ width: '75px', height: '75px', objectFit: 'contain', marginRight: '16px', marginTop: '2px', borderRadius: '8px' }} />
                   <div>
                     <h1 style={{ color: '#000000', margin: '0 0 4px 0', fontSize: '24px', fontWeight: '800', letterSpacing: '-0.3px' }}>
-                      S &amp; K Enterprises
+                      500 Labs
                     </h1>
                     <div style={{ color: '#000000', fontSize: '13px', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
                       <span style={{ color: '#dc2626' }}>📍</span>
@@ -434,7 +434,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   </div>
                 </div>
                 <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', color: '#1e3a8a' }}>
-                  Thank You For Trusting S &amp; K Enterprises.
+                  Thank You For Trusting 500 Labs.
                 </div>
               </div>
             ) : (
@@ -449,7 +449,7 @@ const InvoiceCanvas: React.FC<InvoiceCanvasProps> = ({ invoiceData }) => {
                   Computer Generated Document – No Signature Required
                 </div>
                 <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '11px', color: '#1e3a8a' }}>
-                  Thank You For Trusting S &amp; K Enterprises.
+                  Thank You For Trusting 500 Labs.
                 </div>
               </div>
             )}

@@ -146,8 +146,8 @@ export const PurchaseOrderViewModal: React.FC<PurchaseOrderViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Purchase Order ${selectedPO.poNumber} from S & K Enterprices`;
-    const body = `Hello ${supplierName},\n\nPlease find Purchase Order ${selectedPO.poNumber} details below:\n\nPO Number: ${selectedPO.poNumber}\nTotal Amount: LKR ${Number(selectedPO.totalAmount).toLocaleString()}/=\n\nView Online: ${poShareUrl}\n\nThank you,\nS & K Enterprices`;
+    const subject = `Purchase Order ${selectedPO.poNumber} from 500 Labs`;
+    const body = `Hello ${supplierName},\n\nPlease find Purchase Order ${selectedPO.poNumber} details below:\n\nPO Number: ${selectedPO.poNumber}\nTotal Amount: LKR ${Number(selectedPO.totalAmount).toLocaleString()}/=\n\nView Online: ${poShareUrl}\n\nThank you,\n500 Labs`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -176,7 +176,7 @@ export const PurchaseOrderViewModal: React.FC<PurchaseOrderViewModalProps> = ({
       // Ignored if browser restricts window manipulation
     }
 
-    const logoImg = poRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    const logoImg = poRef.current.querySelector('img[alt="Logo"], img[alt="500 Labs"]') as HTMLImageElement | null;
     let logoSrc = logoImg?.src || '';
 
     const writeAndPrint = (resolvedLogoSrc: string) => {

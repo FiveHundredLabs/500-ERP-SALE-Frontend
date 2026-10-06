@@ -1092,7 +1092,7 @@ const Quotation: React.FC = () => {
               const link = `${window.location.origin}/quotation/view/${row.id}`;
               const cleanPhone = custPhone.replace(/[^0-9]/g, '');
               const text = encodeURIComponent(
-                `Hello ${custName},\n\nHere is your quotation ${row.quotationNumber} from S & K Enterprises.\n\nTotal: LKR ${Math.round(row.totalAmount).toLocaleString()}/=\n\nView quotation online:\n${link}\n\nThank you for your business!`
+                `Hello ${custName},\n\nHere is your quotation ${row.quotationNumber} from 500 Labs.\n\nTotal: LKR ${Math.round(row.totalAmount).toLocaleString()}/=\\n\\nView quotation online:\n${link}\n\nThank you for your business!`
               );
               const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
               window.open(url, '_blank');

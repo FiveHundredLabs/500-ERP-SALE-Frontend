@@ -148,7 +148,7 @@ const PurchaseOrderPreview: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Purchase Order Not Found</h1>
           <p className="text-gray-600 mb-6">The requested purchase order could not be loaded or doesn't exist.</p>
           <div className="text-sm text-gray-500">
-            Please check the purchase order link or contact S &amp; K Enterprises support.
+            Please check the purchase order link or contact 500 Labs support.
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
-import Logo from "../assets/logo_without_bg.png";
+const Logo = "/logo 500.jpg";
 
 const LoginForm: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -67,13 +67,13 @@ const LoginForm: React.FC = () => {
           className="w-20 h-20 rounded-2xl bg-[#0f172a] border border-[#233876] flex items-center justify-center mb-3 shadow-2xl p-2.5 transition-transform hover:scale-105 shadow-blue-900/30"
           style={{ backgroundColor: '#0f172a', borderColor: '#233876' }}
         >
-          <img src={Logo} alt="S & K Enterprises" className="w-full h-full object-contain filter drop-shadow" />
+          <img src={Logo} alt="500 Labs" className="w-full h-full object-contain filter drop-shadow rounded-xl" />
         </div>
         <h1 
           className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md"
           style={{ color: '#ffffff' }}
         >
-          S &amp; K Enterprises
+          500 Labs
         </h1>
         <p 
           className="text-xs font-bold text-blue-400 tracking-[0.2em] uppercase mt-1.5"

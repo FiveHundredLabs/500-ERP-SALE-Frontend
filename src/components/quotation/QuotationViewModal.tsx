@@ -156,8 +156,8 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Quotation ${quotationData.quotationNumber} from 500Core ERP`;
-    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationNumber}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500Core!`;
+    const subject = `Quotation ${quotationData.quotationNumber} from 500 Labs`;
+    const body = `Hello ${customerName},\n\nPlease find your quotation details below:\n\nQuotation: ${quotationData.quotationNumber}\nTotal Amount: LKR ${quotationData.totalAmount.toFixed(2)}\n\nView Online: ${quotationShareUrl}\n\nThank you for choosing 500 Labs!`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -186,7 +186,7 @@ export const QuotationViewModal: React.FC<QuotationViewModalProps> = ({
       // Ignored if browser restricts window manipulation
     }
 
-    const logoImg = quotationRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    const logoImg = quotationRef.current.querySelector('img[alt="Logo"], img[alt="500 Labs"]') as HTMLImageElement | null;
     let logoSrc = logoImg?.src || '';
 
     const writeAndPrint = (resolvedLogoSrc: string) => {
