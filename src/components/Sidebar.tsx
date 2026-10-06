@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import Logo from "../assets/logo_without_bg.png";
+const Logo = "/logo 500.jpg";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -148,13 +148,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             <div
               className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1"
               onClick={() => handleNavClick('/dashboard')}
-              title="S & K Enterprises Dashboard"
+              title="500 Labs Dashboard"
             >
               <div className="w-9 h-9 rounded-lg bg-[#0f172a] border border-[#334155] flex items-center justify-center p-1 shrink-0 shadow-sm">
-                <img src={Logo} alt="S & K Enterprises" className="w-full h-full object-contain" />
+                <img src={Logo} alt="500 Labs" className="w-full h-full object-contain" />
               </div>
               <div className="overflow-hidden">
-                <h1 className="text-[0.92rem] font-bold text-white tracking-tight truncate">S &amp; K Enterprises</h1>
+                <h1 className="text-[0.92rem] font-bold text-white tracking-tight truncate">500 Labs</h1>
                 <p className="text-[0.65rem] font-semibold tracking-wider text-slate-400 uppercase">ERP Business Suite</p>
               </div>
             </div>
@@ -181,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             title="Expand sidebar"
             aria-label="Expand sidebar"
           >
-            <img src={Logo} alt="S & K Enterprises" className="w-full h-full object-contain" />
+            <img src={Logo} alt="500 Labs" className="w-full h-full object-contain" />
           </button>
         )}
       </div>

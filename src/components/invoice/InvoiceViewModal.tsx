@@ -153,8 +153,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   };
 
   const handleShareEmail = () => {
-    const subject = `Invoice ${invoiceData.invoiceNumber} from 500Core ERP`;
-    const body = `Hello ${customerName},\n\nPlease find your invoice details below:\n\nInvoice: ${invoiceData.invoiceNumber}\nTotal Amount: LKR ${invoiceData.totalAmount.toFixed(2)}\nStatus: ${invoiceData.paymentStatus}\n\nView Online: ${invoiceShareUrl}\n\nThank you for choosing 500Core!`;
+    const subject = `Invoice ${invoiceData.invoiceNumber} from 500 Labs`;
+    const body = `Hello ${customerName},\n\nPlease find your invoice details below:\n\nInvoice: ${invoiceData.invoiceNumber}\nTotal Amount: LKR ${invoiceData.totalAmount.toFixed(2)}\nStatus: ${invoiceData.paymentStatus}\n\nView Online: ${invoiceShareUrl}\n\nThank you for choosing 500 Labs!`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     setShowShareMenu(false);
   };
@@ -184,7 +184,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     }
 
     // Get logo as data-url to work cross-origin in the popup
-    const logoImg = invoiceRef.current.querySelector('img[alt="Logo"]') as HTMLImageElement | null;
+    const logoImg = invoiceRef.current.querySelector('img[alt="Logo"], img[alt="500 Labs"]') as HTMLImageElement | null;
     let logoSrc = logoImg?.src || '';
 
     const writeAndPrint = (resolvedLogoSrc: string) => {

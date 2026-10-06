@@ -1,5 +1,5 @@
 /**
- * WhatsApp integration utility for S & K Enterprices ERP.
+ * WhatsApp integration utility for 500 Labs ERP.
  * Handles phone number normalization, message formatting, and direct WhatsApp URL generation.
  */
 
@@ -91,7 +91,7 @@ export const generateQuotationWhatsAppMessage = (params: {
 
   const parts: string[] = [
     `Hello ${params.customerName || 'Valued Customer'},`,
-    `We have prepared a Quotation ${qNum} from S & K Enterprises.`,
+    `We have prepared a Quotation ${qNum} from 500 Labs.`,
     `Net Total: ${formattedAmount}`,
   ];
 
@@ -136,7 +136,7 @@ export const generateInvoiceWhatsAppMessage = (params: {
 
   const parts: string[] = [
     `Hello ${params.customerName || 'Valued Customer'},`,
-    `We have issued an Invoice ${invNum} from S & K Enterprises.`,
+    `We have issued an Invoice ${invNum} from 500 Labs.`,
     `Net Total: ${formattedAmount}`,
   ];
 
@@ -179,7 +179,7 @@ export const generatePOWhatsAppMessage = (params: {
 
   const parts: string[] = [
     `Hello ${params.supplierName || 'Valued Supplier'},`,
-    `We have generated a Purchase Order ${poNum} from S & K Enterprises.`,
+    `We have generated a Purchase Order ${poNum} from 500 Labs.`,
     `Net Total: ${formattedAmount}`,
   ];
 
@@ -222,7 +222,7 @@ export const generateOrderWhatsAppMessage = (params: {
 
   const parts: string[] = [
     `Hello ${params.customerName || 'Valued Customer'},`,
-    `We have created a Sales Order ${ordNum} from S & K Enterprises.`,
+    `We have created a Sales Order ${ordNum} from 500 Labs.`,
     `Net Total: ${formattedAmount}`,
   ];
 
